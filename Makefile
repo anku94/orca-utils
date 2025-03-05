@@ -1,0 +1,16 @@
+.PHONY: dev replay
+
+HOST ?= localhost
+PORT ?= 8989
+REPLAY_FILE ?= ./replay.txt
+
+dev:
+	echo "Running DashboardApp with host $(HOST) and port $(PORT)"
+	textual run --dev interface:DashboardApp -- --host $(HOST) --port $(PORT)
+
+replay:
+	echo "Running DashboardApp with replay file $(REPLAY_FILE)"
+	textual run --dev interface:DashboardApp -- --replay $(REPLAY_FILE)
+
+console:
+	textual console

@@ -1,0 +1,30 @@
+#status_bar {
+    dock: top;
+    height: 1;
+}
+
+#schema_tree {
+    width: 30%;
+    height: 100%;
+    border: solid green;
+}
+
+#timestep_widget {
+    height: 5;
+    border: solid blue;
+}
+
+#aggregators_widget {
+    height: 6;
+    border: solid blue;
+}
+
+#log_stream {
+    height: 1fr;
+    border: solid blue;
+}
+
+#command_input {
+    dock: bottom;
+    height: 3;
+}

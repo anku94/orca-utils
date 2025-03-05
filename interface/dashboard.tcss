@@ -1,30 +1,73 @@
 #status_bar {
-    dock: top;
+    dock: bottom;
     height: 1;
+    color: $text-accent;
+    background: $surface;
+    padding: 0;
+    margin: 1;
+    width: 100%;
 }
 
 #schema_tree {
     width: 30%;
     height: 100%;
-    border: solid green;
+    border: $primary;
+    background: $surface;
+}
+
+#schema_display {
+    width: 30%; 
+    height: 100%;
+    border: $primary;
+    background: $surface;
+}
+
+.probe-container {
+    height: 1;
+    margin-bottom: 1;
 }
 
 #timestep_widget {
     height: 5;
-    border: solid blue;
+    border: $primary;
+    background: $surface;
 }
 
 #aggregators_widget {
     height: 6;
-    border: solid blue;
+    border: $primary;
+    background: $surface;
 }
 
 #log_stream {
     height: 1fr;
-    border: solid blue;
+    border: $primary;
+    background: $surface; 
+    color: $foreground;
 }
 
-#command_input {
-    dock: bottom;
+#cmdbox {
+    dock: top;
+    height: 5;
+    border: $primary;
+    width: 100%;
+}
+
+#cmdbox-input {
     height: 3;
+    border: $boost;
+}
+
+Switch {
+    height: 1;
+    width: auto;
+    padding: 0;
+    padding-right: 3;
+    border: none;
+}
+
+.label {
+    height: 1;
+    content-align: center middle;
+    width: auto;
 }

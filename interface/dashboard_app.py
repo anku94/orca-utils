@@ -1,26 +1,13 @@
 # dashboard.py
 from dataclasses import dataclass
 from textual import log as tlog
-from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal, Vertical
-from textual.screen import Screen
-from textual.binding import Binding
-from textual.worker import Worker, WorkerState
-import time
-import sys
+from textual.app import App
 import argparse
-from typing import Optional
-from datetime import datetime
 
 from .state_manager import StateManager
-from .models import LogEntry, LogLevel
 from .protocol import ProtocolHandler
 from .protocol.transport import MessageReceived, StatusChanged
 
-from .widgets import (
-    StatusBar, SchemaProbeTree, TimestepWidget,
-    AggregatorsWidget, LogStream, CommandInput
-)
 
 from .dashboard_screen import MonitoringDashboard
 
@@ -106,25 +93,6 @@ class DashboardApp(App):
         self.protocol.disconnect()
 
 
-def main():
-    """Main entry point"""
-    parser = argparse.ArgumentParser(description="Controller Dashboard")
-    parser.add_argument("--host", default="localhost", help="Controller host address")
-    parser.add_argument("--port", type=int, default=8989, help="Controller port number")
-    parser.add_argument("--replay", help="Path to protocol replay file")
-    args = parser.parse_args()
-
-    args.replay = "./replay.txt"
-    
-    if args.replay:
-        # Replay mode
-        app = App(replay_file=args.replay)
-    else:
-        # Normal mode
-        app = App(host=args.host, port=args.port)
-    
-    app.run()
-
-
 if __name__ == "__main__":
-    main()
+    app = DashboardApp()
+    app.run()

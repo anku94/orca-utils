@@ -92,6 +92,12 @@ class ProtocolHandler:
         """Send a command to the server"""
         self._transport.send(f"COMMAND|{command}")
 
+    def send_toggle_command(self, schema_id: int, probe_id: int, activate: bool) -> None:
+        """Send a toggle command to the server"""
+        op = "ENABLE_PROBE" if activate else "DISABLE_PROBE"
+        msg = f"{op}|{schema_id}|{probe_id}"
+        self.send_command(msg)
+
     # Add these new methods for replay control
     
     def is_replay_mode(self) -> bool:

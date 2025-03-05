@@ -12,5 +12,9 @@ replay:
 	echo "Running DashboardApp with replay file $(REPLAY_FILE)"
 	textual run --dev interface:DashboardApp -- --replay $(REPLAY_FILE)
 
+serve:
+	echo "Running DashboardApp with replay file $(REPLAY_FILE)"
+	textual serve --dev interface:DashboardApp -- --replay $(REPLAY_FILE)
+
 console:
 	textual console

@@ -1,10 +1,17 @@
 # state.py
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Callable, Any, Set
+from typing import Dict, List, Optional, Callable, Set
 from datetime import datetime
 import threading
 import queue
-from .models import Schema, Probe, Aggregator, LogEntry, Query, TimestepInfo, SystemStatus
+from interface.models import (
+    Schema, 
+    Probe, 
+    Aggregator, 
+    LogEntry, 
+    Query, 
+    TimestepInfo, 
+    SystemStatus, 
+    LogLevel)
 
 
 class StateManager:
@@ -90,6 +97,11 @@ class StateManager:
             self.logs.append(entry)
             if len(self.logs) > 100:  # Keep last 100 logs
                 self.logs = self.logs[-100:]
+            self._notify("logs")
+
+    def log(self, level: LogLevel, message: str) -> None:
+        with self._lock:
+            self.logs.append(LogEntry(datetime.now(), message, level))
             self._notify("logs")
     
     def add_query(self, query: Query) -> None:

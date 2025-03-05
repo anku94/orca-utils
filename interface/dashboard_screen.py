@@ -5,7 +5,7 @@ from textual.containers import Horizontal, Vertical
 
 from .widgets import (
     StatusBar,
-    SchemaProbeTree,
+    SchemaDisplay,
     TimestepWidget,
     AggregatorsWidget,
     LogStream,
@@ -34,20 +34,20 @@ class MonitoringDashboard(Screen):
         
         with Horizontal():
             # Left panel
-            yield SchemaProbeTree(self.state_manager, id="schema_tree")
-            
+            # yield SchemaProbeTree(self.state_manager, id="schema_tree")
+            yield SchemaDisplay(self.state_manager, self.protocol, id="schema_display")
             # Right panel with multiple widgets
             with Vertical():
                 yield TimestepWidget(self.state_manager, id="timestep_widget")
                 yield AggregatorsWidget(self.state_manager, id="aggregators_widget")
                 yield LogStream(self.state_manager, id="log_stream")
         
-        yield CommandInput(self.state_manager, self.protocol, id="command_input")
+        yield CommandInput(self.state_manager, self.protocol, id="cmdbox")
     
     def on_mount(self) -> None:
         """Set up the screen when mounted"""
         # Process UI updates on a timer
-        self.set_interval(1/30, self.process_ui_updates)
+        self.set_interval(1/60, self.process_ui_updates)
     
     def process_ui_updates(self) -> None:
         """Process any queued UI updates"""

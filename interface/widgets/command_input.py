@@ -16,7 +16,7 @@ class CommandInput(Container):
         super().__init__(*args, **kwargs)
         self.state_manager = state_manager
         self.protocol = protocol
-        suggest_list = ["pause", "resume"]
+        suggest_list = ["PAUSE", "RESUME"]
         self.suggest_list = [DropdownItem(item) for item in suggest_list]
         self.border_title = "Command"
         self.styles.margin = (1, 1)

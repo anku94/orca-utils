@@ -1,0 +1,4 @@
+textual==2.1.2
+textual-autocomplete @ git+https://github.com/trozzelle/textual-autocomplete.git@0cddd81240c95ac4231b1b760d082cf54cca2c0f
+textual-dev==1.7.0
+textual-serve==1.1.1

@@ -2,7 +2,8 @@ from textual.app import Screen
 from textual.binding import Binding
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
-
+from textual.widgets import RichLog
+from textual.widgets import Log
 from .widgets import (
     StatusBar,
     SchemaDisplay,
@@ -27,6 +28,7 @@ class MonitoringDashboard(Screen):
         super().__init__()
         self.state_manager = state_manager
         self.protocol = protocol
+        self
     
     def compose(self) -> ComposeResult:
         """Create the UI layout"""
@@ -40,18 +42,24 @@ class MonitoringDashboard(Screen):
             with Vertical():
                 yield TimestepWidget(self.state_manager, id="timestep_widget")
                 yield AggregatorsWidget(self.state_manager, id="aggregators_widget")
-                yield LogStream(self.state_manager, id="log_stream")
+                yield Log(id="log_stream", auto_scroll=True)
         
         yield CommandInput(self.state_manager, self.protocol, id="cmdbox")
+
+    def update_logs(self):
+        log_lines = self.state_manager.get_logs()
+        log = self.query_one(Log)
+        log.write_lines(log_lines)
     
     def on_mount(self) -> None:
         """Set up the screen when mounted"""
         # Process UI updates on a timer
         self.set_interval(1/60, self.process_ui_updates)
-    
+
     def process_ui_updates(self) -> None:
         """Process any queued UI updates"""
         self.state_manager.process_ui_updates()
+        self.update_logs()
         
     def action_step_replay(self) -> None:
         """Step through the replay file when 's' is pressed"""

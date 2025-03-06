@@ -103,6 +103,14 @@ class StateManager:
         with self._lock:
             self.logs.append(LogEntry(datetime.now(), message, level))
             self._notify("logs")
+
+    def get_logs(self) -> list[str]:
+        logs: list[str] = []
+        with self._lock:
+            for log in self.logs:
+                logs.append(f"[{log.formatted_time}] {log.message}")
+            self.logs = []
+        return logs
     
     def add_query(self, query: Query) -> None:
         with self._lock:

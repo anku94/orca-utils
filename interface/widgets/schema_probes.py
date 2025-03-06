@@ -26,6 +26,10 @@ class SchemaDisplay(Widget):
         self.border_title = "Schema Display"
 
     def compose(self) -> ComposeResult:
+        if not self.schemas or len(self.schemas) == 0:
+            yield Static("No schemas found")
+            return
+
         for sid, schema in self.schemas.items():
             heading = f"Schema: {schema.name}"
             with Collapsible(title=heading, collapsed=False):

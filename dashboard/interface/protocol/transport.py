@@ -55,16 +55,18 @@ class TCPTransport:
         self._initialized = True
         
         # Start the connection manager thread if not already running
-        if not self._connection_thread or not self._connection_thread.is_alive():
-            self._connection_thread = threading.Thread(target=self._connection_manager)
-            self._connection_thread.daemon = True
-            self._connection_thread.start()
+        self._ensure_thread_running(self._connection_thread, self._connection_manager, '_connection_thread')
         
         # Start send thread if not already running
-        if not self._send_thread or not self._send_thread.is_alive():
-            self._send_thread = threading.Thread(target=self._send_loop)
-            self._send_thread.daemon = True
-            self._send_thread.start()
+        self._ensure_thread_running(self._send_thread, self._send_loop, '_send_thread')
+    
+    def _ensure_thread_running(self, thread, target_func, thread_attr_name):
+        """Utility to ensure a thread is running"""
+        if not thread or not thread.is_alive():
+            new_thread = threading.Thread(target=target_func)
+            new_thread.daemon = True
+            new_thread.start()
+            setattr(self, thread_attr_name, new_thread)
     
     def connect(self, host: str, port: int, auto_reconnect: bool = True) -> bool:
         """Connect to the server"""
@@ -85,8 +87,12 @@ class TCPTransport:
         self._auto_reconnect = auto_reconnect
         
         # Trigger an immediate connection attempt
-        self._reconnect_event.set()
+        self._trigger_reconnect()
         return True
+    
+    def _trigger_reconnect(self):
+        """Utility to trigger a reconnection attempt"""
+        self._reconnect_event.set()
     
     def disconnect(self) -> None:
         """Disconnect from the server and stop auto-reconnect"""
@@ -94,15 +100,19 @@ class TCPTransport:
         self._stop_event.set()
         self._connected = False
         
+        self._close_socket()
+        
+        # Update connection status
+        self._post_status_change("Disconnected")
+    
+    def _close_socket(self):
+        """Utility to safely close the socket"""
         if self._socket:
             try:
                 self._socket.close()
             except:
                 pass
             self._socket = None
-        
-        # Update connection status
-        self._post_status_change("Disconnected")
     
     def send(self, message: str) -> None:
         """Queue a message to be sent to the server"""
@@ -112,7 +122,7 @@ class TCPTransport:
         
         # If we're not connected but auto-reconnect is enabled, trigger a reconnect
         if not self._connected and self._auto_reconnect:
-            self._reconnect_event.set()
+            self._trigger_reconnect()
         
         # Queue the message regardless - it will be sent once connected
         self._send_queue.put(message)
@@ -131,6 +141,60 @@ class TCPTransport:
         if self.app:
             self.app.post_message(StatusChanged(status))
     
+    def _handle_connection_error(self, error, error_context=""):
+        """Utility to handle connection errors consistently"""
+        self._connected = False
+        error_msg = f"{error_context}: {str(error)} ({type(error).__name__})"
+        self._post_status_change(error_msg)
+        
+        # Trigger reconnection if auto-reconnect is enabled
+        if self._auto_reconnect:
+            self._trigger_reconnect()
+        
+        # Avoid tight loop on error
+        time.sleep(1.0)
+    
+    def _create_and_connect_socket(self):
+        """Utility to create and connect a socket"""
+        self._close_socket()
+        
+        # Create a new socket and connect
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socket.settimeout(5.0)  # Set a timeout for the connection attempt
+        
+        try:
+            # Try to connect to the server
+            self._socket.connect((self._host, self._port))
+            self._socket.settimeout(None)  # Reset timeout for normal operation
+            self._connected = True
+            
+            # Update connection status
+            self._post_status_change("Connected")
+            
+            # Start receive thread
+            self._start_receive_thread()
+            
+            return True
+            
+        except socket.error as e:
+            # Handle specific socket errors
+            error_msg = f"Can't connect to {self._host}:{self._port}"
+            if e.errno == 49:  # Can't assign requested address
+                error_msg += " - Address not available"
+            else:
+                error_msg += f" - {str(e)}"
+            
+            self._post_status_change(error_msg)
+            
+            # Close the socket and mark as disconnected
+            self._close_socket()
+            self._connected = False
+            return False
+    
+    def _start_receive_thread(self):
+        """Utility to start the receive thread"""
+        self._ensure_thread_running(self._receive_thread, self._receive_loop, '_receive_thread')
+    
     def _connection_manager(self) -> None:
         """Manages connection and reconnection attempts"""
         while not self._stop_event.is_set():
@@ -147,65 +211,17 @@ class TCPTransport:
             
             # Attempt to connect
             try:
-                # Close any existing socket
-                if self._socket:
-                    try:
-                        self._socket.close()
-                    except:
-                        pass
-                    self._socket = None
+                success = self._create_and_connect_socket()
                 
-                # Create a new socket and connect
-                self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self._socket.settimeout(5.0)  # Set a timeout for the connection attempt
-                
-                try:
-                    # Try to connect to the server
-                    self._socket.connect((self._host, self._port))
-                    self._socket.settimeout(None)  # Reset timeout for normal operation
-                    self._connected = True
+                # If connection failed and auto-reconnect is disabled, break the loop
+                if not success and not self._auto_reconnect:
+                    break
                     
-                    # Update connection status
-                    self._post_status_change("Connected")
-                    
-                    # Start receive thread
-                    if self._receive_thread and self._receive_thread.is_alive():
-                        # Wait for old thread to terminate
-                        self._receive_thread.join(timeout=1.0)
-                    
-                    self._receive_thread = threading.Thread(target=self._receive_loop)
-                    self._receive_thread.daemon = True
-                    self._receive_thread.start()
-                    
-                except socket.error as e:
-                    # Handle specific socket errors
-                    if e.errno == 49:  # Can't assign requested address
-                        self._post_status_change(f"Can't connect to {self._host}:{self._port} - Address not available")
-                    else:
-                        self._post_status_change(f"Socket error: {str(e)} (errno: {e.errno})")
-                    
-                    # Close the socket and mark as disconnected
-                    try:
-                        self._socket.close()
-                    except:
-                        pass
-                    self._socket = None
-                    self._connected = False
-                    
-                    # If auto-reconnect is disabled, break the loop
-                    if not self._auto_reconnect:
-                        break
-                    
-                    # Skip the rest of this iteration
-                    continue
-            
             except Exception as e:
                 # Connection failed
-                self._connected = False
-                error_msg = f"Connection failed: {str(e)} ({type(e).__name__})"
-                self._post_status_change(error_msg)
+                self._handle_connection_error(e, "Connection failed")
                 
-                # If auto-reconnect is enabled, we'll try again on the next loop iteration
+                # If auto-reconnect is disabled, break the loop
                 if not self._auto_reconnect:
                     break
     
@@ -231,61 +247,30 @@ class TCPTransport:
                         self._socket.sendall(message_bytes)
                 except Exception as e:
                     # Send failed - likely a connection issue
-                    self._connected = False
-                    self._post_status_change(f"Send error: {str(e)}")
-                    
-                    # Trigger reconnection if auto-reconnect is enabled
-                    if self._auto_reconnect:
-                        self._reconnect_event.set()
+                    self._handle_connection_error(e, "Send error")
                     
                     # Put the message back in the queue to retry after reconnection
                     self._send_queue.put(message)
-                    
-                    # Avoid tight loop on error
-                    time.sleep(1.0)
             except Exception as e:
                 # Catch any other exceptions to keep the loop running
-                self._post_status_change(f"Send loop error: {str(e)}")
-                time.sleep(1.0)
+                self._handle_connection_error(e, "Send loop error")
     
     def _receive_loop(self) -> None:
         """Loop that receives messages from the server"""
         while not self._stop_event.is_set() and self._socket and self._connected:
             try:
                 # First read the 4-byte size prefix
-                size_bytes = b''
-                while len(size_bytes) < 4:
-                    chunk = self._socket.recv(4 - len(size_bytes))
-                    if not chunk:
-                        # Connection closed by server
-                        self._connected = False
-                        self._post_status_change("Connection closed by server")
-                        
-                        # Trigger reconnection if auto-reconnect is enabled
-                        if self._auto_reconnect:
-                            self._reconnect_event.set()
-                        
-                        return
-                    size_bytes += chunk
+                size_bytes = self._receive_exact_bytes(4)
+                if not size_bytes:
+                    return
                 
                 # Convert size bytes to integer (big-endian/network byte order)
                 message_size = int.from_bytes(size_bytes, byteorder='big')
                 
                 # Now read exactly message_size bytes
-                message_bytes = b''
-                while len(message_bytes) < message_size:
-                    chunk = self._socket.recv(min(4096, message_size - len(message_bytes)))
-                    if not chunk:
-                        # Connection closed by server
-                        self._connected = False
-                        self._post_status_change("Connection closed by server")
-                        
-                        # Trigger reconnection if auto-reconnect is enabled
-                        if self._auto_reconnect:
-                            self._reconnect_event.set()
-                        
-                        return
-                    message_bytes += chunk
+                message_bytes = self._receive_exact_bytes(message_size)
+                if not message_bytes:
+                    return
                 
                 # Decode the message and process it
                 message = message_bytes.decode('utf-8')
@@ -295,14 +280,22 @@ class TCPTransport:
             
             except Exception as e:
                 # Receive failed - likely a connection issue
-                self._connected = False
-                self._post_status_change(f"Receive error: {str(e)}")
-                
-                # Trigger reconnection if auto-reconnect is enabled
-                if self._auto_reconnect:
-                    self._reconnect_event.set()
-                
-                # Avoid tight loop on error
-                time.sleep(1.0)
+                self._handle_connection_error(e, "Receive error")
                 break
+    
+    def _receive_exact_bytes(self, num_bytes):
+        """Utility to receive exactly num_bytes from the socket"""
+        data = b''
+        while len(data) < num_bytes:
+            try:
+                chunk = self._socket.recv(min(4096, num_bytes - len(data)))
+                if not chunk:
+                    # Connection closed by server
+                    self._handle_connection_error("Connection closed by server", "Server disconnected")
+                    return None
+                data += chunk
+            except Exception as e:
+                self._handle_connection_error(e, "Socket read error")
+                return None
+        return data
 

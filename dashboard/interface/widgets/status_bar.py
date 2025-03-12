@@ -16,7 +16,6 @@ class StatusBar(Static):
         self.update_display()
     
     def update_display(self):
-        status = "Running" if self.state_manager.status.running else "Stopped"
         connection = self.state_manager.status.connection_status
 
         # Set color based on connection status
@@ -29,13 +28,14 @@ class StatusBar(Static):
         
         # Create status text with colored connection status
         status_obj = self.state_manager.status
+        status_text = status_obj.status_text
         aggcnt = status_obj.aggregator_count
         rankcnt = status_obj.rank_count
         timestep = status_obj.timestep
         cpu = status_obj.cpu_usage
 
         status_str = ""
-        status_str += f"Status: {status} | "
+        status_str += f"Status: {status_text} | "
         status_str += f"Aggs: {aggcnt} | "
         status_str += f"Ranks: {rankcnt} | "
         status_str += f"Timestep: {timestep} | "

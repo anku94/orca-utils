@@ -72,3 +72,27 @@ Switch {
     content-align: center middle;
     width: auto;
 }
+
+#plot {
+    height: 30;
+    width: 1fr;
+}
+
+#orca-text {
+    align: center middle;
+    content-align: center middle;
+    color: $text-accent;
+    border: $text-accent;
+    width: 80;
+    height: 20;
+}
+
+#orca-container {
+    content-align: center middle;
+    width: 80;
+    height: 20;
+}
+
+#orca_screen {
+    align: center middle;
+}

@@ -22,7 +22,8 @@ class CommandInput(Container):
         self.styles.margin = (1, 1)
 
     def on_mount(self):
-        self.input.focus()
+        # self.input.focus()
+        pass
     
     def compose(self) -> ComposeResult:
         # Create an AutoComplete widget with Input and Dropdown

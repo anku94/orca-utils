@@ -8,6 +8,10 @@ dev:
 	echo "Running DashboardApp with host $(HOST) and port $(PORT)"
 	textual run --dev interface:DashboardApp -- --host $(HOST) --port $(PORT)
 
+webdev:
+	echo "Running DashboardApp with host $(HOST) and port $(PORT)"
+	textual serve --dev "python -m interface.dashboard_app --replay $(REPLAY_FILE)"
+
 replay:
 	echo "Running DashboardApp with replay file $(REPLAY_FILE)"
 	textual run --dev interface:DashboardApp -- --replay $(REPLAY_FILE)

@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Dict
 from datetime import datetime
+from textual import log as tlog
 
 
 class LogLevel(Enum):
@@ -32,9 +33,8 @@ class Schema:
 class Aggregator:
     id: str
     address: str
-    rank_count: int = 0
-    data_rate: float = 0.0
-    status: bool = True
+    rank_range: tuple[int, int] = (1e9, -1)
+    reps: list[tuple[int, int, int, int]] = field(default_factory=list)
 
 
 @dataclass
@@ -63,10 +63,17 @@ class TimestepInfo:
     step_time_ms: int = 0
     progress: float = 0.0
 
+class TimestepInfo:
+    cur_ts: int = 0
+    all_ts_ends: list[tuple[int, float]] = []
+
+    def update(self, timestamp: float, from_ts: int, to_ts: int) -> None:
+        self.cur_ts = to_ts
+        self.all_ts_ends.append((from_ts, timestamp))
 
 @dataclass
 class SystemStatus:
-    running: bool = False
+    status_text: str = "Unclear"
     aggregator_count: int = 0
     rank_count: int = 0
     timestep: int = 0

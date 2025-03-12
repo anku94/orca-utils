@@ -22,6 +22,8 @@ class StateManager:
         self.queries: Dict[int, Query] = {}
         self.timestep: TimestepInfo = TimestepInfo()
         self.status: SystemStatus = SystemStatus()
+        self.prev_ts_end: int | None = None
+        self.all_ts_ends: list[tuple[int, float]] = []
         
         self._listeners: Dict[str, Set[Callable]] = {
             "schemas": set(),
@@ -51,6 +53,16 @@ class StateManager:
                     print(f"Error in UI update: {e}")
         except queue.Empty:
             pass
+
+    def clear(self) -> None:
+        with self._lock:
+            self.schemas.clear()
+            self.aggregators.clear()
+            self.logs.clear()
+            self.queries.clear()
+            self.timestep = TimestepInfo()
+            self.status = SystemStatus()
+            self._notify("all")
     
     def add_schema(self, schema: Schema) -> None:
         with self._lock:
@@ -75,22 +87,18 @@ class StateManager:
                 self.schemas[schema_id].expanded = not self.schemas[schema_id].expanded
                 self._notify("schemas")
     
-    def add_aggregator(self, aggregator: Aggregator) -> None:
+    def add_agg_reps(self, agg_id: str, rep_id: int, mpi_rbeg: int, mpi_rend: int) -> None:
         with self._lock:
-            self.aggregators[aggregator.id] = aggregator
+            if agg_id not in self.aggregators:
+                self.aggregators[agg_id] = Aggregator(id=agg_id, address="")
+
+            self.aggregators[agg_id].reps.append((rep_id, mpi_rbeg, mpi_rend))
+            rbegprev, rendprev = self.aggregators[agg_id].rank_range
+            rbegnew = min(rbegprev, mpi_rbeg)
+            rendnew = max(rendprev, mpi_rend)
+            self.aggregators[agg_id].rank_range = (rbegnew, rendnew)
+
             self._notify("aggregators")
-    
-    def update_aggregator(self, agg_id: str, rank_count: Optional[int] = None,
-                          data_rate: Optional[float] = None, status: Optional[bool] = None) -> None:
-        with self._lock:
-            if agg_id in self.aggregators:
-                if rank_count is not None:
-                    self.aggregators[agg_id].rank_count = rank_count
-                if data_rate is not None:
-                    self.aggregators[agg_id].data_rate = data_rate
-                if status is not None:
-                    self.aggregators[agg_id].status = status
-                self._notify("aggregators")
     
     def add_log(self, entry: LogEntry) -> None:
         with self._lock:
@@ -117,25 +125,17 @@ class StateManager:
             self.queries[query.id] = query
             self._notify("queries")
     
-    def update_timestep(self, current: Optional[int] = None, rate: Optional[float] = None,
-                        step_time_ms: Optional[int] = None, progress: Optional[float] = None) -> None:
+    def update_timestep(self, timestamp: float, from_ts: int, to_ts: int) -> None:
         with self._lock:
-            if current is not None:
-                self.timestep.current = current
-            if rate is not None:
-                self.timestep.rate = rate
-            if step_time_ms is not None:
-                self.timestep.step_time_ms = step_time_ms
-            if progress is not None:
-                self.timestep.progress = progress
+            self.timestep.update(timestamp, from_ts, to_ts)
             self._notify("timestep")
     
-    def update_status(self, running: Optional[bool] = None, aggregator_count: Optional[int] = None,
+    def update_status(self, status_text: Optional[str] = None, aggregator_count: Optional[int] = None,
                       rank_count: Optional[int] = None, timestep: Optional[int] = None,
                       cpu_usage: Optional[float] = None, connection_status: Optional[str] = None) -> None:
         with self._lock:
-            if running is not None:
-                self.status.running = running
+            if status_text is not None:
+                self.status.status_text = status_text
             if aggregator_count is not None:
                 self.status.aggregator_count = aggregator_count
             if rank_count is not None:
@@ -159,9 +159,14 @@ class StateManager:
                 self._listeners[state_type].discard(callback)
     
     def _notify(self, state_type: str) -> None:
-        if state_type in self._listeners:
-            for callback in list(self._listeners[state_type]):
-                try:
-                    callback()
-                except Exception as e:
-                    print(f"Error in listener callback: {e}")
+        # Determine which listener types to notify
+        listener_types = list(self._listeners.keys()) if state_type == "all" else [state_type]
+        
+        # Notify all applicable listeners
+        for type_name in listener_types:
+            if type_name in self._listeners:
+                for callback in list(self._listeners[type_name]):
+                    try:
+                        callback()
+                    except Exception as e:
+                        print(f"Error in listener callback: {e}")

@@ -13,7 +13,7 @@ class AggregatorsWidget(Static):
     
     def compose(self) -> ComposeResult:
         self.border_title = "Aggregators"
-        self.table.add_columns("Aggregator", "Ranks", "Data Rate", "Status")
+        self.table.add_columns("Aggregator", "Ranks")
         yield self.table
     
     def on_mount(self):
@@ -23,12 +23,14 @@ class AggregatorsWidget(Static):
     def update_display(self):
         # Clear and rebuild table
         self.table.clear()
+        aggregators = self.state_manager.aggregators
+        print("Aggregators: ", aggregators)
         
         for agg_id, agg in sorted(self.state_manager.aggregators.items()):
-            status = "✓" if agg.status else "✗"
+            rbeg, rend = agg.rank_range
+            nranks = rend - rbeg
+            ranks_str = f"({nranks} ranks) [{rbeg}-{rend})" if nranks > 0 else "empty"
             self.table.add_row(
                 agg_id,
-                f"{agg.rank_count} ranks",
-                f"{agg.data_rate:.1f} MB/s",
-                status
+                ranks_str
             )

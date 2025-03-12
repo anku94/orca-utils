@@ -7,10 +7,15 @@ import argparse
 from .state_manager import StateManager
 from .protocol import ProtocolHandler
 from .protocol.transport import MessageReceived, StatusChanged
-
-
+from .widgets import Orca
+from textual.screen import ModalScreen
+from textual.app import ComposeResult
+from textual.widgets import Button
 from .dashboard_screen import MonitoringDashboard
 
+from textual.widgets import Static
+from textual import events
+from textual.binding import Binding
 @dataclass
 class DashboardAppConfig:
     host: str = "localhost"
@@ -28,11 +33,28 @@ def parse_args() -> DashboardAppConfig:
 
     return DashboardAppConfig(host=args.host, port=args.port, replay_file=args.replay)
 
+class OrcaScreen(ModalScreen):
+    BINDINGS = [
+        Binding("o", "dismiss", "Dismiss", priority=True)
+    ]
+
+    def compose(self) -> ComposeResult:
+        yield Orca()
+
+    def dismiss(self) -> None:
+        self.dismiss()
+
+    def on_screen_resume(self) -> None:
+        self.query_one("#orca-close").focus()
+
 class DashboardApp(App):
     """Controller Dashboard Application"""
     
     CSS_PATH = "dashboard.tcss"
     TITLE = "Controller Dashboard"
+    BINDINGS = [
+        Binding("o", "request_orca", "Request Orca", priority=True)
+    ]
     
     def __init__(self):
         super().__init__()
@@ -57,20 +79,32 @@ class DashboardApp(App):
     def on_mount(self) -> None:
         """Set up the application when mounted"""
         # Create and push the main dashboard screen
-        dashboard = MonitoringDashboard(self.state_manager, self.protocol)
-        self.push_screen(dashboard)
+        self.dashboard = MonitoringDashboard(self.state_manager, self.protocol)
+        self.push_screen(self.dashboard)
+        self.dashboard.focus(None)
+
+        self.orca_screen = OrcaScreen(id="orca_screen")
+        self.push_screen(self.orca_screen)
         
-        # Set the app reference in the protocol handler
+        # # Set the app reference in the protocol handler
         self.protocol.set_app(self)
         
-        # Initialize the protocol handler
+        # # Initialize the protocol handler
         self.protocol.initialize()
         
-        # Connect to controller or load replay file
+        # # Connect to controller or load replay file
         if self.replay_mode and self.replay_file:
             self.run_worker(self.load_replay_file(self.replay_file))
         elif self.connect_host and self.connect_port:
             self.run_worker(self.connect_to_server(self.connect_host, self.connect_port))
+
+    def action_request_orca(self) -> None:
+        print("request_orca pass thru")
+        if self.orca_screen.is_active:
+            self.pop_screen()
+        else:
+            self.push_screen(self.orca_screen)
+            self.orca_screen.focus()
     
     async def connect_to_server(self, host: str, port: int) -> bool:
         """Worker function to connect to server"""
@@ -87,6 +121,14 @@ class DashboardApp(App):
     def on_status_changed(self, event: StatusChanged) -> None:
         """Handle status changed event"""
         self.protocol.handle_status_changed(event)
+
+        if not event.status == "Connected":
+            return
+        try:
+            log_widget = self.query_one("#log_stream")
+            log_widget.clear()
+        except Exception as e:
+            tlog(f"Error clearing log widget: {e}")
     
     def on_unmount(self) -> None:
         """Clean up when app exits"""

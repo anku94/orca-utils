@@ -23,18 +23,6 @@ class TimestepWidget(Static):
     
     def update_display(self):
         info = self.state_manager.timestep
+        cur_ts = info.cur_ts
+        self.query_one("#timestep_info", Static).update(f"Current: {cur_ts}")
         
-        # Update the info line
-        self.query_one("#timestep_info", Static).update(
-            f"Current: {info.current}  |  Rate: {info.rate:.1f} ts/sec"
-        )
-        
-        # Update progress bar
-        self.query_one("#progress", ProgressBar).update(
-            progress=int(info.progress * 100)
-        )
-        
-        # Update time
-        self.query_one("#timestep_time", Static).update(
-            f"Time in step: {info.step_time_ms}ms"
-        )

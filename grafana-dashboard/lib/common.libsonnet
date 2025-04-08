@@ -47,19 +47,19 @@
   basicGridPos(h, w, x, y):: { h: h, w: w, x: x, y: y },
 
   // Common transformation to filter by the 'ovid' variable
-  filterByOvidTransformation(ovidVarName):: {
-    id: 'filterByValue',
-    options: {
-      filters: [
-        {
-          config: { id: 'equal', options: { value: '$' + '{%s}' % ovidVarName } },
-          fieldName: 'ovid',
-        },
-      ],
-      match: 'any', // Changed from 'all' in some original panels for flexibility
-      type: 'include',
-    },
-  },
+  // filterByOvidTransformation(ovidVarName):: {
+  //   id: 'filterByValue',
+  //   options: {
+  //     filters: [
+  //       {
+  //         config: { id: 'equal', options: { value: '$' + '{%s}' % ovidVarName } },
+  //         fieldName: 'ovid',
+  //       },
+  //     ],
+  //     match: 'any', // Changed from 'all' in some original panels for flexibility
+  //     type: 'include',
+  //   },
+  // },
 
   // Common transformations for time series after filtering
   standardTimeseriesTransformations:: [

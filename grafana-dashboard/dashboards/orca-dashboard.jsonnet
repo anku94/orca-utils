@@ -18,56 +18,56 @@ dashboard.new(dashboardTitle, dashboardUid)
 + {
   spec+: { // Use spec+ to merge into the existing spec from dashboard.new()
     // -- Dashboard Refresh and Time --
-    refresh: '10s', // Set a faster refresh rate
-    time: { from: 'now-15m', to: 'now' }, // Shorter default time range
+    refresh: '5s', // Set a faster refresh rate
+    time: { from: 'now-5m', to: 'now' }, // Shorter default time range
 
     // -- Templating Variables --
     templating+: { // Use templating+ to merge into existing list (if any)
-      list: [
-        // OVID Selector
-        {
-          name: 'ovid', // Variable name used in queries/transforms: ${ovid} or $ovid
-          label: 'ORCA Instance', // Display label in UI
-          type: 'custom', // Dropdown with custom values
-          query: 'CTL, AGG0', // Comma-separated values
-          current: { selected: true, text: 'CTL', value: 'CTL' }, // Default value
-          options: [ // Explicit options list for UI
-            { selected: true, text: 'CTL', value: 'CTL' },
-            { selected: false, text: 'AGG0', value: 'AGG0' },
-          ],
-          multi: false, // Allow selecting only one instance
-          includeAll: false,
-        },
-        // Log Level Selector
-        {
-          name: 'log_level',
-          label: 'Minimum Log Level',
-          type: 'custom',
-          query: 'ERR : 4194304, INFO : 1048576, DBUG : 262144', // Value : Text pairs
-          current: { selected: true, text: 'DBUG', value: '262144' }, // Default to Debug
-          options: [ // Explicit options are good practice
-            { selected: false, text: 'ERR', value: '4194304' },
-            { selected: false, text: 'INFO', value: '1048576' },
-            { selected: true, text: 'DBUG', value: '262144' },
-          ],
-          multi: false, // Select only one level
-          includeAll: false,
-        },
-        // CPU Level Selector
-        {
-          name: 'cpu_level',
-          label: 'CPU View',
-          type: 'custom',
-          query: 'process, system, core',
-          current: { selected: true, text: 'core', value: 'core' }, // Default to core view
-          options: [
-            { selected: false, text: 'process', value: 'process' },
-            { selected: false, text: 'system', value: 'system' },
-            { selected: true, text: 'core', value: 'core' },
-          ],
-          multi: false,
-          includeAll: false,
-        },
+      // list: [
+      //   // OVID Selector
+      //   {
+      //     name: 'ovid', // Variable name used in queries/transforms: ${ovid} or $ovid
+      //     label: 'ORCA Instance', // Display label in UI
+      //     type: 'custom', // Dropdown with custom values
+      //     query: 'CTL, AGG0', // Comma-separated values
+      //     current: { selected: true, text: 'CTL', value: 'CTL' }, // Default value
+      //     options: [ // Explicit options list for UI
+      //       { selected: true, text: 'CTL', value: 'CTL' },
+      //       { selected: false, text: 'AGG0', value: 'AGG0' },
+      //     ],
+      //     multi: false, // Allow selecting only one instance
+      //     includeAll: false,
+      //   },
+      //   // Log Level Selector
+      //   {
+      //     name: 'log_level',
+      //     label: 'Minimum Log Level',
+      //     type: 'custom',
+      //     query: 'ERR : 4194304, INFO : 1048576, DBUG : 262144', // Value : Text pairs
+      //     current: { selected: true, text: 'DBUG', value: '262144' }, // Default to Debug
+      //     options: [ // Explicit options are good practice
+      //       { selected: false, text: 'ERR', value: '4194304' },
+      //       { selected: false, text: 'INFO', value: '1048576' },
+      //       { selected: true, text: 'DBUG', value: '262144' },
+      //     ],
+      //     multi: false, // Select only one level
+      //     includeAll: false,
+      //   },
+      //   // CPU Level Selector
+      //   {
+      //     name: 'cpu_level',
+      //     label: 'CPU View',
+      //     type: 'custom',
+      //     query: 'process, system, core',
+      //     current: { selected: true, text: 'core', value: 'core' }, // Default to core view
+      //     options: [
+      //       { selected: false, text: 'process', value: 'process' },
+      //       { selected: false, text: 'system', value: 'system' },
+      //       { selected: true, text: 'core', value: 'core' },
+      //     ],
+      //     multi: false,
+      //     includeAll: false,
+      //   },
         // Example Textbox variable (not used in original YAML, but demonstrates type)
         // {
         //   name: 'custom_filter',
@@ -77,14 +77,14 @@ dashboard.new(dashboardTitle, dashboardUid)
         //   query: '', // Textbox query is usually empty
         //   options: [],
         // },
-      ],
+      // ],
     },
 
     // -- Panel Definitions --
     // Use the panel functions, specifying grid positions
     panels+: [ // Use panels+ to merge into existing list (if any)
       // -- Row 1: Status & Logs --
-      panels.row(title='ORCA Status & Logs', y_pos=0),
+      // panels.row(title='ORCA Status & Logs', y_pos=0),
       panels.logsPanel(
         title='ORCA Logs',
         gridPos=common.basicGridPos(h=8, w=16, x=0, y=1), // Made wider
@@ -103,10 +103,10 @@ dashboard.new(dashboardTitle, dashboardUid)
       //   title='CPU Usage (%)',
       //   gridPos=common.basicGridPos(h=8, w=12, x=0, y=10) // Adjusted position
       // ),
-      // panels.memoryUsagePanel(
-      //   title='Memory Usage',
-      //   gridPos=common.basicGridPos(h=8, w=12, x=12, y=10) // Adjusted position
-      // ),
+      panels.memoryUsagePanel(
+        title='Memory Usage',
+        gridPos=common.basicGridPos(h=8, w=12, x=12, y=10) // Adjusted position
+      ),
 
       // -- Row 3: RPC --
       // panels.row(title='RPC Metrics', y_pos=18), // Adjusted y_pos

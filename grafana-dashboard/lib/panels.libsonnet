@@ -1,6 +1,22 @@
 // lib/panels.libsonnet
 local common = import 'common.libsonnet';
 
+local renameCpuUsageXform = [
+  {
+    id: 'renameByRegex',
+    options: { regex: 'metric_val CPU([0-9]+)_USAGE_PCT', renamePattern: 'core-$1' },
+  },
+  {
+    id: 'renameByRegex',
+    options: { regex: 'metric_val CPU_USAGE_PCT', renamePattern: 'CPU_USAGE_PCT' },
+  },
+];
+
+local renameMemUsageXform = [{
+  id: 'renameByRegex',
+  options: { regex: 'metric_val (MEMUSE_.*)', renamePattern: '$1' },
+}];
+
 {
   // Function to create a simple row panel
   row(title, y_pos):: {
@@ -48,7 +64,7 @@ local common = import 'common.libsonnet';
     //  AND level >= ${%s:value} // use :value for safety
     // Apply the standard OVID filter transformation
     transformations: [
-      common.filterByOvidTransformation(ovidVarName),
+      common.filterByOvidVarXform(ovidVarName),
     ],
   },
 
@@ -107,18 +123,23 @@ local common = import 'common.libsonnet';
       gridPos=gridPos,
       extraFieldConfig={ defaults+: { unit: 'percent' } },  // Set unit to percent
       // Combine standard OVID filter with standard timeseries transforms and specific rename
-      extraTransforms=[common.filterByOvidTransformation(ovidVarName)] +
-                      common.standardTimeseriesTransformations +
-                      [
-                        {
-                          id: 'renameByRegex',
-                          options: { regex: 'metric_val CPU([0-9]+)_USAGE_PCT', renamePattern: 'core-$1' },
-                        },
-                        {
-                          id: 'renameByRegex',
-                          options: { regex: 'metric_val CPU_USAGE_PCT', renamePattern: 'CPU_USAGE_PCT' },
-                        },
-                      ]
+      extraTransforms=[common.filterByOvidVarXform(ovidVarName)] +
+                      common.stdTimeseriesXforms + renameCpuUsageXform,
+    ),
+
+  ovidCpuUsagePanel(gridPos, targetOvid)::
+    self.basicMetricsTimeseries(
+      title='CPU Usage (%) Ovid: ' + targetOvid,
+      queryText=|||
+        SELECT timestamp, ovid, metric_name, metric_val
+        FROM orca_metrics
+        WHERE $__timeFilter(timestamp) 
+        AND metric_name LIKE 'CPU%%_USAGE_PCT' 
+        AND ovid = '%s'
+      ||| % [targetOvid],
+      gridPos=gridPos,
+      extraFieldConfig={ defaults+: { unit: 'percent' } },  // Set unit to percent
+      extraTransforms=common.stdTimeseriesXforms + renameCpuUsageXform
     ),
 
   // Specific panel for Memory Usage
@@ -141,9 +162,21 @@ local common = import 'common.libsonnet';
         ],
       },
       // Standard OVID filter, standard transforms, and specific rename
-      extraTransforms=[common.filterByOvidTransformation(ovidVarName)] +
-                      common.standardTimeseriesTransformations +
-                      [{ id: 'renameByRegex', options: { regex: 'metric_val (MEMUSE_.*)', renamePattern: '$1' } }]
+      extraTransforms=[common.filterByOvidVarXform(ovidVarName)] +
+                      common.stdTimeseriesXforms + renameMemUsageXform
+    ),
+
+  ovidMemoryUsagePanel(gridPos, targetOvid)::
+    self.basicMetricsTimeseries(
+      title='Memory Usage, Ovid: ' + targetOvid,
+      queryText=|||
+        SELECT timestamp, ovid, metric_name, metric_val
+        FROM orca_metrics
+        WHERE $__timeFilter(timestamp) AND metric_name LIKE 'MEMUSE_%%_KB' AND ovid = '%s'
+      ||| % [targetOvid],
+      gridPos=gridPos,
+      extraFieldConfig={ defaults+: { unit: 'deckbytes' } },  // Set unit to deckbytes
+      extraTransforms=common.stdTimeseriesXforms + renameMemUsageXform
     ),
 
   // Specific panel for RPC Rates
@@ -164,8 +197,8 @@ local common = import 'common.libsonnet';
         ],
       },
       // Standard OVID filter, standard transforms, and specific rename
-      extraTransforms=[common.filterByOvidTransformation(ovidVarName)] +
-                      common.standardTimeseriesTransformations +
+      extraTransforms=[common.filterByOvidVarXform(ovidVarName)] +
+                      common.stdTimeseriesXforms +
                       [{ id: 'renameByRegex', options: { regex: 'metric_val (.*)', renamePattern: '$1' } }]
     ),
 }

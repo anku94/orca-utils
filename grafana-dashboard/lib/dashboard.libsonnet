@@ -30,15 +30,15 @@ local common = import 'common.libsonnet';
       // Default Annotations (can be overridden)
       annotations: {
         list: [
-          {
-            builtIn: 1, // Standard Grafana annotations
-            datasource: { type: 'grafana', uid: '-- Grafana --' },
-            enable: true,
-            hide: true,
-            iconColor: 'rgba(0, 211, 255, 1)',
-            name: 'Annotations & Alerts',
-            type: 'dashboard',
-          },
+          // {
+          //   builtIn: 1, // Standard Grafana annotations
+          //   datasource: { type: 'grafana', uid: '-- Grafana --' },
+          //   enable: true,
+          //   hide: true,
+          //   iconColor: 'rgba(0, 211, 255, 1)',
+          //   name: 'Annotations & Alerts',
+          //   type: 'dashboard',
+          // },
         ],
       },
 

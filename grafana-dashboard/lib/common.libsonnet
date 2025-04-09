@@ -46,8 +46,8 @@
   // Basic gridPos structure (we'll override h, w, x, y per panel)
   basicGridPos(h, w, x, y):: { h: h, w: w, x: x, y: y },
 
-  // Common transformation to filter by the 'ovid' variable
-  filterByOvidTransformation(ovidVarName):: {
+  // filterByOvidVarXform: filterByOLink panel to dashboard variable 'ovidVarName'
+  filterByOvidVarXform(ovidVarName):: {
     id: 'filterByValue',
     options: {
       filters: [
@@ -66,7 +66,7 @@
   // we have already filtered by it.
   // Then apply the multi-frame timeseries format in case there are
   // more than one metric.
-  standardTimeseriesTransformations:: [
+  stdTimeseriesXforms:: [
     {
       id: 'organize',
       options: {

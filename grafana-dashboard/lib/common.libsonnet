@@ -17,8 +17,8 @@
         barAlignment: 0,
         barWidthFactor: 0.6,
         drawStyle: 'line',
-        fillOpacity: 10, // Slightly increased default fill for visibility
-        gradientMode: 'opacity', // Changed default gradient mode
+        fillOpacity: 0, // Slightly increased default fill for visibility
+        gradientMode: 'none', // Changed default gradient mode
         hideFrom: { legend: false, tooltip: false, viz: false },
         insertNulls: false,
         lineInterpolation: 'linear',
@@ -34,7 +34,7 @@
       thresholds: {
         mode: 'absolute',
         steps: [
-          { color: 'green', value: null }, // Grafana uses null for base
+          { color: 'green'},
           { color: 'red', value: 80 },
         ],
       },
@@ -47,26 +47,30 @@
   basicGridPos(h, w, x, y):: { h: h, w: w, x: x, y: y },
 
   // Common transformation to filter by the 'ovid' variable
-  // filterByOvidTransformation(ovidVarName):: {
-  //   id: 'filterByValue',
-  //   options: {
-  //     filters: [
-  //       {
-  //         config: { id: 'equal', options: { value: '$' + '{%s}' % ovidVarName } },
-  //         fieldName: 'ovid',
-  //       },
-  //     ],
-  //     match: 'any', // Changed from 'all' in some original panels for flexibility
-  //     type: 'include',
-  //   },
-  // },
+  filterByOvidTransformation(ovidVarName):: {
+    id: 'filterByValue',
+    options: {
+      filters: [
+        {
+          config: { id: 'equal', options: { value: '$' + '{%s}' % ovidVarName } },
+          fieldName: 'ovid',
+        },
+      ],
+      match: 'all',
+      type: 'include',
+    },
+  },
 
   // Common transformations for time series after filtering
+  // First we exclude ovid as it's not a valid time series field and
+  // we have already filtered by it.
+  // Then apply the multi-frame timeseries format in case there are
+  // more than one metric.
   standardTimeseriesTransformations:: [
     {
       id: 'organize',
       options: {
-        excludeByName: { ovid: true }, // Commonly exclude ovid after filtering
+        excludeByName: { ovid: true },
         includeByName: {},
         indexByName: {},
         renameByName: {},
@@ -74,7 +78,7 @@
     },
     {
       id: 'prepareTimeSeries',
-      options: { format: 'multi' }, // Standard format
+      options: { format: 'multi' },
     },
   ],
 }

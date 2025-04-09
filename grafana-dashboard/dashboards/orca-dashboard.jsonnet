@@ -15,6 +15,7 @@ local dashboardUid = 'orca-dashboard'; // Keep consistent with metadata.name
 dashboard.new(dashboardTitle, dashboardUid)
 
 // Merge in specific configurations
+// Some fields may be overridden
 + {
   spec+: { // Use spec+ to merge into the existing spec from dashboard.new()
     // -- Dashboard Refresh and Time --
@@ -23,97 +24,100 @@ dashboard.new(dashboardTitle, dashboardUid)
 
     // -- Templating Variables --
     templating+: { // Use templating+ to merge into existing list (if any)
-      // list: [
-      //   // OVID Selector
-      //   {
-      //     name: 'ovid', // Variable name used in queries/transforms: ${ovid} or $ovid
-      //     label: 'ORCA Instance', // Display label in UI
-      //     type: 'custom', // Dropdown with custom values
-      //     query: 'CTL, AGG0', // Comma-separated values
-      //     current: { selected: true, text: 'CTL', value: 'CTL' }, // Default value
-      //     options: [ // Explicit options list for UI
-      //       { selected: true, text: 'CTL', value: 'CTL' },
-      //       { selected: false, text: 'AGG0', value: 'AGG0' },
-      //     ],
-      //     multi: false, // Allow selecting only one instance
-      //     includeAll: false,
-      //   },
-      //   // Log Level Selector
-      //   {
-      //     name: 'log_level',
-      //     label: 'Minimum Log Level',
-      //     type: 'custom',
-      //     query: 'ERR : 4194304, INFO : 1048576, DBUG : 262144', // Value : Text pairs
-      //     current: { selected: true, text: 'DBUG', value: '262144' }, // Default to Debug
-      //     options: [ // Explicit options are good practice
-      //       { selected: false, text: 'ERR', value: '4194304' },
-      //       { selected: false, text: 'INFO', value: '1048576' },
-      //       { selected: true, text: 'DBUG', value: '262144' },
-      //     ],
-      //     multi: false, // Select only one level
-      //     includeAll: false,
-      //   },
-      //   // CPU Level Selector
-      //   {
-      //     name: 'cpu_level',
-      //     label: 'CPU View',
-      //     type: 'custom',
-      //     query: 'process, system, core',
-      //     current: { selected: true, text: 'core', value: 'core' }, // Default to core view
-      //     options: [
-      //       { selected: false, text: 'process', value: 'process' },
-      //       { selected: false, text: 'system', value: 'system' },
-      //       { selected: true, text: 'core', value: 'core' },
-      //     ],
-      //     multi: false,
-      //     includeAll: false,
-      //   },
-        // Example Textbox variable (not used in original YAML, but demonstrates type)
-        // {
-        //   name: 'custom_filter',
-        //   label: 'Custom Text Filter',
-        //   type: 'textbox',
-        //   current: { text: '', value: '' },
-        //   query: '', // Textbox query is usually empty
-        //   options: [],
-        // },
-      // ],
+      list: [
+        // OVID Selector
+        {
+          name: 'ovid', // Variable name used in queries/transforms: ${ovid} or $ovid
+          label: 'ORCA overlay ovid', // Display label in UI
+          type: 'custom', // Dropdown with custom values
+          query: 'CTL, AGG0', // Comma-separated values
+          current: { selected: true, text: 'CTL', value: 'CTL' }, // Default value
+          options: [ // Explicit options list for UI
+            { selected: true, text: 'CTL', value: 'CTL' },
+            { selected: false, text: 'AGG0', value: 'AGG0' },
+          ],
+          multi: false, // Allow selecting only one instance
+          includeAll: false,
+        },
+        // Log Level Selector
+        {
+          name: 'log_level',
+          label: 'Minimum Log Level',
+          type: 'custom',
+          query: 'ERR : 4194304, INFO : 1048576, DBUG : 262144', // Value : Text pairs
+          current: { selected: true, text: 'DBUG', value: '262144' }, // Default to Debug
+          options: [ // Explicit options are good practice
+            { selected: false, text: 'ERR', value: '4194304' },
+            { selected: false, text: 'INFO', value: '1048576' },
+            { selected: true, text: 'DBUG', value: '262144' },
+          ],
+          multi: false, // Select only one level
+          includeAll: false,
+          allowCustomValue: false,
+        },
+        // CPU Level Selector
+        {
+          name: 'cpu_level',
+          label: 'CPU Level',
+          type: 'custom',
+          query: 'system, core',
+          current: { selected: true, text: 'core', value: 'core' }, // Default to core view
+          options: [
+            { selected: false, text: 'system', value: 'system' },
+            { selected: true, text: 'core', value: 'core' },
+          ],
+          multi: false,
+          includeAll: false,
+          allowCustomValue: false,
+        },
+        // CPU core range specified in a textbox
+        // Format is start-end
+        // Currently unused
+        {
+          name: 'core_range',
+          label: 'CPU Core Range',
+          type: 'textbox',
+          current: { text: '', value: '' },
+          query: '', // Textbox query is usually empty
+          options: [],
+        },
+      ],
     },
 
     // -- Panel Definitions --
     // Use the panel functions, specifying grid positions
     panels+: [ // Use panels+ to merge into existing list (if any)
       // -- Row 1: Status & Logs --
-      // panels.row(title='ORCA Status & Logs', y_pos=0),
+      panels.row(title='ORCA Status & Logs', y_pos=0),
       panels.logsPanel(
         title='ORCA Logs',
-        gridPos=common.basicGridPos(h=8, w=16, x=0, y=1), // Made wider
-        // Pass variable names explicitly if different from defaults
-        // ovidVarName='ovid_instance',
-        // logLevelVarName='min_log_level'
+        gridPos=common.basicGridPos(h=6, w=9, x=0, y=1), // Made wider
+        ovidVarName='ovid',
+        logLevelVarName='log_level'
       ),
-      // panels.jobStatsPanel(
-      //   title='ORCA Job Stats',
-      //   gridPos=common.basicGridPos(h=8, w=8, x=16, y=1) // Adjusted position
-      // ),
+      panels.jobStatsPanel(
+        title='ORCA Job Stats',
+        gridPos=common.basicGridPos(h=6, w=8, x=9, y=1) // Adjusted position
+      ),
 
       // -- Row 2: Core Metrics --
-      // panels.row(title='ORCA Core Metrics', y_pos=9), // Adjusted y_pos
-      // panels.cpuUsagePanel(
-      //   title='CPU Usage (%)',
-      //   gridPos=common.basicGridPos(h=8, w=12, x=0, y=10) // Adjusted position
-      // ),
+      panels.row(title='ORCA Core Metrics', y_pos=7), // Adjusted y_pos
+      panels.cpuUsagePanel(
+        title='CPU Usage (%)',
+        gridPos=common.basicGridPos(h=8, w=10, x=0, y=8), // Adjusted position
+        ovidVarName='ovid',
+        cpuLevelVarName='cpu_level'
+      ),
       panels.memoryUsagePanel(
         title='Memory Usage',
-        gridPos=common.basicGridPos(h=8, w=12, x=12, y=10) // Adjusted position
+        gridPos=common.basicGridPos(h=8, w=12, x=11, y=8), // Adjusted position
+        ovidVarName='ovid'
       ),
-
-      // -- Row 3: RPC --
-      // panels.row(title='RPC Metrics', y_pos=18), // Adjusted y_pos
-      // panels.rpcRatesPanel(
-      //   title='RPC Rates',
-      //   gridPos=common.basicGridPos(h=8, w=12, x=0, y=19) // Adjusted position
-      // ),
+      panels.rpcRatesPanel(
+        title='RPC Rates',
+        gridPos=common.basicGridPos(h=8, w=10, x=0, y=16), // Adjusted position
+        ovidVarName='ovid'
+      ),
       // Example: Add a new simple panel using the generic function
       // panels.basicMetricsTimeseries(
       //   title='Disk IOPS',

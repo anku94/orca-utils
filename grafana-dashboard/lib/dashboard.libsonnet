@@ -15,7 +15,7 @@ local common = import 'common.libsonnet';
       editable: true,
       fiscalYearStartMonth: 0,
       graphTooltip: 0, // 0 means default shared tooltip
-      schemaVersion: 38, // Use a reasonably current schema version
+      schemaVersion: 0, // Use a reasonably current schema version
       tags: ['orca', 'grizzly-managed'], // Add some default tags
       timezone: 'browser',
       title: title,
@@ -39,20 +39,6 @@ local common = import 'common.libsonnet';
             name: 'Annotations & Alerts',
             type: 'dashboard',
           },
-          // Example: Adding a custom annotation query (Disabled by default)
-          // {
-          //   name: 'Deployments',
-          //   datasource: { type: common.datasourceType, uid: common.datasourceUid },
-          //   enable: false, // Disabled by default
-          //   iconColor: '#FF9830', // Orange
-          //   showIn: 0, // Show in graph and table
-          //   tags: ['deploy', '$environment'], // Example using a variable
-          //   queryText: |||
-          //     SELECT timestamp, text, tags FROM events
-          //     WHERE $__timeFilter(timestamp) AND event_type = 'deployment'
-          //   |||,
-          //   type: 'tags', // Or 'dashboard' if tags are not used
-          // },
         ],
       },
 

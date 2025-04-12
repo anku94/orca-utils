@@ -55,7 +55,9 @@ local renameMemUsageXform = [{
         datasource: { type: common.datasourceType, uid: common.datasourceUid },
         format: 'table',  // Logs often work best with table format
         queryText: |||
-          SELECT timestamp,message,level,ovid FROM orca_logs WHERE $__timeFilter(timestamp) and level >= ${log_level:int}
+          SELECT timestamp,message,level,ovid 
+          FROM orca_logs 
+          WHERE $__timeFilter(timestamp) 
         |||,
         rawQuery: true,
         rawEditor: true,

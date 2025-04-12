@@ -1,8 +1,4 @@
 // orca-dashboard.jsonnet
-// local dashboard = import 'lib/dashboard.libsonnet';
-// local panels = import 'lib/panels.libsonnet';
-// local common = import 'lib/common.libsonnet';
-
 local common = import 'common.libsonnet';
 local dashboard = import 'dashboard.libsonnet';
 local panels = import 'panels.libsonnet';

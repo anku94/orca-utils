@@ -40,6 +40,17 @@ local renameMemUsageXf = [{
   options: { regex: 'metric_val (MEMUSE_.*)', renamePattern: '$1' },
 }];
 
+local partitionByColXf(colname) = {
+  id: 'partitionByValues',
+  options: { fields: [colname] },
+  keepFields: false,
+};
+
+local renameByRegexXf(regex, renamePattern) = {
+  id: 'renameByRegex',
+  options: { regex: regex, renamePattern: renamePattern },
+};
+
 // sqlTableTgt: template/schema for SQL table target
 local sqlTableTgt = {
   refId: 'A',
@@ -47,6 +58,7 @@ local sqlTableTgt = {
   format: 'table',
   queryText: '',
   rawQuery: true,
+  rawEditor: true,  // switch from query editor to raw editor
 };
 
 // --- Begin panel definitions ---
@@ -117,30 +129,47 @@ local jobStatsPanel = basicTimeseriesPanel {
   ],
 };
 
-// rpcRatesPanel: Displays RPC rates in requests per second.
-local rpcRatesPanel = basicTimeseriesPanel {
-  title: 'RPC Rates',
-  gridPos: metrics_utils.basicGridPos(8, 12, 12, 8),
+// rpcBytesPanel: Displays RPC bytes/s.
+local rpcBytesPanel = basicTimeseriesPanel {
+  title: 'RPC bytes/s',
+  gridPos: metrics_utils.basicGridPos(8, 12, 0, 8),
   targets: [
     sqlTableTgt {
-      refId: 'rates',
+      refId: 'rpcbytes',
       queryText: |||
         SELECT timestamp, ovid, metric_name, metric_val
         FROM orca_metrics
-        WHERE $__timeFilter(timestamp) AND metric_name LIKE 'HGRPC_RATE_%'
+        WHERE $__timeFilter(timestamp) AND metric_name = 'HGRPC_RATE_BYTES'
       |||,
     },
   ],
-  overrides: [
-    metrics_utils.fieldConfigOverrideAssignUnit('HGRPC_RATE_BYTES', 'Bps'),
+  fieldConfig+: { defaults+: { unit: 'Bps' } },
+  transformations: [partitionByColXf('ovid'), renameByRegexXf('metric_val (.*)', '$1')],
+};
+
+// rpcCountsPanel: Displays RPC counts/s.
+local rpcCountsPanel = basicTimeseriesPanel {
+  title: 'RPC counts/s',
+  gridPos: metrics_utils.basicGridPos(8, 12, 0, 16),
+  targets: [
+    sqlTableTgt {
+      refId: 'rpcCounts',
+      queryText: |||
+        SELECT timestamp, ovid, metric_name, metric_val 
+        FROM orca_metrics
+        WHERE $__timeFilter(timestamp) AND metric_name = 'HGRPC_RATE_COUNT'
+      |||,
+    },
   ],
-  transformations: [metrics_utils.filterByValueXf('ovid', '$ovid')],
+  fieldConfig+: { defaults+: { unit: 'mps' } },
+  transformations: [partitionByColXf('ovid'), renameByRegexXf('metric_val (.*)', '$1')],
 };
 
 // cpuUsagePanelTemplate: template for CPU usage panel
 local cpuUsagePanelTemplate(ovid, gridPos) = basicTimeseriesPanel {
   title: 'CPU Usage (Ovid: ' + ovid + ')',
   gridPos: gridPos,
+  options+: { tooltip+: { mode: 'multi', hideZeros: false } },
   targets: [sqlTableTgt {
     refId: 'cpuUsage' + ovid,
     queryText: |||
@@ -151,14 +180,18 @@ local cpuUsagePanelTemplate(ovid, gridPos) = basicTimeseriesPanel {
       AND ovid = ovid
     |||,
   }],
-  fieldConfig: std.mergePatch(metrics_utils.defaultTimeseriesFieldConfig, { defaults+: { unit: 'percent' } }),
-  transformations: stdTimeseriesXf + renameCpuUsageXf,
+  fieldConfig+: { defaults+: { unit: 'percent' } },
+  transformations: [
+    partitionByColXf('metric_name'),
+    renameByRegexXf('metric_val CPU(.*)_USAGE_PCT', 'Core $1'),
+  ],
 };
 
 // memUsagePanelTemplate: template for memory usage panel
 local memUsagePanelTemplate(ovid, gridPos) = basicTimeseriesPanel {
   title: 'Memory Usage (Ovid: ' + ovid + ')',
   gridPos: gridPos,
+  options+: { tooltip+: { mode: 'multi', hideZeros: false } },
   targets: [sqlTableTgt {
     refId: 'memUsage' + ovid,
     queryText: |||
@@ -169,13 +202,11 @@ local memUsagePanelTemplate(ovid, gridPos) = basicTimeseriesPanel {
       AND ovid = ovid
     |||,
   }],
-  fieldConfig: std.mergePatch(metrics_utils.defaultTimeseriesFieldConfig, { overrides: [
-    metrics_utils.fieldConfigOverrideAssignUnit('MEMUSE_TOTAL_KB', 'deckbytes'),
-    metrics_utils.fieldConfigOverrideAssignUnit('MEMUSE_TOTAL_PCT', 'percent'),
-    metrics_utils.fieldConfigOverrideAssignUnit('MEMUSE_AVAIL_KB', 'deckbytes'),
-    metrics_utils.fieldConfigOverrideAssignUnit('MEMUSE_FREE_KB', 'deckbytes'),
-  ] }),
-  transformations: stdTimeseriesXf + renameMemUsageXf,
+  fieldConfig+: { defaults+: { unit: 'deckbytes' } },
+  transformations: [
+    partitionByColXf('metric_name'),
+    renameByRegexXf('metric_val MEMUSE_(.*)_KB', '$1'),
+  ],
 };
 
 // Per-ovid CPU and MEM usage panels
@@ -212,6 +243,43 @@ local templatingVars = { list: [
   },
 ] };
 
+// Table panel: useful for debugging
+local tablePanel = {
+  type: 'table',
+  title: 'Table Panel',
+  gridPos: metrics_utils.basicGridPos(8, 12, 12, 0),
+  targets: [sqlTableTgt {
+    refId: 'tablePanel',
+    queryText: |||
+      SELECT * FROM orca_flowexec_stats
+      WHERE ovid != 'CTL'
+      ORDER BY ts DESC
+      LIMIT 5
+    |||,
+  }],
+};
+
+local queryText = |||
+  SELECT DISTINCT metric_name FROM orca_metrics
+|||;
+
+local queryText = |||
+  SELECT * FROM orca_metrics
+  WHERE metric_name = 'HGRPC_RATE_BYTES'
+  AND ovid == 'CTL'
+  ORDER BY timestamp DESC
+  LIMIT 20
+|||;
+
+local anotherTablePanel = {
+  type: 'table',
+  title: 'Another Table Panel',
+  gridPos: metrics_utils.basicGridPos(8, 12, 0, 16),
+  targets: [sqlTableTgt {
+    refId: 'anotherTablePanel',
+    queryText: queryText,
+  }],
+};
 // Combine all into a dashboard spec variable
 local dashboardSpec = {
   title: dashboardTitle,
@@ -224,15 +292,19 @@ local dashboardSpec = {
   timepicker: {},
   templating: templatingVars,
   panels: [
-    logsPanel,
-    jobStatsPanel,
-    rpcRatesPanel,
+    // logsPanel,
+    // jobStatsPanel,
+    rpcBytesPanel,
+    rpcCountsPanel,
+    // tablePanel,
+    // anotherTablePanel,
     cpuUsagePanelCTL,
-    // cpuUsagePanelAGG0,
-    // memUsagePanelCTL,
-    // memUsagePanelAGG0,
+    cpuUsagePanelAGG0,
+    memUsagePanelCTL,
+    memUsagePanelAGG0,
   ],
 };
+
 
 // Final dashboard object using the spec variable
 {

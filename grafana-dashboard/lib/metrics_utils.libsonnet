@@ -14,6 +14,8 @@
         axisCenteredZero: false,
         axisColorMode: 'text',
         axisLabel: '',
+        axisSoftMin: 0,
+        axisSoftMax: 0,
         axisPlacement: 'auto',
         barAlignment: 0,
         barWidthFactor: 0.6,

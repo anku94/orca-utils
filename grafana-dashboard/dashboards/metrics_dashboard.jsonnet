@@ -28,24 +28,14 @@ local stdTimeseriesXf = [
   },
 ];
 
-// RenameCpuUsageXform: rename CPU usage metrics
-local renameCpuUsageXf = [{
-  id: 'renameByRegex',
-  options: { regex: 'metric_val (CPU.*_USAGE_PCT)', renamePattern: '$1' },
-}];
-
-// RenameMemUsageXform: rename memory usage metrics
-local renameMemUsageXf = [{
-  id: 'renameByRegex',
-  options: { regex: 'metric_val (MEMUSE_.*)', renamePattern: '$1' },
-}];
-
+// partitionByColXf: partition by a column into multiple df's
 local partitionByColXf(colname) = {
   id: 'partitionByValues',
   options: { fields: [colname] },
   keepFields: false,
 };
 
+// renameByRegexXf: rename a column by regex
 local renameByRegexXf(regex, renamePattern) = {
   id: 'renameByRegex',
   options: { regex: regex, renamePattern: renamePattern },

@@ -1,0 +1,11 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Datasource
+metadata:
+  name: influxdata-fsql
+spec:
+  name: "FlightSQL Datasource"
+  type: influxdata-flightsql-datasource
+  access: proxy
+  jsonData:
+    host: "0.0.0.0:8816"
+    secure: false

@@ -35,7 +35,8 @@ class SchemaDisplay(Widget):
             with Collapsible(title=heading, collapsed=False):
                 for pid, probe in schema.probes.items():
                     yield Horizontal(
-                        Switch(animate=False, id=f"s{sid}p{pid}"),
+                        Switch(animate=False, id=f"s{sid}p{pid}",
+                               value=probe.active),
                         Static(f"{probe.name}"),
                         classes="probe-container",
                     )

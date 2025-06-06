@@ -38,8 +38,8 @@ def setup_datasources():
 def deploy_dashboard(dash_builder: dashboard.Dashboard):
     grafana = Grafana(GrafanaConfig.from_env())
 
-    folder_uid = grafana.find_or_create_folder(DASHBOARD_FOLDER_NAME)
-    grafana.persist_dashboard(folder_uid, dash_builder.build())
+    # folder_uid = grafana.find_or_create_folder(DASHBOARD_FOLDER_NAME)
+    grafana.persist_dashboard(dash_builder.build())
 
     print("dashboards deployed")
 

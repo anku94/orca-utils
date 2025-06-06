@@ -1,13 +1,7 @@
 from grafana_foundation_sdk.builders import dashboard, logs, stat, text, timeseries
 from grafana_foundation_sdk.models.dashboard import DashboardCursorSync
 
-from .common import (
-    timeseries_panel,
-    log_panel,
-    stat_panel,
-    text_panel,
-)
-from .rpc_panels import RPCPanels
+from .metric_panels import MetricPanels
 
 
 def metrics_dashboard() -> dashboard.Dashboard:
@@ -16,12 +10,17 @@ def metrics_dashboard() -> dashboard.Dashboard:
         dashboard.Dashboard("Metrics Monitoring Dashboard")
         .uid("metrics-dashboard")
         .tags(["metrics", "monitoring", "orca"])
-        .readonly()
         .time("now-5m", "now")
         .tooltip(DashboardCursorSync.CROSSHAIR)
         .refresh("5s")
-        .with_panel(RPCPanels.rpc_counts_panel())
-        .with_panel(RPCPanels.rpc_bytes_panel())
+        # .with_panel(MetricPanels.stat_panel())
+        # .with_panel(MetricPanels.flow_panel())
+        .with_panel(MetricPanels.rpc_counts_panel())
+        .with_panel(MetricPanels.rpc_bytes_panel())
+        .with_panel(MetricPanels.rpcsz_panel())
+        # .with_panel(MetricPanels.table_panel())
+        .with_panel(MetricPanels.cpu_usage_panel())
+        .with_panel(MetricPanels.flow_exec_datagrid_panel())
     )
 
     return builder

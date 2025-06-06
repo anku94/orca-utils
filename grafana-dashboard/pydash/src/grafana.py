@@ -62,7 +62,7 @@ class Client:
 
         return response.json()["uid"]
 
-    def persist_dashboard(self, folder_uid: str, dashboard: Dashboard):
+    def persist_dashboard(self, dashboard: Dashboard):
         auth = (self.config.user, self.config.password)
         response = requests.post(
             f"http://{self.config.host}/api/dashboards/db",
@@ -71,7 +71,7 @@ class Client:
             data=json.dumps(
                 {
                     "dashboard": dashboard,
-                    "folderUid": folder_uid,
+                    #"folderUid": "orca",
                     "overwrite": True,
                 },
                 cls=JSONEncoder,

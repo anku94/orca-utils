@@ -2,6 +2,38 @@
 
 Refer to [kineto_walk_through](./kineto_walk_through.pdf) for a context of how kineto is structured.
 
+## Updates 08/20/2025
+The async kineto pipeline is now working, emitting cpu and gpu traces for each step to different json files.
+
+To run it, add the `KINETO_ORCA` env variable along with `KINETO_USE_DAEMON` when running the pytorch program, like below:
+
+```
+KINETO_ORCA=1 KINETO_LOG_LEVEL=0 KINETO_USE_DAEMON=1 python train.py
+```
+This puts kineto in daemon mode. To trigger tracing use dynolog:
+```
+dynolog --enable_ipc_monitor
+# In another terminal
+dyno gputrace --log-file /mnt/tmp/trace.json --profile-memory --iterations 10
+```
+Then the per-step traces will be saved to /mnt/tmp.
+```
+-rw-r--r-- 1 shengj2 NetSketch  27M Aug 20 00:43 kineto_trace_step_14.json
+-rw-r--r-- 1 shengj2 NetSketch  27M Aug 20 00:49 kineto_trace_step_15.json
+-rw-r--r-- 1 shengj2 NetSketch  27M Aug 20 00:49 kineto_trace_step_16.json
+-rw-r--r-- 1 shengj2 NetSketch  27M Aug 20 00:49 kineto_trace_step_17.json
+-rw-r--r-- 1 shengj2 NetSketch  27M Aug 20 00:49 kineto_trace_step_18.json
+-rw-r--r-- 1 shengj2 NetSketch  27M Aug 20 00:49 kineto_trace_step_19.json
+-rw-r--r-- 1 shengj2 NetSketch  27M Aug 20 00:49 kineto_trace_step_20.json
+-rw-r--r-- 1 shengj2 NetSketch  27M Aug 20 00:49 kineto_trace_step_21.json
+-rw-r--r-- 1 shengj2 NetSketch  27M Aug 20 00:49 kineto_trace_step_22.json
+-rw-r--r-- 1 shengj2 NetSketch  27M Aug 20 00:49 kineto_trace_step_23.json
+-rw-r--r-- 1 shengj2 NetSketch  27M Aug 20 00:49 kineto_trace_step_24.json
+```
+
+A few things: 1) The path where trace files get written to does not respect the path specified in dynolog, it's hardcoded for now; 2) No queueing for processing tasks yet; 3) Haven't directly write traces to arrow.
+
+
 ## PyTorch Kineto Client Callbacks
 The way PyTorch Kineto interacts with Libkineto is by registering Libkineto's client callbacks, particularly `start()` and `stop()`, which are called when Libkineto starts and stops tracing in the daemon mode.
 

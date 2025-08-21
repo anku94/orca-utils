@@ -2,10 +2,17 @@
 
 Refer to [kineto_walk_through](./kineto_walk_through.pdf) for a context of how kineto is structured.
 
+## Updates 08/21/2025
+Bunch of improvements:
+
+1. Added a task queue in libkineto so don't need to create a thread in each step.
+2. Added CLI options in Dynolog, such as profile knobs including thread pool size and flush interval (i.e. #steps between consecutive flushes). Also the `continuous flush` mode is now enabled by dynolog, not by env variable as this is cleaner.
+3. Bunch of minor cleanups.
+
 ## Updates 08/20/2025
 The async kineto pipeline is now working, emitting cpu and gpu traces for each step to different json files.
 
-To run it, add the `KINETO_ORCA` env variable along with `KINETO_USE_DAEMON` when running the pytorch program, like below:
+<!-- To run it, add the `KINETO_ORCA` env variable along with `KINETO_USE_DAEMON` when running the pytorch program, like below:
 
 ```
 KINETO_ORCA=1 KINETO_LOG_LEVEL=0 KINETO_USE_DAEMON=1 python train.py
@@ -29,9 +36,59 @@ Then the per-step traces will be saved to /mnt/tmp.
 -rw-r--r-- 1 shengj2 NetSketch  27M Aug 20 00:49 kineto_trace_step_22.json
 -rw-r--r-- 1 shengj2 NetSketch  27M Aug 20 00:49 kineto_trace_step_23.json
 -rw-r--r-- 1 shengj2 NetSketch  27M Aug 20 00:49 kineto_trace_step_24.json
-```
+``` -->
 
 A few things: 1) The path where trace files get written to does not respect the path specified in dynolog, it's hardcoded for now; 2) No queueing for processing tasks yet; 3) Haven't directly write traces to arrow.
+
+## Usage
+Relevant repos in the modified kineto pipeline are hosted in my personal github for now, all in the `orca` branch:
+- Dynolog: https://github.com/jiangxiaosheng/dynolog.git
+- Kineto: https://github.com/jiangxiaosheng/kineto.git
+- PyTorch: https://github.com/jiangxiaosheng/pytorch.git
+
+Run the pytorch program as usual, except setting `KINETO_DAEMON=1`:
+```
+KINETO_USE_DAEMON=1 python train.py
+```
+Then use dynolog to trigger tracing at runtime:
+```
+$ dynolog --enable_ipc_monitor
+# In another terminal
+$ dyno gputrace --log-file /mnt/tmp/kineto_trace --profile-memory --iterations 10 --continuous-flush --thread-pool-size 4 --flush-interval 1
+Kineto config =
+ACTIVITIES_LOG_FILE=/mnt/tmp/kineto_trace
+PROFILE_START_ITERATION=0
+PROFILE_START_ITERATION_ROUNDUP=1
+ACTIVITIES_ITERATIONS=10
+PROFILE_REPORT_INPUT_SHAPES=false
+PROFILE_PROFILE_MEMORY=true
+PROFILE_WITH_STACK=false
+PROFILE_WITH_FLOPS=false
+PROFILE_WITH_MODULES=false
+PROFILE_CONTINUOUS_FLUSH=true
+PROFILE_THREAD_POOL_SIZE=4
+PROFILE_FLUSH_INTERVAL=1
+response length = 147
+response = {"activityProfilersBusy":0,"activityProfilersTriggered":[1777855],"eventProfilersBusy":0,"eventProfilersTriggered":[],"processesMatched":[1777855]}
+Matched 1 processes
+Trace output files will be written to:
+    /mnt/tmp/kineto_trace
+```
+The traces will be written to the specified directory in different json files (the prefix `1777855` is the pid to differentiate tracing runs):
+```
+ll /mnt/tmp/kineto_trace
+total 263M
+-rw-r--r-- 1 shengj2 NetSketch 27M Aug 21 01:55 1777855_step_14.json
+-rw-r--r-- 1 shengj2 NetSketch 27M Aug 21 01:56 1777855_step_15.json
+-rw-r--r-- 1 shengj2 NetSketch 27M Aug 21 01:56 1777855_step_16.json
+-rw-r--r-- 1 shengj2 NetSketch 27M Aug 21 01:56 1777855_step_17.json
+-rw-r--r-- 1 shengj2 NetSketch 27M Aug 21 01:56 1777855_step_18.json
+-rw-r--r-- 1 shengj2 NetSketch 27M Aug 21 01:56 1777855_step_19.json
+-rw-r--r-- 1 shengj2 NetSketch 27M Aug 21 01:56 1777855_step_20.json
+-rw-r--r-- 1 shengj2 NetSketch 27M Aug 21 01:56 1777855_step_21.json
+-rw-r--r-- 1 shengj2 NetSketch 27M Aug 21 01:56 1777855_step_22.json
+-rw-r--r-- 1 shengj2 NetSketch 27M Aug 21 01:56 1777855_step_23.json
+```
 
 
 ## PyTorch Kineto Client Callbacks

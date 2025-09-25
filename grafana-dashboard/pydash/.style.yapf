@@ -1,0 +1,25 @@
+[style]
+# Base style
+based_on_style = pep8
+
+# Line length
+column_limit = 88
+
+# Indentation
+indent_width = 2
+continuation_indent_width = 2
+
+# Method chaining - this is the key setting for builder pattern
+SPLIT_BEFORE_DOT = True
+
+# Bracket handling
+dedent_closing_brackets = True
+coalesce_brackets = True
+
+# Other useful settings for cleaner code
+split_before_named_assigns = True
+split_before_arithmetic_operator = True
+allow_multiline_lambdas = True
+
+# Handle long import lists nicely
+force_multiline_dict = True

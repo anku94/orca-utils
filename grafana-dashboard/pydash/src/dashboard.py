@@ -25,6 +25,7 @@ def metrics_dashboard() -> dashboard.Dashboard:
         .with_panel(MetricPanels.bulk_latency_panel())
         .with_panel(MetricPanels.bulk_qsz_panel())
         .with_panel(MetricPanels.bulk_qcnt_panel())
+        .with_panel(MetricPanels.twopc_exec_datagrid_panel())
     )
 
     return builder

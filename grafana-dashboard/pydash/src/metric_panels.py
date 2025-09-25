@@ -456,3 +456,21 @@ class MetricPanels:
         )
 
         return panel
+
+    @classmethod
+    def twopc_exec_datagrid_panel(cls) -> gfb_table.Panel:
+        query_text = """
+        SELECT * FROM orca_twopc_events
+        ORDER BY (txnseq, ovid) DESC
+        """
+        
+        panel = (
+            gfb_table.Panel()
+            .title("TwoPC Events")
+            .datasource(Utils.fsql_ref())
+            .with_target(cls.get_sql_target(query_text, "twopcEvents"))
+            .height(8)
+            .span(8)
+        )
+
+        return panel

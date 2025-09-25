@@ -15,17 +15,16 @@ class LogLevel(Enum):
 
 @dataclass
 class Probe:
-    id: int
-    schema_id: int
+    id: str
+    schema: str
     name: str
     active: bool = True
 
 
 @dataclass
 class Schema:
-    id: int
     name: str
-    probes: Dict[int, Probe] = field(default_factory=dict)
+    probes: Dict[str, Probe] = field(default_factory=dict)
     expanded: bool = True
 
 

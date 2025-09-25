@@ -4,6 +4,7 @@ from ..models import Schema, Probe, Aggregator, LogEntry, Query, LogLevel, Times
 from ..state_manager import StateManager
 from .transport import TCPTransport, MessageReceived, StatusChanged
 from .command_protocol import serialize_commands
+from .command_defs import COMMAND_METADATA, DEFAULT_DOMAINS
 from .file_replay import FileReplayTransport
 from .protocol_handlers import ProtocolHandlers
 
@@ -91,13 +92,17 @@ class ProtocolHandler:
         return self._transport.is_connected()
 
     def send_command(self, command: str) -> None:
-        payload = serialize_commands(["CTL", "AGG", "MPI"], [command])
+        tokens = command.split()
+        verb = tokens[0].upper() if tokens else ""
+        meta = COMMAND_METADATA.get(verb)
+        domains = meta.domains if meta else DEFAULT_DOMAINS
+        payload = serialize_commands(domains, [command])
         self._transport.send(payload)
 
-    def send_toggle_command(self, schema_id: int, probe_id: int, activate: bool) -> None:
-        """Send a toggle command to the server"""
+    def send_toggle_command(self, schema: str, probe: str, activate: bool) -> None:
+        """Send a probe toggle command to the server"""
         op = "ENABLE_PROBE" if activate else "DISABLE_PROBE"
-        msg = f"{op}|{schema_id}|{probe_id}"
+        msg = f"{op}|{schema}|{probe}"
         self.send_command(msg)
 
     # Add these new methods for replay control

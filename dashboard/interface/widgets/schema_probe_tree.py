@@ -14,12 +14,12 @@ from ..state_manager import StateManager
 class SchemaProbeTree(Tree):
     """Tree view of schemas and probes"""
 
-    schemas: reactive[Dict[int, Schema]] = reactive({})
+    schemas: reactive[Dict[str, Schema]] = reactive({})
     
     def __init__(self, state_manager: StateManager, *args, **kwargs):
         super().__init__("Schemas & Probes", *args, **kwargs)
         self.state_manager = state_manager
-        self.schema_nodes: Dict[int, TreeNode] = {}
+        self.schema_nodes: Dict[str, TreeNode] = {}
     
     def on_mount(self):
         self.border_title = "Schemas & Probes"
@@ -38,26 +38,26 @@ class SchemaProbeTree(Tree):
         self.schema_nodes.clear()
 
         # add all schema nodes
-        schema_ids_added = set()  # Track which schemas we've already added
-        for schema_id, schema in self.state_manager.schemas.items():
-            if schema_id in schema_ids_added:
-                log(f"WARNING: Duplicate schema ID {schema_id} ({schema.name}) detected!")
+        schema_names_added = set()  # Track which schemas we've already added
+        for schema_name, schema in self.state_manager.schemas.items():
+            if schema_name in schema_names_added:
+                log(f"WARNING: Duplicate schema name {schema_name} detected!")
                 continue
                 
-            log(f"Adding schema node: {schema_id} ({schema.name})")
+            log(f"Adding schema node: {schema_name}")
             node = self.root.add(schema.name, expand=True)
-            self.schema_nodes[schema_id] = node
-            schema_ids_added.add(schema_id)
+            self.schema_nodes[schema_name] = node
+            schema_names_added.add(schema_name)
 
         # add all probe nodes
-        for schema_id, schema in self.state_manager.schemas.items():
-            if schema_id not in self.schema_nodes:
-                log(f"Schema {schema_id} not in schema_nodes dictionary!")
+        for schema_name, schema in self.state_manager.schemas.items():
+            if schema_name not in self.schema_nodes:
+                log(f"Schema {schema_name} not in schema_nodes dictionary!")
                 continue
                 
-            schema_node = self.schema_nodes[schema_id]
+            schema_node = self.schema_nodes[schema_name]
             for probe_id, probe in schema.probes.items():
-                log(f"Adding probe node: {probe_id} ({probe.name}) to schema {schema_id}")
+                log(f"Adding probe node: {probe_id} ({probe.name}) to schema {schema_name}")
                 schema_node.add(probe.name, expand=True)
 
         self.root.expand_all()
@@ -76,7 +76,7 @@ class SchemaProbeTree(Tree):
         # Toggle schema expansion
         if node.parent == self.root:
             # This is a schema node, find its ID
-            for schema_id, schema_node in self.schema_nodes.items():
+            for schema_name, schema_node in self.schema_nodes.items():
                 if schema_node == node:
-                    self.state_manager.toggle_schema_expanded(schema_id)
+                    self.state_manager.toggle_schema_expanded(schema_name)
                     break

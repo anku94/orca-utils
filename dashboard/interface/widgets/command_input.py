@@ -6,6 +6,7 @@ from datetime import datetime
 
 from ..state_manager import StateManager
 from ..protocol import ProtocolHandler
+from ..protocol.command_defs import SUGGEST_COMMANDS
 from ..models import LogEntry, LogLevel
 
 
@@ -16,8 +17,7 @@ class CommandInput(Container):
         super().__init__(*args, **kwargs)
         self.state_manager = state_manager
         self.protocol = protocol
-        suggest_list = ["PAUSE", "RESUME"]
-        self.suggest_list = [DropdownItem(item) for item in suggest_list]
+        self.suggest_list = [DropdownItem(meta.name) for meta in SUGGEST_COMMANDS]
         self.border_title = "Command"
         self.styles.margin = (1, 1)
 

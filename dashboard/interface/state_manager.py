@@ -16,7 +16,7 @@ from interface.models import (
 
 class StateManager:
     def __init__(self):
-        self.schemas: Dict[int, Schema] = {}
+        self.schemas: Dict[str, Schema] = {}
         self.aggregators: Dict[str, Aggregator] = {}
         self.logs: List[LogEntry] = []
         self.queries: Dict[int, Query] = {}
@@ -66,25 +66,28 @@ class StateManager:
     
     def add_schema(self, schema: Schema) -> None:
         with self._lock:
-            self.schemas[schema.id] = schema
+            self.schemas[schema.name] = schema
             self._notify("schemas")
     
     def add_probe(self, probe: Probe) -> None:
         with self._lock:
-            if probe.schema_id in self.schemas:
-                self.schemas[probe.schema_id].probes[probe.id] = probe
+            schema = self.schemas.get(probe.schema)
+            if schema:
+                schema.probes[probe.id] = probe
                 self._notify("schemas")
     
-    def set_probe_active(self, probe_id: int, schema_id: int, active: bool) -> None:
+    def set_probe_active(self, schema_name: str, probe_id: str, active: bool) -> None:
         with self._lock:
-            if schema_id in self.schemas and probe_id in self.schemas[schema_id].probes:
-                self.schemas[schema_id].probes[probe_id].active = active
+            schema = self.schemas.get(schema_name)
+            if schema and probe_id in schema.probes:
+                schema.probes[probe_id].active = active
                 self._notify("schemas")
     
-    def toggle_schema_expanded(self, schema_id: int) -> None:
+    def toggle_schema_expanded(self, schema_name: str) -> None:
         with self._lock:
-            if schema_id in self.schemas:
-                self.schemas[schema_id].expanded = not self.schemas[schema_id].expanded
+            schema = self.schemas.get(schema_name)
+            if schema:
+                schema.expanded = not schema.expanded
                 self._notify("schemas")
     
     def add_agg_reps(self, agg_id: str, rep_id: int, mpi_rbeg: int, mpi_rend: int) -> None:

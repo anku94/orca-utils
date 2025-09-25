@@ -52,7 +52,7 @@ class TestProtocolHandlers(unittest.TestCase):
     def test_schema_add_handler(self):
         """Test the SCHEMA_ADD message handler"""
         # Create a message
-        message = "SCHEMA_ADD|1|TestSchema"
+        message = "SCHEMA_ADD|TestSchema"
         parts = message.split('|')
         
         # Get the handler
@@ -66,13 +66,12 @@ class TestProtocolHandlers(unittest.TestCase):
         # Check that the state manager was updated
         self.state_manager.add_schema.assert_called_once()
         schema = self.state_manager.add_schema.call_args[0][0]
-        self.assertEqual(schema.id, 1)
         self.assertEqual(schema.name, "TestSchema")
         
     def test_protocol_handler_integration(self):
         """Test that the protocol handler correctly uses the decorator-based handlers"""
         # Create a message
-        message = "PROBE_ADD|1|2|TestProbe|true"
+        message = "PROBE_ADD|TestSchema|probe-2|TestProbe|true"
         
         # Process the message
         with patch.object(self.state_manager, 'queue_ui_update') as mock_queue:
@@ -88,8 +87,8 @@ class TestProtocolHandlers(unittest.TestCase):
             # Check that the state manager was updated
             self.state_manager.add_probe.assert_called_once()
             probe = self.state_manager.add_probe.call_args[0][0]
-            self.assertEqual(probe.id, 2)
-            self.assertEqual(probe.schema_id, 1)
+            self.assertEqual(probe.id, "probe-2")
+            self.assertEqual(probe.schema, "TestSchema")
             self.assertEqual(probe.name, "TestProbe")
             self.assertEqual(probe.active, True)
 

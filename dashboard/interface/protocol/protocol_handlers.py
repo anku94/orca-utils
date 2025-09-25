@@ -78,25 +78,22 @@ class ProtocolHandlers:
 
     @handler("SCHEMA_ADD")
     def handle_schema_add(self, parts: List[str], state_manager: StateManager) -> None:
-        """Handle SCHEMA_ADD message
-        
-        Format: SCHEMA_ADD|schema_id|schema_name
-        """
-        schema_id, schema_name = int(parts[1]), parts[2]
-        state_manager.add_schema(Schema(id=schema_id, name=schema_name))
+        """Handle SCHEMA_ADD message (SCHEMA_ADD|schema_name)."""
+        schema_name = parts[1]
+        state_manager.add_schema(Schema(name=schema_name))
     
     @handler("PROBE_ADD")
     def handle_probe_add(self, parts: List[str], state_manager: StateManager) -> None:
         """Handle PROBE_ADD message
         
-        Format: PROBE_ADD|schema_id|probe_id|probe_name|active
+        Format: PROBE_ADD|schema_name|probe_id|probe_name|active
         """
-        schema_id, probe_id, probe_name = int(parts[1]), int(parts[2]), parts[3]
+        schema_name, probe_id, probe_name = parts[1], parts[2], parts[3]
         active = parts[4].lower() == "true" if len(parts) > 4 else True
 
         state_manager.add_probe(
             Probe(id=probe_id,
-                 schema_id=schema_id,
+                 schema=schema_name,
                  name=probe_name,
                  active=active))
     

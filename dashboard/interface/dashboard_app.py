@@ -16,6 +16,7 @@ from .dashboard_screen import MonitoringDashboard
 from textual.widgets import Static
 from textual import events
 from textual.binding import Binding
+
 @dataclass
 class DashboardAppConfig:
     host: str = "localhost"
@@ -53,7 +54,8 @@ class DashboardApp(App):
     CSS_PATH = "dashboard.tcss"
     TITLE = "Controller Dashboard"
     BINDINGS = [
-        Binding("o", "request_orca", "Request Orca", priority=True)
+        Binding("o", "request_orca", "Request Orca", priority=True),
+        Binding("q", "quit", "Quit", priority=True)
     ]
     
     def __init__(self):

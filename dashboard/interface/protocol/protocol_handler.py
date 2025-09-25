@@ -3,6 +3,7 @@ from datetime import datetime
 from ..models import Schema, Probe, Aggregator, LogEntry, Query, LogLevel, TimestepInfo, SystemStatus
 from ..state_manager import StateManager
 from .transport import TCPTransport, MessageReceived, StatusChanged
+from .command_protocol import serialize_commands
 from .file_replay import FileReplayTransport
 from .protocol_handlers import ProtocolHandlers
 
@@ -90,8 +91,8 @@ class ProtocolHandler:
         return self._transport.is_connected()
 
     def send_command(self, command: str) -> None:
-        """Send a command to the server"""
-        self._transport.send(f"COMMAND|{command}")
+        payload = serialize_commands(["CTL", "AGG", "MPI"], [command])
+        self._transport.send(payload)
 
     def send_toggle_command(self, schema_id: int, probe_id: int, activate: bool) -> None:
         """Send a toggle command to the server"""
@@ -158,4 +159,3 @@ class ProtocolHandler:
             print(f"Error processing message '{message}': {e}")
 
     # The message handlers have been moved to protocol_handlers.py
-

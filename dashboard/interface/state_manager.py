@@ -93,7 +93,7 @@ class StateManager:
     def add_agg_reps(self, agg_id: str, rep_id: int, mpi_rbeg: int, mpi_rend: int) -> None:
         with self._lock:
             if agg_id not in self.aggregators:
-                self.aggregators[agg_id] = Aggregator(id=agg_id, address="")
+                self.aggregators[agg_id] = Aggregator(agg_id=agg_id)
 
             self.aggregators[agg_id].reps.append((rep_id, mpi_rbeg, mpi_rend))
             rbegprev, rendprev = self.aggregators[agg_id].rank_range

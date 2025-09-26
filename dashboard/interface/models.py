@@ -30,10 +30,10 @@ class Schema:
 
 @dataclass
 class Aggregator:
-    id: str
-    address: str
+    agg_id: str
     rank_range: tuple[int, int] = (1e9, -1)
-    reps: list[tuple[int, int, int, int]] = field(default_factory=list)
+    # reps: list[rep_id, mpi_rbeg, mpi_rend]
+    reps: list[tuple[int, int, int]] = field(default_factory=list)
 
 
 @dataclass

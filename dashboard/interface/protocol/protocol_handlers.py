@@ -70,10 +70,10 @@ class ProtocolHandlers:
         """
         parts_int = [int(part) for part in parts[1:5]]
         agg_id, rep_id, mpi_rbeg, mpi_rend = parts_int
-        log_msg = f"AGG{agg_id}: REP {rep_id} with range [{mpi_rbeg}, {mpi_rend})"
-        state_manager.add_log(LogEntry(timestamp=datetime.now(),
-                                      message=log_msg,
-                                      level=LogLevel.INFO))
+        # log_msg = f"AGG{agg_id}: REP {rep_id} with range [{mpi_rbeg}, {mpi_rend})"
+        # state_manager.add_log(LogEntry(timestamp=datetime.now(),
+        #                               message=log_msg,
+        #                               level=LogLevel.INFO))
         state_manager.add_agg_reps(agg_id, rep_id, mpi_rbeg, mpi_rend)
 
     @handler("SCHEMA_ADD")

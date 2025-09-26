@@ -34,7 +34,7 @@
 }
 
 #aggregators_widget {
-    height: 6;
+    height: 8;
     border: $primary;
     background: $surface;
 }

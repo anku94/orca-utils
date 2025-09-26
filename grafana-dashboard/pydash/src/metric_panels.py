@@ -474,3 +474,34 @@ class MetricPanels:
         )
 
         return panel
+
+    @classmethod
+    def twopc_misc_panel(cls) -> gfb_timeseries.Panel:
+        query_text = """
+        SELECT ovid, key, value
+FROM (
+  SELECT
+    ovid,
+    key,
+    value,
+    timestamp_ns,
+    ROW_NUMBER() OVER (
+      PARTITION BY ovid, key
+      ORDER BY timestamp_ns DESC
+    ) AS rn
+  FROM main.orca_misc_events
+) t
+WHERE rn = 1
+ORDER BY ovid, key;
+        """
+
+        panel = (
+            gfb_table.Panel()
+            .title("TwoPC Misc")
+            .datasource(Utils.fsql_ref())
+            .with_target(cls.get_sql_target(query_text, "twopcMisc"))
+            .height(8)
+            .span(8)
+        )
+
+        return panel

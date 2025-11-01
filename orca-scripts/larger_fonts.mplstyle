@@ -1,0 +1,17 @@
+# Matplotlib style file with larger font sizes
+# Base font size (default is 10)
+font.size: 14
+
+# Axes labels and titles
+axes.labelsize: 16
+axes.titlesize: 16
+
+# Tick labels
+xtick.labelsize: 14
+ytick.labelsize: 14
+
+# Legend
+# legend.fontsize: 11
+
+# Figure title
+# figure.titlesize: 16

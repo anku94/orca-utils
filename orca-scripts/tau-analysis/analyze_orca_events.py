@@ -223,10 +223,95 @@ def analyze_orca_trace(run_dir: str, rank: int):
     print(pta_df)
 
 
+def analyze():
+    trace_dir = "/mnt/ltio/orcajobs/suites/20251106_amr-agg4-r512-n2000-psmerrchk141/3_tracendrop_agg/parquet/orca_events"
+    ds = pl.read_parquet(f"{trace_dir}/*.parquet", parallel="columns")
+    dura_df = ds.filter(pl.col("op_type") == "X")
+    #dura_df["dura_ms"] = dura_df["val"] / 1_000_000
+
+    dura_df = dura_df.with_columns(
+        (pl.col("val") / 1_000_000).alias("dura_ms")
+    )
+    dura_df
+    # groupby [rank, probe_name], calc
+    dagg_df = dura_df.group_by(["rank", "probe_name"]).agg(
+        pl.col("dura_ms").sum().alias("total_dura_ms")
+    )
+    dagg_df
+    # groupby probe_name, get mean and std
+    pagg_df = dagg_df.group_by("probe_name").agg(
+        [
+            pl.col("total_dura_ms").mean().alias("mean_dura_ms"),
+            pl.col("total_dura_ms").std().alias("std_dura_ms"),
+            pl.col("total_dura_ms").min().alias("min_dura_ms"),
+            pl.col("total_dura_ms").max().alias("max_dura_ms"),
+        ]
+    )
+    # sort by std
+    pagg_df.sort(by="std_dura_ms", descending=True)
+    pagg_df
+
+    # filter by PostTimestepAdvance, get top 10
+    top60 = 
+    dagg_df.filter(pl.col("probe_name").str.contains("PostTimestepAdvance")).sort(by="total_dura_ms", descending=True).head(65)
+    # get ranks and sort by rank
+    top60.sort(by="rank")
+
+    # --- rankwise ---
+    rank = 36
+    rank_trace = f"{trace_dir}/rank_{rank}.parquet"
+    rdf = pd.read_parquet(rank_trace)
+    dura_df = rdf[rdf["op_type"] == "X"].copy()
+    cols = ["probe_name", "timestep", "val"]
+    dura_df = dura_df[cols].copy()
+    dura_df["dura_us"] = dura_df["val"] / 1_000 # val is dura_ns
+    dura_df["dura_ms"] = dura_df["val"] / 1_000_000
+    dura_df.drop(columns=["val"], inplace=True)
+
+    dura_df_agg = dura_df.groupby("probe_name").agg(
+        {
+            "dura_ms": ["min", "max", "mean", "sum", "count"]
+        }
+    )
+    print("\nAggregate times: ")
+    print(dura_df_agg)
+
+
+def analyze_orca_trace_2(run_dir: str):
+    trace_dir = f"{run_dir}/pqroot/orca_events"
+    ds = pl.read_parquet(f"{trace_dir}/*.parquet", parallel="columns")
+    ds
+    dura_df = ds.filter(pl.col("op_type") == "X")
+    dura_df
+    pta = "PostTimestepAdvance"
+    # filter on probe_name == pta
+    pta_df = dura_df.filter(pl.col("probe_name").str.contains(pta)).sort(by="timestep")
+    # groupby rank, sum val
+    pta_times = pta_df.group_by("rank").agg(pl.col("val").sum())
+    ptat_df = pta_times.to_pandas()
+    ptat_df["dura_ms"] = ptat_df["val"] / 1_000_000
+    ptat_df = ptat_df[["rank", "dura_ms"]].astype({"dura_ms": int})
+    ptat_df = ptat_df.sort_values(by="dura_ms")
+    ptat_df
+    # get 90th percentile
+    ptat_df["dura_ms"].quantile(0.9)
+    ptat_df.tail(20)
+
+    # rank 212
+    rdf = pta_df.filter(pl.col("rank") == 212)
+    rtdf = rdf["timestep", "val"].to_pandas()
+    rtdf["dura_ms"] = (rtdf["val"] / 1_000_000).astype(int)
+    print(rtdf.to_string())
+
+    pass
+
+
+
 def analyze_event_volumes(run_dir: str):
     tr = TraceData(run_dir)
     kokkos_events = tr.read_entire_trace("kokkos_events")
-    kokkos_events.group_by("name").count().sort(by="count")
+    agg_df = kokkos_events.group_by("probe_name").count().sort(by="count")
+    agg_df.to_pandas()
 
     mpi_messages = tr.read_entire_trace("mpi_messages")
     mpi_messages.group_by("probe_name").count().sort(by="count")
@@ -234,10 +319,10 @@ def analyze_event_volumes(run_dir: str):
 
 
 def run():
-    run_dir = get_rundir(0)
+    run_dir = get_rundir(4)
     rank = 20
     analyze_orca_trace(run_dir, 100)
-    analyze_orca_trace(run_dir, 0)
+    analyze_orca_trace(run_dir, 29)
 
 
 if __name__ == "__main__":

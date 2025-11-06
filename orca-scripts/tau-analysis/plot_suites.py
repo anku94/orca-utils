@@ -7,16 +7,14 @@ import matplotlib.ticker as mtick
 import numpy as np
 import polars as pl
 
-from suite_utils import get_suite_amr_runtimes
-
-SUITE_ROOT = "/mnt/ltio/orcajobs/suites"
+from suite_utils import *
 
 PlotList = list[pn.pane.Matplotlib]
 
 
-
 def plot_suitedir(suite_dir: str, **kwargs) -> pn.pane.Matplotlib:
     rdf = get_suite_amr_runtimes(suite_dir)
+
     fig, ax = plt.subplots(figsize=(9, 5))
     data_x = np.arange(len(rdf["profile"]))
     data_y = rdf["time_secs"]
@@ -83,32 +81,90 @@ def read_orca_overhead(profile_path: str, probe_name: str) -> pl.DataFrame:
 
 
 @pn.cache
-def read_suite_profiles(suite: str, probe_name: str) -> dict[str, list[int]]:
-    profiles = glob.glob(f"{suite}/*")
-    profiles = [p for p in profiles if os.path.isdir(p)]
-    profiles.sort()
+def read_suite_profiles(suite_dir: str, probe_name: str) -> tuple[list[str], list[list[int]]]:
+    profile_paths = get_suite_profiles(suite_dir)
 
-    data = {}
-    for profile_path in profiles:
-        profile_name = profile_path.split('/')[-1]
-        df = read_orca_overhead(profile_path, probe_name)
-        data[profile_name] = df["time_ms"].to_list()
+    # create an empty dataframe with columns for each profile
+    profile_names = [os.path.basename(p) for p in profile_paths]
+    profile_times = [read_orca_overhead(
+        p, probe_name)["time_ms"].to_list() for p in profile_paths]
 
-    return data
+    return (profile_names, profile_times)
 
 
-def plot_overhead_boxplot(suite: str, probe_name: str, **kwargs) -> pn.pane.Matplotlib:
-    suite_name = os.path.basename(suite)
-    data = read_suite_profiles(suite, probe_name)
+def get_probe_freqs(profile_dir: str, tracer: str) -> pl.DataFrame:
+    counts_cached_path = f"{profile_dir}/{tracer}-probe-freqs.parquet"
+    if os.path.exists(counts_cached_path):
+        return pl.read_parquet(counts_cached_path)
+
+    trace_dir = f"{profile_dir}/parquet/{tracer}"
+    pn.panel(trace_dir).servable()
+    q = (
+        pl.scan_parquet(trace_dir, rechunk=False, cache=False)
+        .group_by(["rank", "probe_name"])
+        .agg(pl.len())
+        .sort(["rank", "probe_name"])
+    )
+
+    tdf_counts = q.collect(engine="streaming")
+    tdf_counts.write_parquet(counts_cached_path)
+
+    return tdf_counts
+
+
+def plot_probe_freqs(profile_dir: str, probe_name: str, **kwargs) -> pn.pane.Matplotlib:
+    counts = get_probe_freqs(profile_dir, probe_name)
+    counts = counts.group_by("probe_name").agg(pl.sum("len"))
+
+    labels = counts["probe_name"].to_list()
+    labels = [l[-14:] for l in labels]
+
+    # plot counts as a pie chart
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.pie(counts["len"], labels=labels, startangle=30)
+
+    profile_name = os.path.basename(profile_dir)
+    suite_name = os.path.basename(os.path.dirname(profile_dir))
+    ax.set_title(f"{probe_name}: {profile_name}\n{suite_name}")
+    plt.close(fig)
+    return pn.pane.Matplotlib(fig, **kwargs)
+
+
+def plot_overhead_rankwise(profile_dir: str, probe_name: str, **kwargs) -> pn.pane.Matplotlib:
+    "Plot rank-wise probe-name overhead for a single profile_dir"
+
+    profile_name = os.path.basename(profile_dir)
+    suite_dir = os.path.dirname(profile_dir)
+    suite_name = os.path.basename(suite_dir)
+    times = read_orca_overhead(profile_dir, probe_name)
+    times = times.sort("rank")
 
     fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(times["rank"], times["time_ms"])
+    ax.set_ylabel("Time (s)")
+    ax.set_xlabel("Rank")
+    ax.set_title(f"{probe_name}: {profile_name}\n{suite_name}")
+    ax.grid(which='major', color='#bbb')
+    ax.grid(which='minor', color='#ddd')
+    ax.set_axisbelow(True)
+    ax.xaxis.set_major_locator(mtick.MultipleLocator(64))
+    ax.xaxis.set_minor_locator(mtick.MultipleLocator(16))
+    ax.yaxis.set_major_formatter(
+        mtick.FuncFormatter(lambda x, pos: f"{x/1e3:.0f}s"))
 
-    profile_names = list(data.keys())
-    values = [data[p] for p in profile_names]
+    plt.close(fig)
+    return pn.pane.Matplotlib(fig, **kwargs)
 
+
+def plot_overhead_boxplot(suite_dir: str, probe_name: str, **kwargs) -> pn.pane.Matplotlib:
+    suite_name = os.path.basename(suite_dir)
+    profile_names, profile_times = read_suite_profiles(suite_dir, probe_name)
+
+    fig, ax = plt.subplots(figsize=(8, 5))
     data_x = np.arange(len(profile_names))
+    data_y = profile_times
 
-    ax.boxplot(values, positions=data_x, labels=profile_names)
+    ax.boxplot(data_y, positions=data_x, labels=profile_names)
     ax.set_ylabel("Time (s)")
     ax.set_xlabel("Profile")
     ax.set_title(f"{probe_name}: {suite_name}")
@@ -160,37 +216,43 @@ def run():
         "tight": True
     }
 
-    pn.panel("## 128 ranks, TAU").servable()
-
-    pn.panel("## 128 ranks, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
+    pn.panel("## 512 ranks, NAGGS=1, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
     all_names = [
-        "20251101_amr-r128-psmerrchk141-n20",
-        "20251101_amr-r128-psmerrchk141-n200",
-        "20251101_amr-r128-psmerrchk141-n2000"
+        "20251105_amr-agg1-r512-n20-psmerrchk141",
+        "20251105_amr-agg1-r512-n200-psmerrchk141",
+        "20251106_amr-agg1-r512-n2000-psmerrchk141"
     ]
     all_rt_panes, all_bp_panes = plot_suite(all_names, plot_kwargs)
     pn.Row(*all_rt_panes).servable()
     pn.Row(*all_bp_panes).servable()
 
-    pn.panel("## 128 ranks, PSM_ERRCHK_TIMEOUT=1:4:1, no hugepages").servable()
-
-    nohp_names = [
-        "20251103_amr-r128-psm141-nohugepages-n20",
-        "20251103_amr-r128-psm141-nohugepages-n200",
-        "20251103_amr-r128-psm141-nohugepages-n2000"
-    ]
-    nohp_rt_panes, nohp_bp_panes = plot_suite(nohp_names, plot_kwargs)
-    pn.Row(*nohp_rt_panes).servable()
-    pn.Row(*nohp_bp_panes).servable()
-
+    pn.panel("## 512 ranks, NAGGS=4, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
     all_names = [
-        "20251103_amr-r512-psmerrchk141-n20",
-        "20251103_amr-r512-psmerrchk141-n200",
-        "20251103_amr-r512-psmerrchk141-n2000"
+        "20251106_amr-agg4-r512-n20-psmerrchk141",
+        "20251106_amr-agg4-r512-n200-psmerrchk141",
+        "20251106_amr-agg4-r512-n2000-psmerrchk141"
     ]
     all_rt_panes, all_bp_panes = plot_suite(all_names, plot_kwargs)
     pn.Row(*all_rt_panes).servable()
     pn.Row(*all_bp_panes).servable()
+
+    pn.panel("## Misc Stats").servable()
+    panes = []
+    profile_dir = get_profile_dir(all_names[1], "7_trace_all")
+    pane = plot_probe_freqs(profile_dir, "mpi_messages", **plot_kwargs)
+    panes.append(pane)
+
+    pane = plot_probe_freqs(profile_dir, "kokkos_events", **plot_kwargs)
+    panes.append(pane)
+
+    profile_dir = get_profile_dir(all_names[-1], "3_tracendrop_agg")
+    probe_name = "PostTimestepAdvance"
+    pane = plot_overhead_rankwise(profile_dir, probe_name, **plot_kwargs)
+    panes.append(pane)
+
+
+    pn.Row(*panes).servable()
+
 
 if __name__ == "__main__":
     # use style file 'larger_fonts.mplstyle'

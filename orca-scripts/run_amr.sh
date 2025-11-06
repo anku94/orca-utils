@@ -22,11 +22,38 @@ HOSTFILE=/tmp/hostfile.txt
 # OR_SUITE_DESC: description of the suite
 # OR_ALL_ORCA_ENV, OR_ALL_MPI_ENV: ORCA and MPI environment variables
 
-# setup_suite_common: mostly just prevents accidental overwrites
+# get_suitedir: get the suitedir with YYYYMMDD prefix
+# - returns: suitedir with YYYYMMDD prefix
+# - uses: OR_SUITEDIR
+compute_suitedir_wdate() {
+  # Add YYYYMMDD prefix to suite dir
+  local date_str=$(date +%Y%m%d)
+  local suite_basename=$(basename $OR_SUITEDIR)
+  local suite_dirname=$(dirname $OR_SUITEDIR)
+  local suite_namewdate=${date_str}_${suite_basename}
+  local suitedir=${suite_dirname}/${suite_namewdate}
+  echo $suitedir
+}
+
+# get_existing_profile_count: count the profiles that already exist
+# - returns: number of profiles that already exist
+# - uses: $OR_AMR_PROFILES, $OR_SUITEDIR
+get_existing_profile_count() {
+  local count=0
+  for profile in "${OR_AMR_PROFILES[@]}"; do
+    if [ -d $OR_SUITEDIR/$profile ]; then
+      count=$((count + 1))
+    fi
+  done
+
+  echo $count
+}
+
+# cleanup_suitedir: cleanup the suite dir
 # - checks for -f flag to force overwrite of an existing suite dir
 # - do not set env vars here, as they will get reset,
 # set them in `setup_amr_common` instead
-setup_suite_common() {
+safe_cleanup_suitedir() {
   # die if suite dir already exists unless -f is passed
   local -i force=0
   while getopts "f" opt; do
@@ -35,15 +62,6 @@ setup_suite_common() {
     *) die "Invalid option: -$OPTARG" ;;
     esac
   done
-
-  shift $((OPTIND - 1))
-
-  # Add YYYYMMDD prefix to suite dir
-  local date_str=$(date +%Y%m%d)
-  local suite_basename=$(basename $OR_SUITEDIR)
-  local suite_dirname=$(dirname $OR_SUITEDIR)
-  local suite_namewdate=${date_str}_${suite_basename}
-  OR_SUITEDIR=${suite_dirname}/${suite_namewdate}
 
   if [ -d $OR_SUITEDIR ]; then
     rmdir $OR_SUITEDIR && true # try deleting if empty
@@ -57,9 +75,6 @@ setup_suite_common() {
     message "-INFO- rm -rf $OR_SUITEDIR"
     rm -rf $OR_SUITEDIR
   fi
-
-  mkdir -p $OR_SUITEDIR
-  echo "$OR_SUITE_DESC" >$OR_SUITEDIR/desc.md
 }
 
 # setup_gen_amrdeck: generate AMR deck from template
@@ -158,8 +173,29 @@ setup_profile_tracers_disabled() {
 }
 
 # tracendrop: trace and drop at MPI
-setup_profile_tracendrop() {
-  local cmdseq="set-flow trace-and-drop; resume"
+setup_profile_tracendrop_mpi() {
+  local cmdseq="set-flow trace-and-drop-mpi; resume"
+  set_new_yaml_with_cmdseq "$cmdseq"
+  OR_RUN_TYPE="orca"
+}
+
+# tracendrop: trace and drop at MPI
+setup_profile_tracendrop_agg() {
+  # local cmdseq="set-flow trace-and-drop-agg; disable-probe mpi_messages MPI_Test; disable-probe kokkos_events TaskRegion::CheckAndUpdate; resume"
+  local cmdseq="set-flow trace-and-drop-agg"
+  # cmdseq="$cmdseq; disable-probe mpi_messages MPI_Test"
+  # cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
+  cmdseq="$cmdseq; resume"
+  set_new_yaml_with_cmdseq "$cmdseq"
+  OR_RUN_TYPE="orca"
+}
+
+# tracendrop_agg_tgt: trace and drop at AGG, targeted disabling of probes
+setup_profile_tracendrop_agg_tgt() {
+  local cmdseq="set-flow trace-and-drop-agg"
+  cmdseq="$cmdseq; disable-probe mpi_messages MPI_Test"
+  cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
+  cmdseq="$cmdseq; resume"
   set_new_yaml_with_cmdseq "$cmdseq"
   OR_RUN_TYPE="orca"
 }
@@ -181,12 +217,31 @@ setup_profile_trace_mpip2p_notest() {
 # trace_all: trace all tracers
 setup_profile_trace_all() {
   local cmdseq="set-flow enable-tracers; resume"
+  # cmdseq="$cmdseq; disable-probe mpi_messages MPI_Test"
+  # cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
+  set_new_yaml_with_cmdseq "$cmdseq"
+  OR_RUN_TYPE="orca"
+}
+
+# trace_tgt: trace all tracers
+setup_profile_trace_tgt() {
+  local cmdseq="set-flow enable-tracers; resume"
+  cmdseq="$cmdseq; disable-probe mpi_messages MPI_Test"
+  cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
   set_new_yaml_with_cmdseq "$cmdseq"
   OR_RUN_TYPE="orca"
 }
 
 # tau: run with TAU tracing=on, throttling=off
-setup_profile_tau() {
+setup_profile_tau_default() {
+  OR_ORCA_ENABLED=0
+  add_common_env_var TAU_TRACE 1
+  OR_RUN_TYPE="tau"
+  OR_MPI_BIN="tau_exec $OR_MPI_BIN"
+}
+
+# tau: run with TAU tracing=on, throttling=off
+setup_profile_tau_nothrottle() {
   OR_ORCA_ENABLED=0
   add_common_env_var TAU_TRACE 1
   add_common_env_var TAU_THROTTLE 0
@@ -216,8 +271,6 @@ run_profile() {
 
   # Auto-computed variables
   OR_ORCA_NNODES=$((OR_AGGCNT + 1)) # Add +1 for CTL
-  OR_MPI_PPN=$((OR_MPI_NRANKS / OR_MPI_NNODES))
-
   OR_JOBDIR=$OR_SUITEDIR/$profile
 
   setup_amr_common       # common setup
@@ -228,24 +281,44 @@ run_profile() {
 
 # main: main function to run hardcoded profiles
 main() {
-  profiles=("noorca" "tracers_disabled" "tracendrop"
-    "trace_mpip2p" "trace_mpip2p_notest" "trace_all" "tau")
-  # profiles=("noorca" "tracers_disabled" "trace_all")
-  # profiles=("trace_mpip2p")
-  # profiles=("tau")
-  pidx=0 # profile_idx to prefix for sorted order
+  OR_AMR_PROFILES=("0_noorca" "1_tracers_disabled" "2_tracendrop_mpi"
+    "3_tracendrop_agg" "4_tracendrop_agg_tgt" "5_trace_mpip2p" "6_trace_mpip2p_notest" "7_trace_all"
+    "8_trace_tgt" "9_tau_default" "10_tau_nothrottle")
+  # OR_AMR_PROFILES=("0_noorca" "1_tracers_disabled" "5_trace_all")
+  # profiles=("3_trace_mpip2p")
+  # profiles=("6_tau")
+  # OR_AMR_PROFILES=("0_noorca" "5_trace_all")
+  # OR_AMR_PROFILES=("2_tracendrop_mpi" "3_tracendrop_agg")
+  # OR_AMR_PROFILES=("0_noorca" "3_tracendrop_agg")
+  # OR_AMR_PROFILES=("0_noorca" "1_tracers_disabled" "4_tracendrop_agg_tgt"
+  #   "8_trace_tgt" "9_tau_default" "10_tau_nothrottle")
+  # OR_AMR_PROFILES=("0_noorca" "1_tracers_disabled" "3_tracendrop_agg" "7_trace_all")
+  # OR_AMR_PROFILES=("7_tau_default" "8_tau_nothrottle")
+  # OR_AMR_PROFILES=("3_tracendrop_agg")
+  # OR_AMR_PROFILES=("7_trace_all")
+  OR_AMR_PROFILES=("0_noorca" "1_tracers_disabled" "4_tracendrop_agg_tgt")
+
+  # Setup SUITEDIR. First, add YYYYMMDD to suite dir
+  # Then, force cleanup if some profiles already exist
+  # Finally, create the suite dir and write the description
+  OR_SUITEDIR=$(compute_suitedir_wdate)
+  local existcnt=$(get_existing_profile_count)
+  if [ $existcnt -gt 0 ]; then
+    message "-INFO- $existcnt profiles already exist in $OR_SUITEDIR"
+    safe_cleanup_suitedir $@ # overwrite suitedir if -f
+  fi
+  mkdir -p $OR_SUITEDIR
+  echo "$OR_SUITE_DESC" >$OR_SUITEDIR/desc.md
 
   # Pick up env vars from outer script
   source <(printf "%s" "$OR_ALL_ORCA_ENV_EXP")
   source <(printf "%s" "$OR_ALL_MPI_ENV_EXP")
 
-  for profile in "${profiles[@]}"; do
-    profile_name=${pidx}_${profile}
-    run_profile $profile_name
-    pidx=$((pidx + 1))
+  for profile in "${OR_AMR_PROFILES[@]}"; do
+    run_profile $profile
   done
 }
 
 # setup will fail if suite dir already exists unless -f is passed
-setup_suite_common $@
-main
+# setup_suite_common $@
+main $@

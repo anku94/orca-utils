@@ -16,6 +16,7 @@ def metrics_dashboard() -> dashboard.Dashboard:
         # .with_panel(MetricPanels.stat_panel())
         .with_panel(MetricPanels.rpc_counts_panel())
         .with_panel(MetricPanels.rpc_bytes_panel())
+        .with_panel(MetricPanels.parq_rate_panel())
         .with_panel(MetricPanels.rpcsz_panel())
         # .with_panel(MetricPanels.table_panel())
         .with_panel(MetricPanels.cpu_usage_panel())
@@ -27,6 +28,7 @@ def metrics_dashboard() -> dashboard.Dashboard:
         .with_panel(MetricPanels.bulk_qcnt_panel())
         .with_panel(MetricPanels.twopc_exec_datagrid_panel())
         .with_panel(MetricPanels.twopc_misc_panel())
+        .with_panel(MetricPanels.parq_qsz_panel())
     )
 
     return builder

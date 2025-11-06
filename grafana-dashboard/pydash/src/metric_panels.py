@@ -62,7 +62,7 @@ class MetricPanels:
             .datasource(Utils.fsql_ref())
             .unit("Bps")  # bytes per second
             .height(8)
-            .span(12)
+            .span(8)
             .tooltip(Utils.default_tooltip())
             .legend(Utils.default_legend())
             .transformations(all_xf)
@@ -99,7 +99,7 @@ class MetricPanels:
             .datasource(Utils.fsql_ref())
             .unit("mps")  # messages per second
             .height(8)
-            .span(12)
+            .span(8)
             .tooltip(Utils.default_tooltip())
             .legend(Utils.default_legend())
             .transformations(all_xf)
@@ -502,6 +502,79 @@ ORDER BY ovid, key;
             .with_target(cls.get_sql_target(query_text, "twopcMisc"))
             .height(8)
             .span(8)
+        )
+
+        return panel
+
+    @classmethod
+    def parq_rate_panel(cls) -> gfb_timeseries.Panel:
+        query_text = """
+        SELECT 
+          timestamp, 
+          ovid, 
+          metric_name, 
+          AVG(metric_val) OVER (
+            PARTITION BY ovid, metric_name
+            ORDER BY timestamp
+            RANGE BETWEEN INTERVAL '4s' PRECEDING AND CURRENT ROW
+          ) AS avg_metric_val
+        FROM orca_metrics
+        WHERE $__timeFilter(timestamp) AND metric_name = 'PARQ_RATE_BYTES'
+        """
+
+        all_xf = [
+            Utils.partition_by_cols_xf(["ovid", "metric_name"]),
+            Utils.rename_by_regex_xf(
+                'avg_metric_val {metric_name="(.*)", ovid="(.*)"}', "$2-$1"
+            ),
+        ]
+
+        panel = (
+            gfb_timeseries.Panel()
+            .title("Parquet IO Rate")
+            .datasource(Utils.fsql_ref())
+            .unit("Bps")
+            .with_target(cls.get_sql_target(query_text, "parqRate"))
+            .height(8)
+            .span(8)
+            .transformations(all_xf)
+        )
+
+        return panel
+
+    @classmethod
+    def parq_qsz_panel(cls) -> gfb_timeseries.Panel:
+        query_text = """
+        SELECT 
+          timestamp, 
+          ovid, 
+          metric_name, 
+          AVG(metric_val) OVER (
+            PARTITION BY ovid, metric_name
+            ORDER BY timestamp
+            RANGE BETWEEN INTERVAL '4s' PRECEDING AND CURRENT ROW
+          ) AS avg_metric_val
+        FROM orca_metrics
+        WHERE $__timeFilter(timestamp) AND metric_name LIKE 'PARQ_QSZ_%'
+        """
+
+        all_xf = [
+            Utils.partition_by_cols_xf(["ovid", "metric_name"]),
+            Utils.rename_by_regex_xf(
+                'avg_metric_val {metric_name="(.*)", ovid="(.*)"}', "$2-$1"
+            ),
+        ]
+
+        panel = (
+            gfb_timeseries.Panel()
+            .title("Parquet IO Queue Stats")
+            .datasource(Utils.fsql_ref())
+            .with_target(cls.get_sql_target(query_text, "parqQueueSize"))
+            .height(8)
+            .span(8)
+            .unit("bytes")
+            .transformations(all_xf)
+            .overrides([Utils.override_to_right(".*COUNT", "jobs")])
         )
 
         return panel

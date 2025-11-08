@@ -23,12 +23,11 @@ declare -A OR_AMR_PROFILES=(
   [2]="tracendrop_mpi"
   [3]="tracendrop_agg"
   [4]="tracendrop_agg_tgt"
-  [5]="trace_mpip2p"
-  [6]="trace_mpip2p_notest"
-  [7]="trace_all"
-  [8]="trace_tgt"
-  [9]="tau_default"
-  [10]="tau_nothrottle"
+  [5]="trace_mpisync"
+  [6]="trace_all"
+  [7]="trace_tgt"
+  [8]="tau_default"
+  [9]="tau_nothrottle"
 )
 
 # define outside:
@@ -105,6 +104,21 @@ safe_delete_dir() {
   rm -rf $dir_todel
 }
 
+# ensure_empty_dir: delete dir if not exists, then create it
+ensure_empty_dir() {
+  local path=$1
+
+  # if exists and is not a dir, die
+  [ -e "$path" ] && [ ! -d "$path" ] && die "Path is not a directory: $path"
+
+  if [ -d "$path" ]; then
+    message "-INFO- Path already exists, will clean up: $path"
+    safe_delete_dir $path
+  fi
+
+  mkdir -p $path
+}
+
 # cleanup_suitedir: cleanup the suite dir
 # - checks for -f flag to force overwrite of an existing suite dir
 # - do not set env vars here, as they will get reset,
@@ -177,10 +191,9 @@ setup_amr_common() {
   OR_CTL_BIN="$OR_PREFIX/scripts/orcawf_wrapper.sh ctl"
   OR_AGG_BIN="$OR_PREFIX/scripts/orcawf_wrapper.sh agg"
 
-  add_common_env_var FI_UNIVERSE_SIZE 64
-  # add_common_env_var MV2_CM_RECV_BUFFERS ${arg_recvbuf:-1024} # def is 1024
-  add_common_env_var MV2_ON_DEMAND_THRESHOLD 2048
-  # need on wolf
+  add_common_env_var FI_UNIVERSE_SIZE 64 # need on wolf
+  add_common_env_var MV2_CM_RECV_BUFFERS 2048
+  add_common_env_var MV2_ON_DEMAND_THRESHOLD 8192
 
   # setup_gen_amrdeck <policy_name> <nlim>
   # policies: baseline, cdpc512par8, hybridX, lpt
@@ -235,10 +248,7 @@ setup_profile_tracendrop_mpi() {
 
 # tracendrop: trace and drop at MPI
 setup_profile_tracendrop_agg() {
-  # local cmdseq="set-flow trace-and-drop-agg; disable-probe mpi_messages MPI_Test; disable-probe kokkos_events TaskRegion::CheckAndUpdate; resume"
   local cmdseq="set-flow trace-and-drop-agg"
-  # cmdseq="$cmdseq; disable-probe mpi_messages MPI_Test"
-  # cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
   cmdseq="$cmdseq; resume"
   set_new_yaml_with_cmdseq "$cmdseq"
   OR_RUN_TYPE="orca"
@@ -254,16 +264,8 @@ setup_profile_tracendrop_agg_tgt() {
   OR_RUN_TYPE="orca"
 }
 
-# trace_mpip2p: trace mpi p2p messages
-setup_profile_trace_mpip2p() {
-  local cmdseq="set-flow enable-tracers mpi_messages; resume"
-  set_new_yaml_with_cmdseq "$cmdseq"
-  OR_RUN_TYPE="orca"
-}
-
-# trace_mpip2p_notest: trace mpi p2p messages but disable MPI_Test probe
-setup_profile_trace_mpip2p_notest() {
-  local cmdseq="set-flow enable-tracers mpi_messags; disable-probe mpi_messages MPI_Test; resume"
+setup_profile_trace_mpisync() {
+  local cmdseq="set-flow enable-tracers mpi_collectives; resume"
   set_new_yaml_with_cmdseq "$cmdseq"
   OR_RUN_TYPE="orca"
 }
@@ -271,8 +273,6 @@ setup_profile_trace_mpip2p_notest() {
 # trace_all: trace all tracers
 setup_profile_trace_all() {
   local cmdseq="set-flow enable-tracers; resume"
-  # cmdseq="$cmdseq; disable-probe mpi_messages MPI_Test"
-  # cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
   set_new_yaml_with_cmdseq "$cmdseq"
   OR_RUN_TYPE="orca"
 }
@@ -362,6 +362,10 @@ get_profile_name_from_dir() {
 # main_new: main function to run profiles
 # - uses: $OR_PROFILES (comma-separated list of profile indices)
 main() {
+  # if OR_PROFILES is not set, set a default
+  local profiles_def="0,1,4,5,7,8"
+  OR_PROFILES=${OR_PROFILES:-$profiles_def}
+
   message "-INFO- Running profiles: $OR_PROFILES"
 
   IFS=',' read -r -a PROFILES_ARRAY <<<"$OR_PROFILES"
@@ -399,13 +403,9 @@ main() {
   message "-INFO- Starting to run profiles..."
   for pidx in "${PROFILES_ARRAY[@]}"; do
     message "-INFO- Running profile: ${OR_AMR_PROFILES[$pidx]}"
+
     local pdir=$(get_profile_dir $OR_SUITEDIR $pidx)
-    if [ -d $pdir ]; then
-      message "!!WARN!!  - Dir already exists, cleaning up: $pdir"
-      safe_delete_dir $pdir
-    else
-      message "-INFO-    - Profile dir does not exist, will create"
-    fi
+    ensure_empty_dir $pdir
     run_profile $pidx
   done
 }

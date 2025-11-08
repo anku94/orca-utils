@@ -120,7 +120,7 @@ setup_suite_export() {
 sweep_amr_nsteps() {
     local all_amr_nsteps=(20 200 2000)
     # all_amr_nsteps=(2000)
-    all_amr_nsteps=(20)
+    # all_amr_nsteps=(200)
 
     for amr_nsteps in "${all_amr_nsteps[@]}"; do
         OR_AMR_NSTEPS=$amr_nsteps

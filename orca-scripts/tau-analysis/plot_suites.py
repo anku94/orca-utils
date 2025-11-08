@@ -188,6 +188,32 @@ def plot_overhead_boxplot(suite_dir: str, probe_name: str, **kwargs) -> pn.pane.
     return pn.pane.Matplotlib(fig, **kwargs)
 
 
+def plot_data_volume(suite_name: str, **kwargs) -> pn.pane.Matplotlib:
+    suite_dir = get_suitedir(suite_name)
+    profile_dirs = get_suite_profiles(suite_dir)
+    sizes = [get_tracedir_size(p) for p in profile_dirs]
+    profiles = [os.path.basename(p) for p in profile_dirs]
+
+    ONE_MB = 2**20
+    ONE_GB = 2**30
+
+
+    fig, ax = plt.subplots(figsize=(8, 3))
+    ax.bar(profiles, sizes)
+    ax.yaxis.set_major_formatter(
+        mtick.FuncFormatter(lambda x, pos: f"{x/ONE_GB:.1f}GB"))
+    ax.tick_params(axis='x', rotation=15)
+    ax.yaxis.set_major_locator(mtick.MultipleLocator(ONE_GB * 10))
+    ax.yaxis.set_minor_locator(mtick.MultipleLocator(ONE_GB * 1))
+    ax.grid(which='major', color='#bbb')
+    ax.grid(which='minor', color='#ddd')
+    ax.set_axisbelow(True)
+    ax.set_title(f"Data Volume: {suite_name}")
+
+    plt.close(fig)
+    return pn.pane.Matplotlib(fig, **kwargs)
+
+
 def plot_suite(suite_names: list[str], plot_kwargs: dict) -> tuple[PlotList, PlotList]:
     suite_dirs = [f"{SUITE_ROOT}/{s}" for s in suite_names]
 
@@ -205,17 +231,7 @@ def plot_suite(suite_names: list[str], plot_kwargs: dict) -> tuple[PlotList, Plo
     return (all_rt_panes, all_bp_panes)
 
 
-def run():
-    plt.style.use('../larger_fonts.mplstyle')
-    pn.extension()
-
-    plot_kwargs = {
-        "dpi": 300,
-        "width": 450,
-        "format": 'svg',
-        "tight": True
-    }
-
+def run_add_512x1(plot_kwargs: dict):
     pn.panel("## 512 ranks, NAGGS=1, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
     all_names = [
         "20251105_amr-agg1-r512-n20-psmerrchk141",
@@ -226,6 +242,8 @@ def run():
     pn.Row(*all_rt_panes).servable()
     pn.Row(*all_bp_panes).servable()
 
+
+def run_add_512x4(plot_kwargs: dict):
     pn.panel("## 512 ranks, NAGGS=4, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
     all_names = [
         "20251106_amr-agg4-r512-n20-psmerrchk141",
@@ -235,6 +253,14 @@ def run():
     all_rt_panes, all_bp_panes = plot_suite(all_names, plot_kwargs)
     pn.Row(*all_rt_panes).servable()
     pn.Row(*all_bp_panes).servable()
+
+
+def run_add_512misc(plot_kwargs: dict):
+    all_names = [
+        "20251106_amr-agg4-r512-n20-psmerrchk141",
+        "20251106_amr-agg4-r512-n200-psmerrchk141",
+        "20251106_amr-agg4-r512-n2000-psmerrchk141"
+    ]
 
     pn.panel("## Misc Stats").servable()
     panes = []
@@ -250,8 +276,42 @@ def run():
     pane = plot_overhead_rankwise(profile_dir, probe_name, **plot_kwargs)
     panes.append(pane)
 
-
     pn.Row(*panes).servable()
+
+
+def run_add_1024x1(plot_kwargs: dict):
+    pn.panel("## 1024 ranks, NAGGS=1, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
+    all_names = [
+        "20251106_amr-agg1-r1024-n20-psmerrchk141",
+        "20251106_amr-agg1-r1024-n200-psmerrchk141",
+        "20251106_amr-agg1-r1024-n2000-psmerrchk141"
+    ]
+    all_rt_panes, all_bp_panes = plot_suite(all_names, plot_kwargs)
+    pn.Row(*all_rt_panes).servable()
+    pn.Row(*all_bp_panes).servable()
+
+    all_dvol_panes = []
+    for name in all_names:
+        pane = plot_data_volume(name, **plot_kwargs)
+        all_dvol_panes.append(pane)
+    pn.Row(*all_dvol_panes).servable()
+
+
+def run():
+    plt.style.use('../larger_fonts.mplstyle')
+    pn.extension()
+
+    plot_kwargs = {
+        "dpi": 300,
+        "width": 450,
+        "format": 'svg',
+        "tight": True
+    }
+
+    # run_add_512x1(plot_kwargs)
+    # run_add_512x4(plot_kwargs)
+    # run_add_512misc(plot_kwargs)
+    run_add_1024x1(plot_kwargs)
 
 
 if __name__ == "__main__":

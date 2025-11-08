@@ -118,14 +118,13 @@ setup_amr_common_add_env_vars() {
 setup_amr_common() {
   mkdir -p $OR_JOBDIR
 
-  OR_CTL_BIN=$OR_PREFIX/bin/controller_main
-  OR_AGG_BIN=$OR_PREFIX/bin/aggregator_main
+  OR_CTL_BIN="$OR_PREFIX/scripts/orcawf_wrapper.sh ctl"
+  OR_AGG_BIN="$OR_PREFIX/scripts/orcawf_wrapper.sh agg"
 
-  add_common_env_var FI_UNIVERSE_SIZE 64  # need on wolf
-  add_orca_env_var IPATH_NO_CPUAFFINITY 1 # unpin AGGs
-
-  # Bind AGG to specific CPU/MEM
-  OR_AGG_BIN="numactl --physcpubind=0-7 --membind=0 $OR_AGG_BIN"
+  add_common_env_var FI_UNIVERSE_SIZE 64
+  # add_common_env_var MV2_CM_RECV_BUFFERS ${arg_recvbuf:-1024} # def is 1024
+  add_common_env_var MV2_ON_DEMAND_THRESHOLD 2048
+  # need on wolf
 
   # setup_gen_amrdeck <policy_name> <nlim>
   # policies: baseline, cdpc512par8, hybridX, lpt
@@ -135,7 +134,6 @@ setup_amr_common() {
   OR_CFG_YAML="$OR_PREFIX/config/wfopts.yml" # ORCA config YAML
   OR_ORCA_ENABLED=1                          # enable ORCA by default
 
-  # add_common_env_var PSM_ERRCHK_TIMEOUT "1:4:1"
   # add all common env vars
   setup_amr_common_add_env_vars
 }
@@ -295,8 +293,11 @@ main() {
   # OR_AMR_PROFILES=("0_noorca" "1_tracers_disabled" "3_tracendrop_agg" "7_trace_all")
   # OR_AMR_PROFILES=("7_tau_default" "8_tau_nothrottle")
   # OR_AMR_PROFILES=("3_tracendrop_agg")
+  # OR_AMR_PROFILES=("4_tracendrop_agg_tgt")
   # OR_AMR_PROFILES=("7_trace_all")
-  OR_AMR_PROFILES=("0_noorca" "1_tracers_disabled" "4_tracendrop_agg_tgt")
+  # OR_AMR_PROFILES=("0_noorca" "1_tracers_disabled" "4_tracendrop_agg_tgt")
+  # OR_AMR_PROFILES=("8_trace_tgt")
+  OR_AMR_PROFILES=("0_noorca")
 
   # Setup SUITEDIR. First, add YYYYMMDD to suite dir
   # Then, force cleanup if some profiles already exist
@@ -322,3 +323,5 @@ main() {
 # setup will fail if suite dir already exists unless -f is passed
 # setup_suite_common $@
 main $@
+
+#configure_affinity

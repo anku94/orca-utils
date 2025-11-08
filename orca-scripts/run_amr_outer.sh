@@ -49,7 +49,7 @@ on different ORCA modes.
 #       OR_ALL_ORCA_ENV_VARS, OR_ALL_MPI_ENV_VARS
 # uses: OR_AMR_NSTEPS
 setup_nsteps_psm141_suite() {
-    local suite_type="psmerrchk141"
+    local suite_type="psmerrchk141-tmp"
     OR_SUITEDIR="$OR_SUITEDIR-${suite_type}"
 
     OR_SUITE_DESC="
@@ -119,7 +119,8 @@ setup_suite_export() {
 
 sweep_amr_nsteps() {
     local all_amr_nsteps=(20 200 2000)
-    all_amr_nsteps=(200)
+    all_amr_nsteps=(2000)
+    # all_amr_nsteps=(20 200)
 
     for amr_nsteps in "${all_amr_nsteps[@]}"; do
         OR_AMR_NSTEPS=$amr_nsteps

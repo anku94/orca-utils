@@ -17,6 +17,20 @@ source $OR_PREFIX/scripts/orca_common.sh
 # e.g. `check_hosts.py -o /tmp/hostfile.txt -e mon8`
 HOSTFILE=/tmp/hostfile.txt
 
+declare -A OR_AMR_PROFILES=(
+  [0]="noorca"
+  [1]="tracers_disabled"
+  [2]="tracendrop_mpi"
+  [3]="tracendrop_agg"
+  [4]="tracendrop_agg_tgt"
+  [5]="trace_mpip2p"
+  [6]="trace_mpip2p_notest"
+  [7]="trace_all"
+  [8]="trace_tgt"
+  [9]="tau_default"
+  [10]="tau_nothrottle"
+)
+
 # define outside:
 # OR_SUITEDIR: where to create per-run dirs
 # OR_SUITE_DESC: description of the suite
@@ -35,6 +49,27 @@ compute_suitedir_wdate() {
   echo $suitedir
 }
 
+# add_date_to_suitedir: add YYYYMMDD prefix to suite dir if not there
+# - uses: $OR_SUITEDIR, sets: $OR_SUITEDIR
+# - safe to call multiple times
+add_date_to_suitedir() {
+  # if OR_SUITEDIR is not set, compute it
+  if [ -z "${OR_SUITEDIR:-}" ]; then
+    OR_SUITEDIR=$(compute_suitedir_wdate)
+    message "-INFO- Computed suite dir: $OR_SUITEDIR"
+  fi
+
+  local suite_dirname=$(basename $OR_SUITEDIR)
+  # check if YYYYMMDD prefix is present
+  if [[ $suite_dirname =~ ^[0-9]{8}_ ]]; then
+    message "-INFO- Suite dir is already dated, doing nothing"
+  else
+    local new_suitedir=$(compute_suitedir_wdate)
+    OR_SUITEDIR=$new_suitedir
+    message "-INFO- Added YYYYMMDD prefix to suite dir: $OR_SUITEDIR"
+  fi
+}
+
 # get_existing_profile_count: count the profiles that already exist
 # - returns: number of profiles that already exist
 # - uses: $OR_AMR_PROFILES, $OR_SUITEDIR
@@ -47,6 +82,27 @@ get_existing_profile_count() {
   done
 
   echo $count
+}
+
+# safe_delete_dir: delete a directory if it exists
+# will only delete directories that are subdirs of OR_SUITEDIR
+safe_delete_dir() {
+  local dir_todel=$1
+
+  # first, ensure OR_SUITEDIR is set and is a valid path
+  [ -z "$OR_SUITEDIR" ] && die "OR_SUITEDIR is not set"
+  [ ! -d "$OR_SUITEDIR" ] && die "OR_SUITEDIR is not a valid directory: $OR_SUITEDIR"
+
+  # Ensure that dir_todel is a subdir of OR_SUITEDIR
+  if [[ $dir_todel != $OR_SUITEDIR/* ]]; then
+    die "Directory to delete is not a subdir of OR_SUITEDIR: $dir_todel"
+  fi
+
+  # if dir_todel does not exist or is not a directory, die
+  [ ! -d "$dir_todel" ] && die "Directory to delete does not exist: $dir_todel"
+
+  # delete the directory
+  rm -rf $dir_todel
 }
 
 # cleanup_suitedir: cleanup the suite dir
@@ -247,10 +303,11 @@ setup_profile_tau_nothrottle() {
   OR_MPI_BIN="tau_exec $OR_MPI_BIN"
 }
 
-# setup_profile: run ``
+# setup_profile: call profile-specific setup function
+# - args: $1: profile index
 setup_profile() {
-  local profile=$1
-  local profile_name=${profile#[0-9]*_} # strip leading digits and underscore
+  local -i pidx=$1
+  local profile_name=${OR_AMR_PROFILES[$pidx]}
   local setup_func="setup_profile_$profile_name"
 
   if declare -f "$setup_func" >/dev/null; then
@@ -262,52 +319,56 @@ setup_profile() {
 }
 
 # run: computes some variables and runs the experiment
+# - args: $1: profile index
 # - uses: $OR_AGGCNT, $OR_MPI_NRANKS, $OR_MPI_NNODES
 # - sets vars: OR_ORCA_NNODES, OR_MPI_PPN
 run_profile() {
-  local profile=$1
+  local -i pidx=$1
+  local profile_name=${OR_AMR_PROFILES[$pidx]}
+  local profile_dir=$(get_profile_dir $OR_SUITEDIR $pidx)
 
   # Auto-computed variables
   OR_ORCA_NNODES=$((OR_AGGCNT + 1)) # Add +1 for CTL
-  OR_JOBDIR=$OR_SUITEDIR/$profile
+  OR_JOBDIR=$profile_dir
 
-  setup_amr_common       # common setup
-  setup_profile $profile # profile-specific setup/overrides
+  setup_amr_common    # common setup
+  setup_profile $pidx # profile-specific setup/overrides
   run_main
   reset_all_env_vars # reset everything for next run
 }
 
-# main: main function to run hardcoded profiles
-main() {
-  OR_AMR_PROFILES=("0_noorca" "1_tracers_disabled" "2_tracendrop_mpi"
-    "3_tracendrop_agg" "4_tracendrop_agg_tgt" "5_trace_mpip2p" "6_trace_mpip2p_notest" "7_trace_all"
-    "8_trace_tgt" "9_tau_default" "10_tau_nothrottle")
-  # OR_AMR_PROFILES=("0_noorca" "1_tracers_disabled" "5_trace_all")
-  # profiles=("3_trace_mpip2p")
-  # profiles=("6_tau")
-  # OR_AMR_PROFILES=("0_noorca" "5_trace_all")
-  # OR_AMR_PROFILES=("2_tracendrop_mpi" "3_tracendrop_agg")
-  # OR_AMR_PROFILES=("0_noorca" "3_tracendrop_agg")
-  # OR_AMR_PROFILES=("0_noorca" "1_tracers_disabled" "4_tracendrop_agg_tgt"
-  #   "8_trace_tgt" "9_tau_default" "10_tau_nothrottle")
-  # OR_AMR_PROFILES=("0_noorca" "1_tracers_disabled" "3_tracendrop_agg" "7_trace_all")
-  # OR_AMR_PROFILES=("7_tau_default" "8_tau_nothrottle")
-  # OR_AMR_PROFILES=("3_tracendrop_agg")
-  # OR_AMR_PROFILES=("4_tracendrop_agg_tgt")
-  # OR_AMR_PROFILES=("7_trace_all")
-  # OR_AMR_PROFILES=("0_noorca" "1_tracers_disabled" "4_tracendrop_agg_tgt")
-  # OR_AMR_PROFILES=("8_trace_tgt")
-  OR_AMR_PROFILES=("0_noorca")
+# get_profile_dir: get the profile dir from a numeric profile index
+# - args: $1: suitedir, $2: profile index
+# - echoes: profile dir (like 20251108_$OR_SUITEDIR/02_tracendrop_agg)
+get_profile_dir() {
+  local suitedir=$1
+  local -i pidx=$2 # profile index
+  local profile_name=${OR_AMR_PROFILES[$pidx]}
+  local pnamewidx=$(printf "%02d_%s" $pidx $profile_name)
+  local profile_dir=$suitedir/$pnamewidx
+  echo $profile_dir
+}
 
-  # Setup SUITEDIR. First, add YYYYMMDD to suite dir
-  # Then, force cleanup if some profiles already exist
-  # Finally, create the suite dir and write the description
-  OR_SUITEDIR=$(compute_suitedir_wdate)
-  local existcnt=$(get_existing_profile_count)
-  if [ $existcnt -gt 0 ]; then
-    message "-INFO- $existcnt profiles already exist in $OR_SUITEDIR"
-    safe_cleanup_suitedir $@ # overwrite suitedir if -f
-  fi
+# get_profile_name_from_dir: get the profile name from a profile dir
+# - echoes: profile name (like tracendrop_agg)
+get_profile_name_from_dir() {
+  local profile_dir=$1
+  local profile_name=$(basename $profile_dir)
+  # strip leading digits and underscore
+  profile_name=${profile_name#[0-9]*_}
+  echo $profile_name
+}
+
+# main_new: main function to run profiles
+# - uses: $OR_PROFILES (comma-separated list of profile indices)
+main() {
+  message "-INFO- Running profiles: $OR_PROFILES"
+
+  IFS=',' read -r -a PROFILES_ARRAY <<<"$OR_PROFILES"
+
+  # Setup SUITEDIR. Add date, mkdir, write desc
+  add_date_to_suitedir
+  message "-INFO- Suite dir: $OR_SUITEDIR"
   mkdir -p $OR_SUITEDIR
   echo "$OR_SUITE_DESC" >$OR_SUITEDIR/desc.md
 
@@ -315,13 +376,38 @@ main() {
   source <(printf "%s" "$OR_ALL_ORCA_ENV_EXP")
   source <(printf "%s" "$OR_ALL_MPI_ENV_EXP")
 
-  for profile in "${OR_AMR_PROFILES[@]}"; do
-    run_profile $profile
+  for pidx in "${PROFILES_ARRAY[@]}"; do
+    local pdir=$(get_profile_dir $OR_SUITEDIR $pidx)
+    local pname=$(get_profile_name_from_dir $pdir)
+    local pname_aligned=$(printf "%20s" $pname)
+    message "-INFO- Profile [$pidx]: $pname_aligned    ($pdir)"
+
+    # check if profile dir already exists
+    if [ -d $pdir ]; then
+      message "!!WARN!!  - Profile dir already exists, will clean up"
+    else
+      message "-INFO-    - Profile dir does not exist, will create"
+    fi
+  done
+
+  # Announce plan, wait for user to confirm/abort
+  (
+    message "-INFO- Press Enter or Ctrl+C to abort..."
+    read -r
+  )
+
+  message "-INFO- Starting to run profiles..."
+  for pidx in "${PROFILES_ARRAY[@]}"; do
+    message "-INFO- Running profile: ${OR_AMR_PROFILES[$pidx]}"
+    local pdir=$(get_profile_dir $OR_SUITEDIR $pidx)
+    if [ -d $pdir ]; then
+      message "!!WARN!!  - Dir already exists, cleaning up: $pdir"
+      safe_delete_dir $pdir
+    else
+      message "-INFO-    - Profile dir does not exist, will create"
+    fi
+    run_profile $pidx
   done
 }
 
-# setup will fail if suite dir already exists unless -f is passed
-# setup_suite_common $@
-main $@
-
-#configure_affinity
+main

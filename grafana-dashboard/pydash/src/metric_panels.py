@@ -555,7 +555,11 @@ ORDER BY ovid, key;
             RANGE BETWEEN INTERVAL '4s' PRECEDING AND CURRENT ROW
           ) AS avg_metric_val
         FROM orca_metrics
-        WHERE $__timeFilter(timestamp) AND metric_name LIKE 'PARQ_QSZ_%'
+        WHERE $__timeFilter(timestamp) 
+        AND (
+          metric_name = 'SINK_QSZ_COUNT'
+          OR metric_name = 'SINK_QSZ_BYTES'
+        )
         """
 
         all_xf = [
@@ -567,7 +571,7 @@ ORDER BY ovid, key;
 
         panel = (
             gfb_timeseries.Panel()
-            .title("Parquet IO Queue Stats")
+            .title("Sink Queue Stats")
             .datasource(Utils.fsql_ref())
             .with_target(cls.get_sql_target(query_text, "parqQueueSize"))
             .height(8)
@@ -575,6 +579,46 @@ ORDER BY ovid, key;
             .unit("bytes")
             .transformations(all_xf)
             .overrides([Utils.override_to_right(".*COUNT", "jobs")])
+        )
+
+        return panel
+
+    @classmethod
+    def bufpool_panel(cls) -> gfb_timeseries.Panel:
+        query_text = """
+        SELECT 
+          timestamp, 
+          ovid, 
+          metric_name, 
+          AVG(metric_val) OVER (
+            PARTITION BY ovid, metric_name
+            ORDER BY timestamp
+            RANGE BETWEEN INTERVAL '1s' PRECEDING AND CURRENT ROW
+          ) AS avg_metric_val
+        FROM orca_metrics
+        WHERE $__timeFilter(timestamp) 
+        AND METRIC_NAME LIKE 'BUFPOOL_%'
+        """
+
+        all_xf = [
+            Utils.partition_by_cols_xf(["ovid", "metric_name"]),
+            Utils.rename_by_regex_xf(
+                'avg_metric_val {metric_name="(.*)", ovid="(.*)"}', "$2-$1"
+            ),
+        ]
+
+        panel = (
+            gfb_timeseries.Panel()
+            .title("Bufpool Stats")
+            .datasource(Utils.fsql_ref())
+            .with_target(cls.get_sql_target(query_text, "bufpool"))
+            .height(8)
+            .span(8)
+            .min(0)
+            .unit("bytes")
+            .tooltip(Utils.default_tooltip())
+            .legend(Utils.default_legend())
+            .transformations(all_xf)
         )
 
         return panel

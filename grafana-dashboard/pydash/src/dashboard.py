@@ -17,6 +17,7 @@ def metrics_dashboard() -> dashboard.Dashboard:
         .with_panel(MetricPanels.rpc_counts_panel())
         .with_panel(MetricPanels.rpc_bytes_panel())
         .with_panel(MetricPanels.parq_rate_panel())
+        .with_panel(MetricPanels.bufpool_panel())
         .with_panel(MetricPanels.rpcsz_panel())
         # .with_panel(MetricPanels.table_panel())
         .with_panel(MetricPanels.cpu_usage_panel())

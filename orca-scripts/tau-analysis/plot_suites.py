@@ -8,14 +8,35 @@ import numpy as np
 import polars as pl
 
 from suite_utils import *
+from common import PlotSaver
 
 PlotList = list[pn.pane.Matplotlib]
+
+# set to True to write plot files
+WRITE_FILES = False
+
+
+def save_and_cls(fig: plt.Figure, fname: str):
+    "Save figure if WRITE_FILES is True and close it"
+    global WRITE_FILES
+
+    fig.tight_layout()
+    if WRITE_FILES:
+        PlotSaver.save(fig, fname)
+
+    plt.close(fig)
 
 
 def plot_suitedir(suite_dir: str, **kwargs) -> pn.pane.Matplotlib:
     rdf = get_suite_amr_runtimes(suite_dir)
 
-    fig, ax = plt.subplots(figsize=(9, 5))
+    # check if figsize is there in kwargs
+    if "figsize" in kwargs:
+        figsize = kwargs.pop("figsize")
+    else:
+        figsize = (9, 5)
+
+    fig, ax = plt.subplots(figsize=figsize)
     data_x = np.arange(len(rdf["profile"]))
     data_y = rdf["time_secs"]
     data_ybase = len(rdf["profile"]) * [data_y.iloc[0]]
@@ -24,21 +45,19 @@ def plot_suitedir(suite_dir: str, **kwargs) -> pn.pane.Matplotlib:
     ax.bar(data_x, data_ybase, width=0.6)
     bars = ax.bar(data_x, data_yxtra, width=0.6, bottom=data_ybase)
 
-    labels = [
-        f"{b+x:.1f}s\n({x/b*100:.1f}%)" for x, b in zip(data_yxtra, data_ybase)
-    ]
+    labels = [f"{b+x:.1f}s\n({x/b*100:.1f}%)" for x, b in zip(data_yxtra, data_ybase)]
     print(labels)
     ax.bar_label(bars, labels)
 
     suite_name = os.path.basename(suite_dir)
 
-    ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.1f'))
+    ax.yaxis.set_major_formatter(mtick.FormatStrFormatter("%.1f"))
     ax.set_ylabel("Runtime (seconds)")
     ax.set_xlabel("Profile")
     ax.set_title(f"Runtime of {suite_name}")
 
-    ax.grid(which='major', color='#bbb')
-    ax.grid(which='minor', color='#ddd')
+    ax.grid(which="major", color="#bbb")
+    ax.grid(which="minor", color="#ddd")
     ax.set_axisbelow(True)
 
     ax.yaxis.set_major_locator(mtick.AutoLocator())
@@ -47,10 +66,7 @@ def plot_suitedir(suite_dir: str, **kwargs) -> pn.pane.Matplotlib:
     # rotae x-axis labels 45 degrees
     ax.set_xticks(data_x)
     ax.set_xticklabels(rdf["profile"], rotation=25)
-
-    # ax.set_ylim(0, 220)
-    # bump ylim by 10%
-    ax.set_ylim(bottom=0, top=ax.get_ylim()[1] * 1.1)
+    ax.set_ylim(bottom=0, top=ax.get_ylim()[1] * 1.3)
 
     fig.tight_layout()
     plt.close(fig)
@@ -81,13 +97,16 @@ def read_orca_overhead(profile_path: str, probe_name: str) -> pl.DataFrame:
 
 
 @pn.cache
-def read_suite_profiles(suite_dir: str, probe_name: str) -> tuple[list[str], list[list[int]]]:
+def read_suite_profiles(
+    suite_dir: str, probe_name: str
+) -> tuple[list[str], list[list[int]]]:
     profile_paths = get_suite_profiles(suite_dir)
 
     # create an empty dataframe with columns for each profile
     profile_names = [os.path.basename(p) for p in profile_paths]
-    profile_times = [read_orca_overhead(
-        p, probe_name)["time_ms"].to_list() for p in profile_paths]
+    profile_times = [
+        read_orca_overhead(p, probe_name)["time_ms"].to_list() for p in profile_paths
+    ]
 
     return (profile_names, profile_times)
 
@@ -119,6 +138,12 @@ def plot_probe_freqs(profile_dir: str, probe_name: str, **kwargs) -> pn.pane.Mat
     labels = counts["probe_name"].to_list()
     labels = [l[-14:] for l in labels]
 
+    # check if figsize is there in kwargs
+    if "figsize" in kwargs:
+        figsize = kwargs.pop("figsize")
+    else:
+        figsize = (8, 5)
+
     # plot counts as a pie chart
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.pie(counts["len"], labels=labels, startangle=30)
@@ -130,7 +155,9 @@ def plot_probe_freqs(profile_dir: str, probe_name: str, **kwargs) -> pn.pane.Mat
     return pn.pane.Matplotlib(fig, **kwargs)
 
 
-def plot_overhead_rankwise(profile_dir: str, probe_name: str, **kwargs) -> pn.pane.Matplotlib:
+def plot_overhead_rankwise(
+    profile_dir: str, probe_name: str, **kwargs
+) -> pn.pane.Matplotlib:
     "Plot rank-wise probe-name overhead for a single profile_dir"
 
     profile_name = os.path.basename(profile_dir)
@@ -139,28 +166,41 @@ def plot_overhead_rankwise(profile_dir: str, probe_name: str, **kwargs) -> pn.pa
     times = read_orca_overhead(profile_dir, probe_name)
     times = times.sort("rank")
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    # check if figsize is there in kwargs
+    if "figsize" in kwargs:
+        figsize = kwargs.pop("figsize")
+    else:
+        figsize = (8, 5)
+
+    fig, ax = plt.subplots(figsize=figsize)
     ax.plot(times["rank"], times["time_ms"])
     ax.set_ylabel("Time (s)")
     ax.set_xlabel("Rank")
     ax.set_title(f"{probe_name}: {profile_name}\n{suite_name}")
-    ax.grid(which='major', color='#bbb')
-    ax.grid(which='minor', color='#ddd')
+    ax.grid(which="major", color="#bbb")
+    ax.grid(which="minor", color="#ddd")
     ax.set_axisbelow(True)
     ax.xaxis.set_major_locator(mtick.MultipleLocator(64))
     ax.xaxis.set_minor_locator(mtick.MultipleLocator(16))
-    ax.yaxis.set_major_formatter(
-        mtick.FuncFormatter(lambda x, pos: f"{x/1e3:.0f}s"))
+    ax.yaxis.set_major_formatter(mtick.FuncFormatter(lambda x, pos: f"{x/1e3:.0f}s"))
 
     plt.close(fig)
     return pn.pane.Matplotlib(fig, **kwargs)
 
 
-def plot_overhead_boxplot(suite_dir: str, probe_name: str, **kwargs) -> pn.pane.Matplotlib:
+def plot_overhead_boxplot(
+    suite_dir: str, probe_name: str, **kwargs
+) -> pn.pane.Matplotlib:
     suite_name = os.path.basename(suite_dir)
     profile_names, profile_times = read_suite_profiles(suite_dir, probe_name)
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    # check if figsize is there in kwargs
+    if "figsize" in kwargs:
+        figsize = kwargs.pop("figsize")
+    else:
+        figsize = (8, 5)
+
+    fig, ax = plt.subplots(figsize=figsize)
     data_x = np.arange(len(profile_names))
     data_y = profile_times
 
@@ -168,15 +208,14 @@ def plot_overhead_boxplot(suite_dir: str, probe_name: str, **kwargs) -> pn.pane.
     ax.set_ylabel("Time (s)")
     ax.set_xlabel("Profile")
     ax.set_title(f"{probe_name}: {suite_name}")
-    ax.tick_params(axis='x', rotation=25)
+    ax.tick_params(axis="x", rotation=25)
 
-    ax.yaxis.set_major_formatter(
-        mtick.FuncFormatter(lambda x, pos: f"{x/1e3:.1f}s"))
+    ax.yaxis.set_major_formatter(mtick.FuncFormatter(lambda x, pos: f"{x/1e3:.1f}s"))
 
     # ax.set_ylim(bottom=0, top=2000)
     ax.set_ylim(bottom=0, top=ax.get_ylim()[1] * 1.1)
-    ax.grid(which='major', color='#bbb')
-    ax.yaxis.grid(which='minor', color='#ddd')
+    ax.grid(which="major", color="#bbb")
+    ax.yaxis.grid(which="minor", color="#ddd")
     ax.set_axisbelow(True)
 
     ax.yaxis.set_major_locator(mtick.AutoLocator())
@@ -196,21 +235,40 @@ def plot_data_volume(suite_name: str, **kwargs) -> pn.pane.Matplotlib:
 
     ONE_MB = 2**20
     ONE_GB = 2**30
+    majfmt = ONE_GB
+    # if max(sizes) > majfmt:
+    #     majfmt = majfmt * 10
+    while max(sizes) > majfmt * 10:
+        majfmt = majfmt * 10
 
+    # check if figsize is there in kwargs
+    if "figsize" in kwargs:
+        figsize = kwargs.pop("figsize")
+    else:
+        figsize = (7, 4)
 
-    fig, ax = plt.subplots(figsize=(8, 3))
-    ax.bar(profiles, sizes)
+    fig, ax = plt.subplots(figsize=figsize)
+    plt_bars = ax.bar(profiles, sizes)
+
+    labels = [pretty_size(s) for s in sizes]
+    ax.bar_label(plt_bars, labels)
+
     ax.yaxis.set_major_formatter(
-        mtick.FuncFormatter(lambda x, pos: f"{x/ONE_GB:.1f}GB"))
-    ax.tick_params(axis='x', rotation=15)
-    ax.yaxis.set_major_locator(mtick.MultipleLocator(ONE_GB * 10))
-    ax.yaxis.set_minor_locator(mtick.MultipleLocator(ONE_GB * 1))
-    ax.grid(which='major', color='#bbb')
-    ax.grid(which='minor', color='#ddd')
+        mtick.FuncFormatter(lambda x, pos: f"{x/ONE_GB:.1f}GB")
+    )
+    ax.tick_params(axis="x", rotation=15)
+    ax.yaxis.set_major_locator(mtick.MultipleLocator(majfmt))
+    ax.yaxis.set_minor_locator(mtick.MultipleLocator(majfmt / 10))
+    ax.grid(which="major", color="#bbb")
+    ax.grid(which="minor", color="#ddd")
     ax.set_axisbelow(True)
+
+    # set an extra margin on the top
+    ax.set_ylim(bottom=0, top=ax.get_ylim()[1] * 1.2)
     ax.set_title(f"Data Volume: {suite_name}")
 
-    plt.close(fig)
+    plot_fname = f"{suite_name}_data_volume"
+    save_and_cls(fig, plot_fname)
     return pn.pane.Matplotlib(fig, **kwargs)
 
 
@@ -224,8 +282,7 @@ def plot_suite(suite_names: list[str], plot_kwargs: dict) -> tuple[PlotList, Plo
 
     all_bp_panes = []
     for sdir in suite_dirs:
-        plot_pane = plot_overhead_boxplot(
-            sdir, "PostTimestepAdvance", **plot_kwargs)
+        plot_pane = plot_overhead_boxplot(sdir, "PostTimestepAdvance", **plot_kwargs)
         all_bp_panes.append(plot_pane)
 
     return (all_rt_panes, all_bp_panes)
@@ -236,11 +293,17 @@ def run_add_512x1(plot_kwargs: dict):
     all_names = [
         "20251105_amr-agg1-r512-n20-psmerrchk141",
         "20251105_amr-agg1-r512-n200-psmerrchk141",
-        "20251106_amr-agg1-r512-n2000-psmerrchk141"
+        "20251106_amr-agg1-r512-n2000-psmerrchk141",
     ]
     all_rt_panes, all_bp_panes = plot_suite(all_names, plot_kwargs)
     pn.Row(*all_rt_panes).servable()
     pn.Row(*all_bp_panes).servable()
+
+    # all_dvol_panes = []
+    # for name in all_names:
+    #     pane = plot_data_volume(name, **plot_kwargs)
+    #     all_dvol_panes.append(pane)
+    # pn.Row(*all_dvol_panes).servable()
 
 
 def run_add_512x4(plot_kwargs: dict):
@@ -248,7 +311,7 @@ def run_add_512x4(plot_kwargs: dict):
     all_names = [
         "20251106_amr-agg4-r512-n20-psmerrchk141",
         "20251106_amr-agg4-r512-n200-psmerrchk141",
-        "20251106_amr-agg4-r512-n2000-psmerrchk141"
+        "20251106_amr-agg4-r512-n2000-psmerrchk141",
     ]
     all_rt_panes, all_bp_panes = plot_suite(all_names, plot_kwargs)
     pn.Row(*all_rt_panes).servable()
@@ -259,7 +322,7 @@ def run_add_512misc(plot_kwargs: dict):
     all_names = [
         "20251106_amr-agg4-r512-n20-psmerrchk141",
         "20251106_amr-agg4-r512-n200-psmerrchk141",
-        "20251106_amr-agg4-r512-n2000-psmerrchk141"
+        "20251106_amr-agg4-r512-n2000-psmerrchk141",
     ]
 
     pn.panel("## Misc Stats").servable()
@@ -282,9 +345,27 @@ def run_add_512misc(plot_kwargs: dict):
 def run_add_1024x1(plot_kwargs: dict):
     pn.panel("## 1024 ranks, NAGGS=1, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
     all_names = [
-        "20251106_amr-agg1-r1024-n20-psmerrchk141",
-        "20251106_amr-agg1-r1024-n200-psmerrchk141",
-        "20251106_amr-agg1-r1024-n2000-psmerrchk141"
+        "20251108_amr-agg1-r1024-n20-psmerrchk141",
+        "20251108_amr-agg1-r1024-n200-psmerrchk141",
+        "20251108_amr-agg1-r1024-n2000-psmerrchk141",
+    ]
+    all_rt_panes, all_bp_panes = plot_suite(all_names, plot_kwargs)
+    pn.Row(*all_rt_panes).servable()
+    pn.Row(*all_bp_panes).servable()
+
+    all_dvol_panes = []
+    for name in all_names:
+        pane = plot_data_volume(name, **plot_kwargs)
+        all_dvol_panes.append(pane)
+    pn.Row(*all_dvol_panes).servable()
+
+
+def run_add_2048x1(plot_kwargs: dict):
+    pn.panel("## 2048 ranks, NAGGS=1, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
+    all_names = [
+        "20251109_amr-agg1-r2048-n20-psmerrchk141",
+        "20251109_amr-agg1-r2048-n200-psmerrchk141",
+        "20251109_amr-agg1-r2048-n2000-psmerrchk141",
     ]
     all_rt_panes, all_bp_panes = plot_suite(all_names, plot_kwargs)
     pn.Row(*all_rt_panes).servable()
@@ -298,20 +379,23 @@ def run_add_1024x1(plot_kwargs: dict):
 
 
 def run():
-    plt.style.use('../larger_fonts.mplstyle')
+    plt.style.use("../larger_fonts.mplstyle")
     pn.extension()
 
     plot_kwargs = {
         "dpi": 300,
         "width": 450,
-        "format": 'svg',
-        "tight": True
+        # "height": 300,
+        "figsize": (7, 4),
+        "format": "svg",
+        "tight": True,
     }
 
-    # run_add_512x1(plot_kwargs)
+    run_add_512x1(plot_kwargs)
     # run_add_512x4(plot_kwargs)
     # run_add_512misc(plot_kwargs)
     run_add_1024x1(plot_kwargs)
+    run_add_2048x1(plot_kwargs)
 
 
 if __name__ == "__main__":

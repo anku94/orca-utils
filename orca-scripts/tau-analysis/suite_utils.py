@@ -5,6 +5,7 @@ import re
 import os
 import duckdb
 import polars as pl
+from datetime import datetime
 
 
 SUITE_ROOT = "/mnt/ltio/orcajobs/suites"
@@ -21,6 +22,7 @@ def get_suitedir(suite_name: str) -> str:
 
 def get_suite_profiles(suite_dir: str) -> list[str]:
     """Get the profiles in the suite directory, sorted by PID"""
+
     subdirs = glob.glob(f"{suite_dir}/*")
     subdirs = [d for d in subdirs if os.path.isdir(d)]
 
@@ -99,6 +101,7 @@ def get_runtime(profile_dir: str) -> float:
 
 def get_suite_amr_runtimes(suite_dir: str) -> pd.DataFrame:
     print(f"Getting AMR runtimes for suite {suite_dir}")
+
     profiles = get_suite_profiles(suite_dir)
     profile_names = [os.path.basename(p) for p in profiles]
 
@@ -122,6 +125,7 @@ def compute_probe_freqs(profile_dir: str, tracer: str):
 
 def read_duckdb(duckdb_path: str) -> pd.DataFrame:
     print(f"Reading DuckDB for suite {duckdb_path}")
+
     db = duckdb.connect(duckdb_path)
 
     query = "SHOW TABLES"
@@ -133,6 +137,17 @@ def read_duckdb(duckdb_path: str) -> pd.DataFrame:
     print(df)
 
     return df
+
+def pretty_size(size: int) -> str:
+    "Pretty print size in GB"
+
+    all_units = ["B", "KB", "MB", "GB", "TB"]
+    for unit in all_units:
+        if size < 1024:
+            return f"{size:.1f} {unit}"
+        size /= 1024
+
+    return f"{size:.1f} TB"
 
 
 if __name__ == "__main__":

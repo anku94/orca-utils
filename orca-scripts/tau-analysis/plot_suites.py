@@ -27,6 +27,7 @@ def save_and_cls(fig: plt.Figure, fname: str):
     plt.close(fig)
 
 
+@log_time
 def plot_suitedir(suite_dir: str, **kwargs) -> pn.pane.Matplotlib:
     rdf = get_suite_amr_runtimes(suite_dir)
 
@@ -68,8 +69,7 @@ def plot_suitedir(suite_dir: str, **kwargs) -> pn.pane.Matplotlib:
     ax.set_xticklabels(rdf["profile"], rotation=25)
     ax.set_ylim(bottom=0, top=ax.get_ylim()[1] * 1.3)
 
-    fig.tight_layout()
-    plt.close(fig)
+    save_and_cls(fig, f"{suite_name}_runtime")
 
     return pn.pane.Matplotlib(fig, **kwargs)
     # return pn.pane.Matplotlib(fig, dpi=300, width=800, format='svg', tight=True)
@@ -151,7 +151,7 @@ def plot_probe_freqs(profile_dir: str, probe_name: str, **kwargs) -> pn.pane.Mat
     profile_name = os.path.basename(profile_dir)
     suite_name = os.path.basename(os.path.dirname(profile_dir))
     ax.set_title(f"{probe_name}: {profile_name}\n{suite_name}")
-    plt.close(fig)
+    save_and_cls(fig, f"{suite_name}_probe_freqs")
     return pn.pane.Matplotlib(fig, **kwargs)
 
 
@@ -184,10 +184,10 @@ def plot_overhead_rankwise(
     ax.xaxis.set_minor_locator(mtick.MultipleLocator(16))
     ax.yaxis.set_major_formatter(mtick.FuncFormatter(lambda x, pos: f"{x/1e3:.0f}s"))
 
-    plt.close(fig)
+    save_and_cls(fig, f"{suite_name}_overhead_rankwise")
     return pn.pane.Matplotlib(fig, **kwargs)
 
-
+@log_time
 def plot_overhead_boxplot(
     suite_dir: str, probe_name: str, **kwargs
 ) -> pn.pane.Matplotlib:
@@ -227,6 +227,7 @@ def plot_overhead_boxplot(
     return pn.pane.Matplotlib(fig, **kwargs)
 
 
+@log_time
 def plot_data_volume(suite_name: str, **kwargs) -> pn.pane.Matplotlib:
     suite_dir = get_suitedir(suite_name)
     profile_dirs = get_suite_profiles(suite_dir)
@@ -272,6 +273,7 @@ def plot_data_volume(suite_name: str, **kwargs) -> pn.pane.Matplotlib:
     return pn.pane.Matplotlib(fig, **kwargs)
 
 
+@log_time
 def plot_suite(suite_names: list[str], plot_kwargs: dict) -> tuple[PlotList, PlotList]:
     suite_dirs = [f"{SUITE_ROOT}/{s}" for s in suite_names]
 
@@ -286,6 +288,10 @@ def plot_suite(suite_names: list[str], plot_kwargs: dict) -> tuple[PlotList, Plo
         all_bp_panes.append(plot_pane)
 
     return (all_rt_panes, all_bp_panes)
+
+
+def run_add_hello_world():
+    pn.panel("## Hello World").servable()
 
 
 def run_add_512x1(plot_kwargs: dict):
@@ -360,12 +366,13 @@ def run_add_1024x1(plot_kwargs: dict):
     pn.Row(*all_dvol_panes).servable()
 
 
+@log_time
 def run_add_2048x1(plot_kwargs: dict):
     pn.panel("## 2048 ranks, NAGGS=1, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
     all_names = [
-        "20251109_amr-agg1-r2048-n20-psmerrchk141",
-        "20251109_amr-agg1-r2048-n200-psmerrchk141",
-        "20251109_amr-agg1-r2048-n2000-psmerrchk141",
+        "20251117_amr-agg2-r2048-n20-psmerrchk141",
+        "20251118_amr-agg2-r2048-n200-psmerrchk141",
+        "20251118_amr-agg2-r2048-n2000-psmerrchk141",
     ]
     all_rt_panes, all_bp_panes = plot_suite(all_names, plot_kwargs)
     pn.Row(*all_rt_panes).servable()
@@ -391,10 +398,11 @@ def run():
         "tight": True,
     }
 
-    run_add_512x1(plot_kwargs)
+    run_add_hello_world()
+    # run_add_512x1(plot_kwargs)
     # run_add_512x4(plot_kwargs)
     # run_add_512misc(plot_kwargs)
-    run_add_1024x1(plot_kwargs)
+    # run_add_1024x1(plot_kwargs)
     run_add_2048x1(plot_kwargs)
 
 

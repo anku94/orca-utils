@@ -10,6 +10,23 @@ from datetime import datetime
 
 SUITE_ROOT = "/mnt/ltio/orcajobs/suites"
 
+import time
+from functools import wraps
+
+
+def log_time(func):
+    "Log the time taken by a decorated function"
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        t0 = time.perf_counter()
+        result = func(*args, **kwargs)
+        t1 = time.perf_counter()
+        print(f"{func.__name__} took {(t1 - t0)*1000:.2f} ms")
+        return result
+
+    return wrapper
+
 
 def get_suitedir(suite_name: str) -> str:
     "Get suite dir from suite name"
@@ -24,6 +41,10 @@ def get_suite_profiles(suite_dir: str) -> list[str]:
     """Get the profiles in the suite directory, sorted by PID"""
 
     subdirs = glob.glob(f"{suite_dir}/*")
+
+    subdircnt = len(subdirs)
+    print(f"Found {subdircnt} subdirectories in {suite_dir}")
+
     subdirs = [d for d in subdirs if os.path.isdir(d)]
 
     def get_pid(x: str) -> int:
@@ -32,6 +53,7 @@ def get_suite_profiles(suite_dir: str) -> list[str]:
         if mobj is None:
             return 0
         return int(mobj.group(1))
+
     subdirs = sorted(subdirs, key=get_pid)
     return subdirs
 
@@ -54,9 +76,24 @@ def get_tracedir_size(profile_dir: str) -> int:
     for tdir in trace_dirs:
         if os.path.basename(tdir) == "orca_events":
             continue
-        sizes += get_dir_size(tdir)
+        # sizes += get_dir_size(tdir)
+        szdf = get_dir_size_cached(tdir)
+        sizes += szdf["fsize"].sum()
 
     return sizes
+
+def get_dir_size_cached(dir_path: str, cache: bool = True) -> pd.DataFrame:
+    df_cache = f"{dir_path}/.dirsz_cached.csv"
+    if cache and os.path.exists(df_cache):
+        return pd.read_csv(df_cache)
+
+    # get size as a dataframe fpath, fsize
+    all_fpaths = list(Path(dir_path).rglob("*"))
+    all_fsizes = [fpath.stat().st_size for fpath in all_fpaths]
+    df = pd.DataFrame({"fpath": all_fpaths, "fsize": all_fsizes})
+    df.to_csv(df_cache, index=False)
+
+    return df
 
 
 def get_dir_size(dir_path: str) -> int:
@@ -75,8 +112,7 @@ def get_profile_dir(suite_name: str, profile: str) -> str:
     suite_dir = get_suitedir(suite_name)
     profile_dir = f"{suite_dir}/{profile}"
     if not os.path.exists(profile_dir):
-        raise FileNotFoundError(
-            f"Profile directory {profile_dir} does not exist")
+        raise FileNotFoundError(f"Profile directory {profile_dir} does not exist")
     return profile_dir
 
 
@@ -138,6 +174,7 @@ def read_duckdb(duckdb_path: str) -> pd.DataFrame:
 
     return df
 
+
 def pretty_size(size: int) -> str:
     "Pretty print size in GB"
 
@@ -159,4 +196,9 @@ if __name__ == "__main__":
     # read_duckdb(duckdb_path)
     suite_name = "20251106_amr-agg4-r512-n200-psmerrchk141"
     profile_dir = get_profile_dir(suite_name, "7_trace_all")
-    compute_probe_freqs(profile_dir, "mpi_messages")
+    print(profile_dir)
+    # check if profile_dir exists
+    print("Exists: ", os.path.exists(profile_dir))
+    sizes = get_dir_size_new(profile_dir)
+    print(sizes)
+    # compute_probe_freqs(profile_dir, "mpi_messages")

@@ -3,6 +3,7 @@ import argparse
 import logging
 import paramiko
 import re
+import yaml
 import sys
 import os
 
@@ -16,6 +17,7 @@ NodeAction = Literal["warn", "blacklist"]
 
 class Check(TypedDict):
     "A check to be performed on a node"
+
     name: str  # name of the check
     cmd: str  # command to run on the node
     output_func: Callable[[str], bool]  # function to check the output
@@ -24,6 +26,7 @@ class Check(TypedDict):
 
 class CheckResult(TypedDict):
     "Result of a check"
+
     goodnodes: list[str]  # list of good nodes
     badnodes: list[tuple[str, str]]  # list of bad nodes and the reason
 
@@ -75,7 +78,7 @@ def run_ssh_cmd(hostname: str, cmd: str) -> str:
     return output
 
 
-def get_all_hosts(exp: str, group: str = "tablefs") -> list[str]:
+def emulab_listall_from_exph0(exp: str, group: str = "tablefs") -> list[str]:
     "Get all hosts in an narwhal experiment"
 
     root_host = f"h0.{exp}.{group}"
@@ -128,6 +131,52 @@ def get_badmem_check() -> Check:
     return {
         "name": "check_memory_issues",
         "cmd": "sudo dmesg | egrep 'MEMORY ERROR'",
+        "output_func": lambda x: bool(x.strip()),
+        "action": "blacklist",
+    }
+
+
+def get_mce_check() -> Check:
+    "Check if the node is logging MCE errors"
+
+    return {
+        "name": "check_mce",
+        "cmd": "sudo dmesg | egrep 'mce_notify_irq: [0-9]+ callbacks suppressed' | wc -l",
+        "output_func": lambda x: int(x.strip()) > 3,
+        "action": "blacklist",
+    }
+
+
+def get_ibstat_check() -> Check:
+    "Check if the node is logging IBSTAT errors"
+
+    return {
+        "name": "check_ibstat",
+        "cmd": "sudo ibstat | grep Active",
+        "output_func": lambda x: x.strip() == "",
+        "action": "blacklist",
+    }
+
+
+def get_lustre_check() -> Check:
+    "Check if the node is logging Lustre errors"
+
+    return {
+        "name": "check_lustre",
+        "cmd": "ls /mnt/ltio",
+        "output_func": lambda x: x.strip() == "",
+        "action": "blacklist",
+    }
+
+
+def get_nfs_check() -> Check:
+    """
+    This is a proxy for some flaky performing nodes
+    """
+
+    return {
+        "name": "check_sus",
+        "cmd": "sudo dmesg | egrep 'nfs: RPC call returned error 13'",
         "output_func": lambda x: bool(x.strip()),
         "action": "blacklist",
     }
@@ -248,7 +297,7 @@ def get_initial_hosts(experiments: list[str], group: str = "tablefs") -> list[st
         logger.warning(f"Getting initial hosts for experiment: {exp}")
 
         # get_all_hosts: returns `h0,h1,h2,...`
-        exp_hosts = get_all_hosts(exp)
+        exp_hosts = emulab_listall_from_exph0(exp)
         for h in exp_hosts:
             hfull = f"{h}.{exp}.{group}"
             all_hosts.append(hfull)
@@ -256,6 +305,28 @@ def get_initial_hosts(experiments: list[str], group: str = "tablefs") -> list[st
     logger.warning(f"Found {len(all_hosts)} initial hosts in total")
 
     return all_hosts
+
+
+def get_user_blacklist(fpath: str) -> list[str]:
+    """
+    Get the user blacklist from a file
+    Format:
+    nodes:
+      - node1.exp.tablefs # comments are allowed
+      - node3.exp.tablefs
+    """
+
+    # if does not exist, return empty list
+    if not os.path.exists(fpath):
+        return []
+
+    with open(fpath, "r") as f:
+        blacklist = yaml.load(f, Loader=yaml.FullLoader)
+
+    if "nodes" in blacklist:
+        return blacklist["nodes"]
+    else:
+        return []
 
 
 def read_file(file_path: str) -> list[str]:
@@ -281,6 +352,10 @@ def run_all_checks_inner(hosts: list[str]) -> CheckResult:
         get_badmem_check(),
         get_other_hw_issues_check(),
         get_memsz_check(),
+        get_nfs_check(),
+        get_mce_check(),
+        get_ibstat_check(),
+        get_lustre_check(),
     ]
 
     logger.info(f"Running {len(all_checks)} checks on {len(hosts)} hosts")
@@ -311,8 +386,7 @@ def run_all_checks_inner(hosts: list[str]) -> CheckResult:
         badnode_name_map: dict[str, str] = dict(zip(badnodes, badnode_names))
         log_dmesg(sshm, badnodes, badnode_name_map)
 
-        logger.warning(
-            f"Comma-separated: {','.join(badnode_names)} (excl unreach)")
+        logger.warning(f"Comma-separated: {','.join(badnode_names)} (excl unreach)")
 
         badnode_list += [(h, "unreachable") for h in unreachable_nodes]
         logger.info(f"Good nodes: {len(goodnodes)}")
@@ -322,13 +396,12 @@ def run_all_checks_inner(hosts: list[str]) -> CheckResult:
     finally:
         del sshm
 
-    check_result: CheckResult = {
-        "goodnodes": goodnodes, "badnodes": badnode_list}
+    check_result: CheckResult = {"goodnodes": goodnodes, "badnodes": badnode_list}
 
     return check_result
 
 
-def run_all_checks(exps: list[str], work_dir: str) -> list[str]:
+def run_all_checks(exps: list[str], work_dir: str, userbl_fpath: str) -> list[str]:
     "Run all checks for a list of experiments"
 
     hostsbyname_file = os.path.join(work_dir, "hostsbyname.txt")
@@ -339,6 +412,12 @@ def run_all_checks(exps: list[str], work_dir: str) -> list[str]:
         hosts = get_initial_hosts(exps)
     else:
         hosts = read_file(hostsbyname_file)
+    logger.info(f"Initial hosts: {len(hosts)}")
+
+    user_blacklist = get_user_blacklist(userbl_fpath)
+    logger.info(f"User blacklist: {user_blacklist}")
+    hosts = [h for h in hosts if h not in user_blacklist]
+    logger.info(f"Hosts after user blacklist: {len(hosts)}")
 
     check_results = run_all_checks_inner(hosts)
     valid_hosts = check_results["goodnodes"]
@@ -407,9 +486,12 @@ def setup_logging():
     # logger.debug("test DEBUG")
 
 
-def run(exps: list[str], output_file: str, randomize: bool = False):
+def run(
+    exps: list[str], output_file: str, randomize: bool = False, userbl_fpath: str = None
+):
     nnodes: list[str] = list(
-        map(lambda x: str(len(get_all_hosts(x))), exps))
+        map(lambda x: str(len(emulab_listall_from_exph0(x))), exps)
+    )
 
     # Create a dir for each experiment (e.g. mon8_40)
     # having nnodes as suffix helps invalidate cache if resized
@@ -420,11 +502,12 @@ def run(exps: list[str], output_file: str, randomize: bool = False):
     logger.info("Working directory: " + work_dir)
     os.makedirs(work_dir, exist_ok=True)
 
-    valid_hosts = run_all_checks(exps, work_dir)
+    valid_hosts = run_all_checks(exps, work_dir, userbl_fpath)
 
     # May want to randomize output hostfile order
     if randomize:
         import random
+
         logger.warning("Randomizing output hostfile")
         random.shuffle(valid_hosts)
 
@@ -457,7 +540,16 @@ def parse_args():
         "--experiments",
         type=str,
         required=False,
-        help="Comma-separated list of experiments"
+        help="Comma-separated list of experiments",
+    )
+
+    # This needs to be a YAML of complete node names
+    parser.add_argument(
+        "-b",
+        "--user-blacklist",
+        type=str,
+        required=False,
+        help="User blacklist yaml file",
     )
 
     args = parser.parse_args()
@@ -476,11 +568,13 @@ if __name__ == "__main__":
     args = parse_args()
 
     exp_list: list[str] = []
-
     if args.experiments is None:
         exp_list = [get_our_exp_name()]
     else:
         exp_list = args.experiments.split(",")
-
     logger.info(f"Experiments: {exp_list}")
-    run(exp_list, args.output_file, args.randomize)
+
+    run(exp_list, args.output_file, args.randomize, args.user_blacklist)
+    # hosts = ["h194.mon8.tablefs"]
+    # ret = run_all_checks_inner(hosts)
+    # print(ret)

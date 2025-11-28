@@ -2,6 +2,7 @@
 
 set -eu
 OR_PREFIX=/users/ankushj/repos/orca-workspace/orca-install
+ORUMB_PREFIX=/users/ankushj/repos/orca-workspace/orca-umb-install
 
 # for TAU
 MPI_HOME=/users/ankushj/amr-workspace/mvapich-install-ub22
@@ -28,7 +29,98 @@ declare -A OR_AMR_PROFILES=(
   [7]="trace_tgt"
   [8]="tau_default"
   [9]="tau_nothrottle"
+  [10]="dftracer"
 )
+
+# prep_tau_jobdir: prepare the TAU job directory
+# - uses: $OR_JOBDIR
+# - sets vars: TRACEDIR, PROFDIR
+# - creates subdirs: tau-trace, tau-profile
+prep_tau_jobdir() {
+  message "-INFO- Preparing TAU job directory: $OR_JOBDIR"
+  ensure_clean_dir $OR_JOBDIR/tau-trace
+  ensure_clean_dir $OR_JOBDIR/tau-profile
+  add_mpi_env_var TRACEDIR $OR_JOBDIR/tau-trace
+  add_mpi_env_var PROFDIR $OR_JOBDIR/tau-profile
+}
+
+# prep_dftracer_jobdir: prepare jobdir for DFTracer
+# - uses: $OR_JOBDIR
+# - sets: a basic dftracer config
+prep_dftracer_jobdir() {
+  message "-INFO- Preparing DFTracer job directory: $OR_JOBDIR"
+
+  local libpreload="$ORUMB_PREFIX/lib/libdftracer_preload.so"
+
+  add_mpi_env_var DFTRACER_ENABLE 1
+  add_mpi_env_var DFTRACER_INIT PRELOAD
+  add_mpi_env_var LD_PRELOAD "$libpreload"
+  add_mpi_env_var KOKKOS_TOOLS_LIBS "$libpreload"
+
+  ensure_clean_dir $OR_JOBDIR/trace
+  add_mpi_env_var DFTRACER_LOG_FILE "$OR_JOBDIR/trace/trace.log"
+  add_mpi_env_var DFTRACER_DATA_DIR all
+
+  add_mpi_env_var DFTRACER_DISABLE_IO 1
+  add_mpi_env_var DFTRACER_DISABLE_POSIX 1
+  add_mpi_env_var DFTRACER_DISABLE_STDIO 1
+  add_mpi_env_var DFTRACER_TRACE_COMPRESSION 0    # TODO: think about this
+  add_mpi_env_var DFTRACER_TRACE_INTERVAL_MS 1000 # does this only log for 1s
+}
+
+# prep_mpiexp_jobdir: prepare jobdir for non-ORCA experiments
+# - uses: $OR_JOBDIR (this dir must exist)
+# - sets vars as per prep function
+prep_mpiexp_jobdir() {
+  message "-INFO- Preparing MPI experiment job directory: $OR_JOBDIR"
+  jobdir=$OR_JOBDIR
+
+  case $OR_RUN_TYPE in
+  tau)
+    prep_tau_jobdir
+    ;;
+  dftracer)
+    prep_dftracer_jobdir
+    ;;
+  *)
+    die "Invalid OR_RUN_TYPE: $OR_RUN_TYPE"
+    ;;
+  esac
+}
+
+# run_mpiexp: run a MPI experiment, used for non-ORCA experiments
+# will prepare jobdir as per $OR_RUN_TYPE (must not be orca)
+# wil not modify $MPI_BIN unless prep function does so
+# - $OR_JOBDIR must be mkdir-ed by caller
+run_mpiexp() {
+  message "-INFO- Running exp type: $OR_RUN_TYPE"
+
+  # assert jobdir is set and points to a valid directory
+  [ -z "$OR_JOBDIR" ] && die "OR_JOBDIR is not set"
+  [ ! -d "$OR_JOBDIR" ] && die "OR_JOBDIR is not a valid directory: $OR_JOBDIR"
+  prep_mpiexp_jobdir
+
+  [ -z $HOSTFILE ] && die "HOSTFILE is not set"
+  [ ! -f $HOSTFILE ] && die "HOSTFILE does not exist"
+  validate_hostcnt
+
+  # for common.sh, set nodes=MPI nodes
+  nodes=$OR_MPI_NNODES # dont set bbos_buddies
+
+  # Let common.sh generate $vpic_nodes and $bbos_nodes
+  gen_hosts
+  message "-INFO- vpic_nodes: $vpic_nodes"
+
+  local mpi_logfile=$OR_JOBDIR/mpi.log
+
+  # ---- do not add more env vars after this point ----
+  log_all_env_vars
+
+  # 'activate' the env vars and run MPI app
+  local mpi_env_vars=($OR_MPI_ENV_STR)
+  do_mpirun $OR_MPI_NRANKS $OR_MPI_PPN "none" mpi_env_vars[@] \
+    "$vpic_nodes" "$OR_MPI_BIN" "" $mpi_logfile
+}
 
 # define outside:
 # OR_SUITEDIR: where to create per-run dirs
@@ -304,6 +396,12 @@ setup_profile_tau_nothrottle() {
   OR_MPI_BIN="tau_exec $OR_MPI_BIN"
 }
 
+# dftracer: run with DFTracer preload (MPI + Kokkos tracing)
+setup_profile_dftracer() {
+  OR_ORCA_ENABLED=0
+  OR_RUN_TYPE="dftracer"
+}
+
 # setup_profile: call profile-specific setup function
 # - args: $1: profile index
 setup_profile() {
@@ -334,7 +432,18 @@ run_profile() {
 
   setup_amr_common    # common setup
   setup_profile $pidx # profile-specific setup/overrides
-  run_main
+
+  # call run_main for ORCA, run_mpiexp for other types
+  case $OR_RUN_TYPE in
+  orca)
+    run_orcaexp
+    ;;
+  *)
+    run_mpiexp
+    # echo "TODO: run_mpiexp"
+    ;;
+  esac
+
   reset_all_env_vars # reset everything for next run
 }
 

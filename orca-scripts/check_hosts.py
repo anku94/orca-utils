@@ -307,7 +307,7 @@ def get_initial_hosts(experiments: list[str], group: str = "tablefs") -> list[st
     return all_hosts
 
 
-def get_user_blacklist(fpath: str) -> list[str]:
+def get_user_blacklist(fpath: str | None) -> list[str]:
     """
     Get the user blacklist from a file
     Format:
@@ -317,7 +317,7 @@ def get_user_blacklist(fpath: str) -> list[str]:
     """
 
     # if does not exist, return empty list
-    if not os.path.exists(fpath):
+    if fpath is None or not os.path.exists(fpath):
         return []
 
     with open(fpath, "r") as f:

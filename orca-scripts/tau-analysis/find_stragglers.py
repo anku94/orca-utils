@@ -11,9 +11,10 @@ SUITES_ROOT = Path("/mnt/ltio/orcajobs/suites")
 
 def run_analyze_orca_events(reader: OrcaReader) -> None:
     files = reader.query_orca_events_files()
+    files
     df = (
         pl.read_parquet(files)
-        .select(["probe_name", "val"])
+        .select(["probe_name", "rank", "val"])
         .with_columns(dura_ms=(pl.col("val") / 1_000_000).cast(pl.Int64))
     )
 
@@ -29,7 +30,7 @@ def run_analyze_orca_events(reader: OrcaReader) -> None:
     )
 
     print("Percentiles by probe_name:")
-    print(df_ptiles)
+    print(df_ptiles.to_pandas())
 
     # Count occurrences of poi with dura_ms > lim
     poi = "SerializeTsData::GetForwards"
@@ -38,15 +39,16 @@ def run_analyze_orca_events(reader: OrcaReader) -> None:
     df_stragglers = (
         df.filter(pl.col("probe_name") == poi)
         .filter(pl.col("dura_ms") > lim)
-        .group_by("probe_name")
-        .agg(count_stragglers=pl.len())
     )
 
-    print(df_stragglers)
+    # sort by dura_ms
+    dfs = df_stragglers.sort("dura_ms", descending=True).to_pandas()
+    print(dfs.head(20))
+
 
 
 def main() -> None:
-    suite = "20251120_amr-agg4-r4096-n2000-psmerrchk141"
+    suite = "20251121_amr-agg4-r4096-n500-psmerrchk141-tmp"
     profile = "07_trace_tgt"
     trace_root = SUITES_ROOT / suite / profile
     reader = OrcaReader(trace_root)

@@ -9,14 +9,17 @@ OR_UMB_PREFIX=/users/ankushj/repos/orca-workspace/orca-umb-install
 # setup_suite_common: setup common environment variables
 setup_suite_common() {
     # CTL node is implied, and will be added if ORCA is enabled
-    OR_AGGCNT=1 # AGG count
+    OR_AGGCNT=4 # AGG count
     # OR_MPI_NNODES=16  # MPI nodes
-    OR_MPI_NRANKS=1024 # MPI ranks per node
-    OR_MPI_PPN=16      # MPI ranks per node
+    # OR_MPI_NRANKS=1024 # MPI ranks per node
+    # OR_DECK_NRANKS=$OR_MPI_NRANKS
+    OR_MPI_NRANKS=4096
+    OR_DECK_NRANKS=4096
+    OR_MPI_PPN=16 # MPI ranks per node
 
     OR_AMR_POLICY="baseline" # policy name
     OR_AMR_BIN=$OR_UMB_PREFIX/bin/phoebus
-    OR_AMR_DECK_IN=$OR_UMB_PREFIX/decks/blast_wave_3d.1024.pin.in
+    OR_AMR_DECK_IN=$OR_UMB_PREFIX/decks/blast_wave_3d.${OR_DECK_NRANKS}.pin.in
     # OR_AMR_NSTEPS: set in main loop
 
     OR_FLOW_YAML="" # Flow YAML is optional
@@ -49,7 +52,7 @@ on different ORCA modes.
 #       OR_ALL_ORCA_ENV_VARS, OR_ALL_MPI_ENV_VARS
 # uses: OR_AMR_NSTEPS
 setup_nsteps_psm141_suite() {
-    local suite_type="psmerrchk141-tmp"
+    local suite_type="psmerrchk141"
     OR_SUITEDIR="$OR_SUITEDIR-${suite_type}"
 
     OR_SUITE_DESC="
@@ -118,9 +121,9 @@ setup_suite_export() {
 }
 
 sweep_amr_nsteps() {
-    local all_amr_nsteps=(20 200 2000)
-    # all_amr_nsteps=(2000)
-    # all_amr_nsteps=(200)
+    # local all_amr_nsteps=(20 200 2000)
+    # all_amr_nsteps=(20 200)
+    all_amr_nsteps=(2000)
 
     for amr_nsteps in "${all_amr_nsteps[@]}"; do
         OR_AMR_NSTEPS=$amr_nsteps

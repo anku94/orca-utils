@@ -191,8 +191,9 @@ setup_amr_common() {
   OR_CTL_BIN="$OR_PREFIX/scripts/orcawf_wrapper.sh ctl"
   OR_AGG_BIN="$OR_PREFIX/scripts/orcawf_wrapper.sh agg"
 
-  add_common_env_var FI_UNIVERSE_SIZE 64 # need on wolf
-  add_common_env_var MV2_CM_RECV_BUFFERS 2048
+  add_common_env_var PSM_CONNECT_TIMEOUT 30 # 30s timeout
+  add_common_env_var FI_UNIVERSE_SIZE 64    # need on wolf
+  # add_common_env_var MV2_CM_RECV_BUFFERS 2048
   add_common_env_var MV2_ON_DEMAND_THRESHOLD 8192
 
   # setup_gen_amrdeck <policy_name> <nlim>
@@ -397,7 +398,7 @@ main() {
   # Announce plan, wait for user to confirm/abort
   (
     message "-INFO- Press Enter or Ctrl+C to abort..."
-    read -r
+    # read -r
   )
 
   message "-INFO- Starting to run profiles..."

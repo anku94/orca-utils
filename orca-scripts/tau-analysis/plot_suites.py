@@ -9,6 +9,7 @@ import polars as pl
 
 from suite_utils import *
 from common import PlotSaver
+from parse_cycle_log import parse_cycle_log
 
 PlotList = list[pn.pane.Matplotlib]
 
@@ -96,17 +97,20 @@ def read_orca_overhead(profile_path: str, probe_name: str) -> pl.DataFrame:
     return pl_filtered
 
 
-@pn.cache
 def read_suite_profiles(
     suite_dir: str, probe_name: str
 ) -> tuple[list[str], list[list[int]]]:
     profile_paths = get_suite_profiles(suite_dir)
 
-    # create an empty dataframe with columns for each profile
-    profile_names = [os.path.basename(p) for p in profile_paths]
-    profile_times = [
-        read_orca_overhead(p, probe_name)["time_ms"].to_list() for p in profile_paths
-    ]
+    profile_names = []
+    profile_times = []
+    for p in profile_paths:
+        try:
+            profile_names.append(os.path.basename(p))
+            profile_times.append(read_orca_overhead(p, probe_name)["time_ms"].to_list())
+        except Exception as e:
+            print(f"Error reading profile {p}: {e}")
+            continue
 
     return (profile_names, profile_times)
 
@@ -187,7 +191,7 @@ def plot_overhead_rankwise(
     save_and_cls(fig, f"{suite_name}_overhead_rankwise")
     return pn.pane.Matplotlib(fig, **kwargs)
 
-@log_time
+
 def plot_overhead_boxplot(
     suite_dir: str, probe_name: str, **kwargs
 ) -> pn.pane.Matplotlib:
@@ -385,6 +389,109 @@ def run_add_2048x1(plot_kwargs: dict):
     pn.Row(*all_dvol_panes).servable()
 
 
+def run_add_4096x4(plot_kwargs: dict):
+    pn.panel("## 4096 ranks, NAGGS=4, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
+    all_names = [
+        "20251119_amr-agg4-r4096-n20-psmerrchk141",
+        "20251119_amr-agg4-r4096-n200-psmerrchk141",
+        "20251121_amr-agg4-r4096-n2000-psmerrchk141",
+    ]
+
+    suite_dirs = [f"{SUITE_ROOT}/{s}" for s in all_names]
+    all_rt_panes = []
+    for sdir in suite_dirs:
+        plot_pane = plot_suitedir(sdir, **plot_kwargs)
+        all_rt_panes.append(plot_pane)
+    pn.Row(*all_rt_panes).servable()
+
+    all_bp_panes = []
+    for sdir in suite_dirs:
+        plot_pane = plot_overhead_boxplot(sdir, "PostTimestepAdvance", **plot_kwargs)
+        all_bp_panes.append(plot_pane)
+    pn.Row(*all_bp_panes).servable()
+
+    all_dvol_panes = []
+    for name in all_names:
+        pane = plot_data_volume(name, **plot_kwargs)
+        all_dvol_panes.append(pane)
+    pn.Row(*all_dvol_panes).servable()
+
+
+@pn.cache
+def run_tmp_inner() -> pl.DataFrame:
+    suite = "20251119_amr-agg4-r4096-n2000-psmerrchk141"
+    suitedir = get_suitedir(suite)
+    prof_dir = f"{suitedir}/07_trace_tgt"
+    mpitrace_dir = f"{prof_dir}/parquet/mpi_collectives"
+    mpitrace_paths = glob.glob(f"{mpitrace_dir}/**/*.parquet")
+    df = pl.scan_parquet(mpitrace_paths, parallel="columns")
+    return df
+
+
+def run_tmp():
+    suite = "20251120_amr-agg4-r4096-n2000-psmerrchk141"
+    suitedir = get_suitedir(suite)
+    prof_names = ["00_noorca", "07_trace_tgt"]
+    all_dfs = []
+    for prof_name in prof_names:
+        prof_dir = f"{suitedir}/{prof_name}"
+        cycle_log_path = f"{prof_dir}/mpi.log"
+        df = parse_cycle_log(cycle_log_path)
+        all_dfs.append(df)
+
+    all_panes = [pn.panel(df.head(20)) for df in all_dfs]
+    pn.Row(*all_panes).servable()
+
+    df0, df1 = all_dfs
+    steps0 = df0["wsec_step"].iloc[1:]
+    steps1 = df1["wsec_step"].iloc[1:]
+    fig, ax = plt.subplots(figsize=(14, 5))
+    ax.plot(steps0, label="0")
+    ax.plot(steps1, label="1")
+    ax.grid(which="major", color="#bbb")
+    ax.grid(which="minor", color="#ddd")
+    ax.set_axisbelow(True)
+    # ax.set_xlim(left=1)
+    ax.set_xlabel("Step")
+    ax.set_ylabel("Time (s)")
+    ax.set_title("Step Time")
+    ax.legend()
+    plt.close(fig)
+    pn.pane.Matplotlib(fig, width=1800).servable()
+
+    prof_tgt = f"{suitedir}/07_trace_tgt"
+    sync_tgt = f"{prof_tgt}/parquet/mpi_collectives/ts=1_3"
+    sync_df = pl.read_parquet(f"{sync_tgt}/*.parquet", parallel="columns")
+    # compute dura_ms from dura_ns
+    sync_df = sync_df.with_columns(pl.col("dura_ns") / 1_000_000)
+    sync_df = sync_df.rename({"dura_ns": "dura_ms"})
+    sync_df = sync_df.with_columns(pl.col("dura_ms").cast(pl.Int64))
+    sync_df = sync_df.to_pandas()
+    # columns we need: timestep, probe_name, rank, dura_ms
+    sync_df = sync_df[["swid", "probe_name", "rank", "dura_ms"]].copy()
+
+    # group by (timestep, probe_name, rank)
+    sync_df = sync_df.groupby(["swid"])
+    swid18_df = sync_df.get_group(18)
+    pn.panel(swid18_df.head()).servable()
+
+    # plot swid, dura_ms as line
+    fig, ax = plt.subplots(figsize=(14, 5))
+    ax.plot(swid18_df["rank"], swid18_df["dura_ms"])
+    ax.set_ylabel("Time (ms)")
+    ax.set_xlabel("swid")
+    ax.set_title("MPI_Barrier")
+    ax.grid(which="major", color="#bbb")
+    ax.grid(which="minor", color="#ddd")
+    ax.xaxis.set_major_locator(mtick.MultipleLocator(64))
+    ax.xaxis.set_minor_locator(mtick.MultipleLocator(16))
+    ax.xaxis.set_major_formatter(mtick.FuncFormatter(lambda x, pos: f"{x/16:.0f}"))
+    ax.set_xlim([2560, 3584])
+    ax.set_axisbelow(True)
+    plt.close(fig)
+    pn.pane.Matplotlib(fig, width=1800).servable()
+
+
 def run():
     plt.style.use("../larger_fonts.mplstyle")
     pn.extension()
@@ -398,12 +505,14 @@ def run():
         "tight": True,
     }
 
-    run_add_hello_world()
+    # run_add_hello_world()
     # run_add_512x1(plot_kwargs)
     # run_add_512x4(plot_kwargs)
     # run_add_512misc(plot_kwargs)
-    # run_add_1024x1(plot_kwargs)
+    run_add_1024x1(plot_kwargs)
     run_add_2048x1(plot_kwargs)
+    run_add_4096x4(plot_kwargs)
+    run_tmp()
 
 
 if __name__ == "__main__":

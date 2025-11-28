@@ -99,6 +99,3 @@ def run():
 if __name__ == "__main__":
     # Hardcoded path
     run()
-
-
-run()

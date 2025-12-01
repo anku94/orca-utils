@@ -30,6 +30,7 @@ declare -A OR_AMR_PROFILES=(
   [8]="tau_default"
   [9]="tau_nothrottle"
   [10]="dftracer"
+  [11]="scorep"
 )
 
 # prep_tau_jobdir: prepare the TAU job directory
@@ -68,6 +69,36 @@ prep_dftracer_jobdir() {
   add_mpi_env_var DFTRACER_TRACE_INTERVAL_MS 1000 # does this only log for 1s
 }
 
+# prepare_scorep_jobdir: prepare jobdir for ScoreP
+# - uses: $OR_JOBDIR
+# - sets: a basic ScoreP config
+# - sets: CLEANUP_CMD to cleanup the ScoreP preload
+prepare_scorep_jobdir() {
+  message "-INFO- Preparing ScoreP job directory: $OR_JOBDIR"
+
+  local tracedir="$OR_JOBDIR/trace"
+  ensure_clean_dir $tracedir
+
+  local scp_init="$ORUMB_PREFIX/bin/scorep-preload-init"
+  local libkokpre="$ORUMB_PREFIX/lib/libscorep_adapter_kokkos_event.so"
+  local preval=$($scp_init --mpp=mpi --thread=none --value-only "$OR_AMR_BIN" "$OR_JOBDIR")
+
+  message "-INFO- ScoreP LD_PRELOAD: $preval"
+
+  add_mpi_env_var LD_PRELOAD "$preval"
+  add_mpi_env_var KOKKOS_TOOLS_LIBS "$libkokpre"
+  add_mpi_env_var SCOREP_EXPERIMENT_DIRECTORY "$tracedir"
+  add_mpi_env_var SCOREP_MPI_ENABLE_GROUPS "COLL,P2P"
+  add_mpi_env_var SCOREP_ENABLE_TRACING 1
+  add_mpi_env_var SCOREP_ENABLE_PROFILING 1
+  add_mpi_env_var SCOREP_KOKKOS_ENABLE 1
+  add_mpi_env_var SCOREP_FILTERING_FILE /users/ankushj/llm-thinkspace/mpi-trace-test/scorep.filter
+  # add_mpi_env_var SCOREP_TRACE_FORMAT csv
+  # add_mpi_env_var SCOREP_TRACE_FILE "$OR_JOBDIR/trace/trace.log"
+
+  CLEANUP_CMD="bash $OR_JOBDIR/.scorep_preload/$(basename $OR_AMR_BIN).clean"
+}
+
 # prep_mpiexp_jobdir: prepare jobdir for non-ORCA experiments
 # - uses: $OR_JOBDIR (this dir must exist)
 # - sets vars as per prep function
@@ -81,6 +112,9 @@ prep_mpiexp_jobdir() {
     ;;
   dftracer)
     prep_dftracer_jobdir
+    ;;
+  scorep)
+    prepare_scorep_jobdir
     ;;
   *)
     die "Invalid OR_RUN_TYPE: $OR_RUN_TYPE"
@@ -120,6 +154,13 @@ run_mpiexp() {
   local mpi_env_vars=($OR_MPI_ENV_STR)
   do_mpirun $OR_MPI_NRANKS $OR_MPI_PPN "none" mpi_env_vars[@] \
     "$vpic_nodes" "$OR_MPI_BIN" "" $mpi_logfile
+
+  # if cleanup command is set, run it, and unset it
+  if [ -n "${CLEANUP_CMD:-}" ]; then
+    message "-INFO- Running cleanup command: $CLEANUP_CMD"
+    $CLEANUP_CMD
+    unset CLEANUP_CMD
+  fi
 }
 
 # define outside:
@@ -400,6 +441,12 @@ setup_profile_tau_nothrottle() {
 setup_profile_dftracer() {
   OR_ORCA_ENABLED=0
   OR_RUN_TYPE="dftracer"
+}
+
+# scorep: run with ScoreP preload (MPI + Kokkos tracing)
+setup_profile_scorep() {
+  OR_ORCA_ENABLED=0
+  OR_RUN_TYPE="scorep"
 }
 
 # setup_profile: call profile-specific setup function

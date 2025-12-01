@@ -275,45 +275,6 @@ def plot_suite_data_volume(suite: Suite, **kwargs) -> pn.pane.Matplotlib:
     return pn.pane.Matplotlib(fig, **kwargs)
 
 
-@log_time
-def plot_suite(suite_names: list[str], plot_kwargs: dict) -> tuple[PlotList, PlotList]:
-    suite_dirs = [f"{SUITE_ROOT}/{s}" for s in suite_names]
-
-    all_rt_panes = []
-    for sdir in suite_dirs:
-        plot_pane = plot_suitedir(sdir, **plot_kwargs)
-        all_rt_panes.append(plot_pane)
-
-    all_bp_panes = []
-    for sdir in suite_dirs:
-        plot_pane = plot_overhead_boxplot(sdir, "PostTimestepAdvance", **plot_kwargs)
-        all_bp_panes.append(plot_pane)
-
-    return (all_rt_panes, all_bp_panes)
-
-
-def run_add_hello_world():
-    pn.panel("## Hello World").servable()
-
-
-def run_add_512x1(plot_kwargs: dict):
-    pn.panel("## 512 ranks, NAGGS=1, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
-    all_names = [
-        "20251105_amr-agg1-r512-n20-psmerrchk141",
-        "20251105_amr-agg1-r512-n200-psmerrchk141",
-        "20251106_amr-agg1-r512-n2000-psmerrchk141",
-    ]
-    all_rt_panes, all_bp_panes = plot_suite(all_names, plot_kwargs)
-    pn.Row(*all_rt_panes).servable()
-    pn.Row(*all_bp_panes).servable()
-
-    # all_dvol_panes = []
-    # for name in all_names:
-    #     pane = plot_data_volume(name, **plot_kwargs)
-    #     all_dvol_panes.append(pane)
-    # pn.Row(*all_dvol_panes).servable()
-
-
 def run_add_512x4(plot_kwargs: dict):
     pn.panel("## 512 ranks, NAGGS=4, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
     all_names = [
@@ -350,146 +311,6 @@ def run_add_512misc(plot_kwargs: dict):
     pn.Row(*panes).servable()
 
 
-def run_add_1024x1(plot_kwargs: dict):
-    pn.panel("## 1024 ranks, NAGGS=1, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
-    all_names = [
-        "20251108_amr-agg1-r1024-n20-psmerrchk141",
-        "20251108_amr-agg1-r1024-n200-psmerrchk141",
-        "20251108_amr-agg1-r1024-n2000-psmerrchk141",
-    ]
-    all_rt_panes, all_bp_panes = plot_suite(all_names, plot_kwargs)
-    pn.Row(*all_rt_panes).servable()
-    pn.Row(*all_bp_panes).servable()
-
-    all_dvol_panes = []
-    for name in all_names:
-        pane = plot_data_volume(name, **plot_kwargs)
-        all_dvol_panes.append(pane)
-    pn.Row(*all_dvol_panes).servable()
-
-
-@log_time
-def run_add_2048x1(plot_kwargs: dict):
-    pn.panel("## 2048 ranks, NAGGS=1, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
-    all_names = [
-        "20251117_amr-agg2-r2048-n20-psmerrchk141",
-        "20251118_amr-agg2-r2048-n200-psmerrchk141",
-        "20251118_amr-agg2-r2048-n2000-psmerrchk141",
-    ]
-    all_rt_panes, all_bp_panes = plot_suite(all_names, plot_kwargs)
-    pn.Row(*all_rt_panes).servable()
-    pn.Row(*all_bp_panes).servable()
-
-    # all_dvol_panes = []
-    # for name in all_names:
-    #     pane = plot_data_volume(name, **plot_kwargs)
-    #     all_dvol_panes.append(pane)
-    # pn.Row(*all_dvol_panes).servable()
-
-
-def run_add_4096x4(plot_kwargs: dict):
-    pn.panel("## 4096 ranks, NAGGS=4, PSM_ERRCHK_TIMEOUT=1:4:1").servable()
-    all_names = [
-        "20251119_amr-agg4-r4096-n20-psmerrchk141",
-        "20251119_amr-agg4-r4096-n200-psmerrchk141",
-        "20251121_amr-agg4-r4096-n2000-psmerrchk141",
-    ]
-
-    suite_dirs = [f"{SUITE_ROOT}/{s}" for s in all_names]
-    all_rt_panes = []
-    for sdir in suite_dirs:
-        plot_pane = plot_suitedir(sdir, **plot_kwargs)
-        all_rt_panes.append(plot_pane)
-    pn.Row(*all_rt_panes).servable()
-
-    all_bp_panes = []
-    for sdir in suite_dirs:
-        plot_pane = plot_overhead_boxplot(sdir, "PostTimestepAdvance", **plot_kwargs)
-        all_bp_panes.append(plot_pane)
-    pn.Row(*all_bp_panes).servable()
-
-    all_dvol_panes = []
-    for name in all_names:
-        pane = plot_data_volume(name, **plot_kwargs)
-        all_dvol_panes.append(pane)
-    pn.Row(*all_dvol_panes).servable()
-
-
-@pn.cache
-def run_tmp_inner() -> pl.DataFrame:
-    suite = "20251119_amr-agg4-r4096-n2000-psmerrchk141"
-    suitedir = get_suitedir(suite)
-    prof_dir = f"{suitedir}/07_trace_tgt"
-    mpitrace_dir = f"{prof_dir}/parquet/mpi_collectives"
-    mpitrace_paths = glob.glob(f"{mpitrace_dir}/**/*.parquet")
-    df = pl.scan_parquet(mpitrace_paths, parallel="columns")
-    return df
-
-
-def run_tmp():
-    suite = "20251120_amr-agg4-r4096-n2000-psmerrchk141"
-    suitedir = get_suitedir(suite)
-    prof_names = ["00_noorca", "07_trace_tgt"]
-    all_dfs = []
-    for prof_name in prof_names:
-        prof_dir = f"{suitedir}/{prof_name}"
-        cycle_log_path = f"{prof_dir}/mpi.log"
-        df = parse_cycle_log(cycle_log_path)
-        all_dfs.append(df)
-
-    all_panes = [pn.panel(df.head(20)) for df in all_dfs]
-    pn.Row(*all_panes).servable()
-
-    df0, df1 = all_dfs
-    steps0 = df0["wsec_step"].iloc[1:]
-    steps1 = df1["wsec_step"].iloc[1:]
-    fig, ax = plt.subplots(figsize=(14, 5))
-    ax.plot(steps0, label="0")
-    ax.plot(steps1, label="1")
-    ax.grid(which="major", color="#bbb")
-    ax.grid(which="minor", color="#ddd")
-    ax.set_axisbelow(True)
-    # ax.set_xlim(left=1)
-    ax.set_xlabel("Step")
-    ax.set_ylabel("Time (s)")
-    ax.set_title("Step Time")
-    ax.legend()
-    plt.close(fig)
-    pn.pane.Matplotlib(fig, width=1800).servable()
-
-    prof_tgt = f"{suitedir}/07_trace_tgt"
-    sync_tgt = f"{prof_tgt}/parquet/mpi_collectives/ts=1_3"
-    sync_df = pl.read_parquet(f"{sync_tgt}/*.parquet", parallel="columns")
-    # compute dura_ms from dura_ns
-    sync_df = sync_df.with_columns(pl.col("dura_ns") / 1_000_000)
-    sync_df = sync_df.rename({"dura_ns": "dura_ms"})
-    sync_df = sync_df.with_columns(pl.col("dura_ms").cast(pl.Int64))
-    sync_df = sync_df.to_pandas()
-    # columns we need: timestep, probe_name, rank, dura_ms
-    sync_df = sync_df[["swid", "probe_name", "rank", "dura_ms"]].copy()
-
-    # group by (timestep, probe_name, rank)
-    sync_df = sync_df.groupby(["swid"])
-    swid18_df = sync_df.get_group(18)
-    pn.panel(swid18_df.head()).servable()
-
-    # plot swid, dura_ms as line
-    fig, ax = plt.subplots(figsize=(14, 5))
-    ax.plot(swid18_df["rank"], swid18_df["dura_ms"])
-    ax.set_ylabel("Time (ms)")
-    ax.set_xlabel("swid")
-    ax.set_title("MPI_Barrier")
-    ax.grid(which="major", color="#bbb")
-    ax.grid(which="minor", color="#ddd")
-    ax.xaxis.set_major_locator(mtick.MultipleLocator(64))
-    ax.xaxis.set_minor_locator(mtick.MultipleLocator(16))
-    ax.xaxis.set_major_formatter(mtick.FuncFormatter(lambda x, pos: f"{x/16:.0f}"))
-    ax.set_xlim([2560, 3584])
-    ax.set_axisbelow(True)
-    plt.close(fig)
-    pn.pane.Matplotlib(fig, width=1800).servable()
-
-
 def run_add_suites(suites: list[Suite], plot_kwargs: dict):
     rtplot_panes = [plot_suite_runtimes(s, **plot_kwargs) for s in suites]
     pn.Row(*rtplot_panes).servable()
@@ -524,18 +345,9 @@ def run():
 
     run_add_suites(suites, plot_kwargs)
 
-    suite_names = ["r4096_a4_n20", "r4096_a4_n200"]
+    suite_names = ["r4096_a4_n20", "r4096_a4_n200", "r4096_a4_n2000"]
     suites = [all_suites[name] for name in suite_names]
     run_add_suites(suites, plot_kwargs)
-
-    # run_add_hello_world()
-    # run_add_512x1(plot_kwargs)
-    # run_add_512x4(plot_kwargs)
-    # run_add_512misc(plot_kwargs)
-    # run_add_1024x1(plot_kwargs)
-    # run_add_2048x1(plot_kwargs)
-    # run_add_4096x4(plot_kwargs)
-    # run_tmp()
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 import pandas as pd
 import glob
@@ -6,12 +7,38 @@ import os
 import duckdb
 import polars as pl
 from datetime import datetime
-
+import yaml
+from concurrent.futures import ThreadPoolExecutor
 
 SUITE_ROOT = "/mnt/ltio/orcajobs/suites"
 
 import time
 from functools import wraps
+
+
+@dataclass(frozen=True, slots=True)
+class Profile:
+    name: str
+    path: Path
+
+
+@dataclass(frozen=True, slots=True)
+class Suite:
+    name: str
+    ranks: int
+    aggs: int  # aggregator count
+    ts: int  # MPI timesteps
+    suitedir: Path
+    profiles: list[Profile]
+
+    def __repr__(self) -> str:
+        s = f"Suite(name={self.name}, {len(self.profiles)} profiles):\n"
+        for p in sorted(self.profiles, key=lambda x: x.name):
+            s += f"  {p.name:20s}: {p.path}\n"
+        return s
+
+
+SuiteMap = dict[str, Suite]  # suite name -> suite
 
 
 def log_time(func):
@@ -28,95 +55,74 @@ def log_time(func):
     return wrapper
 
 
-def get_suitedir(suite_name: str) -> str:
-    "Get suite dir from suite name"
+def pretty_size(size: float) -> str:
+    "Pretty print size in GB"
 
-    suite_dir = f"{SUITE_ROOT}/{suite_name}"
-    if not os.path.exists(suite_dir):
-        raise FileNotFoundError(f"Suite directory {suite_dir} does not exist")
-    return suite_dir
+    all_units = ["B", "KB", "MB", "GB", "TB"]
+    for unit in all_units:
+        if size < 1024:
+            return f"{size:.1f} {unit}"
+        size /= 1024
 
-
-def get_suite_profiles(suite_dir: str) -> list[str]:
-    """Get the profiles in the suite directory, sorted by PID"""
-
-    subdirs = glob.glob(f"{suite_dir}/*")
-
-    subdircnt = len(subdirs)
-    print(f"Found {subdircnt} subdirectories in {suite_dir}")
-
-    subdirs = [d for d in subdirs if os.path.isdir(d)]
-
-    def get_pid(x: str) -> int:
-        xbase = os.path.basename(x)
-        mobj = re.match(r"(\d+)_", xbase)
-        if mobj is None:
-            return 0
-        return int(mobj.group(1))
-
-    subdirs = sorted(subdirs, key=get_pid)
-    return subdirs
+    return f"{size:.1f} TB"
 
 
-def get_all_profiledirs(suite_name: str) -> list[str]:
-    "Get all profile dirs from suite name"
-    suite_dir = get_suitedir(suite_name)
-    profile_dirs = glob.glob(f"{suite_dir}/*")
-    profile_dirs = [d for d in profile_dirs if os.path.isdir(d)]
-    return profile_dirs
+def get_dir_size(dir_path: Path) -> int:
+    "Get `du -sh` equivalent of directory"
+    total_size = 0
+    for fpath in dir_path.rglob("*"):
+        if fpath.is_file():
+            total_size += fpath.stat().st_size
+    return total_size
+
+def get_file_size(fpath: Path) -> int:
+    "Get the size of a file"
+    return fpath.stat().st_size
 
 
-def get_tracedir_size(profile_dir: str) -> int:
-    trace_dirs = glob.glob(f"{profile_dir}/parquet/*")
-    trace_dir_tau = f"{profile_dir}/tau-trace"
-    trace_dirs.append(trace_dir_tau)
-    trace_dirs = [d for d in trace_dirs if os.path.isdir(d)]
-
-    sizes = 0
-    for tdir in trace_dirs:
-        if os.path.basename(tdir) == "orca_events":
-            continue
-        # sizes += get_dir_size(tdir)
-        szdf = get_dir_size_cached(tdir)
-        sizes += szdf["fsize"].sum()
-
-    return sizes
-
-def get_dir_size_cached(dir_path: str, cache: bool = True) -> pd.DataFrame:
+def get_dir_size_cached(dir_path: Path, cache: bool = True) -> pd.DataFrame:
     df_cache = f"{dir_path}/.dirsz_cached.csv"
     if cache and os.path.exists(df_cache):
         return pd.read_csv(df_cache)
 
     # get size as a dataframe fpath, fsize
-    all_fpaths = list(Path(dir_path).rglob("*"))
-    all_fsizes = [fpath.stat().st_size for fpath in all_fpaths]
+    all_fpaths = list(dir_path.rglob("*"))
+    # all_fsizes = [fpath.stat().st_size for fpath in all_fpaths]
+    # multiprocessing does not behave well with Panel
+    with ThreadPoolExecutor(max_workers=32) as ex:
+        all_fsizes = list(ex.map(get_file_size, all_fpaths))
+
     df = pd.DataFrame({"fpath": all_fpaths, "fsize": all_fsizes})
     df.to_csv(df_cache, index=False)
 
     return df
 
 
-def get_dir_size(dir_path: str) -> int:
-    "Get `du -sh` equivalent of directory"
-    total_size = 0
-    path = Path(dir_path)
-    for fpath in path.rglob("*"):
-        if fpath.is_file():
-            total_size += fpath.stat().st_size
-    return total_size
+def get_tracedir(profile_dir: Path) -> Path:
+    "Returns the dir containing trace data"
+
+    # check which of parquet, tau-trace, or trace exists
+    if os.path.exists(f"{profile_dir}/parquet"):
+        return Path(f"{profile_dir}/parquet")
+    elif os.path.exists(f"{profile_dir}/tau-trace"):
+        return Path(f"{profile_dir}/tau-trace")
+    elif os.path.exists(f"{profile_dir}/trace"):
+        return Path(f"{profile_dir}/trace")
+    else:
+        raise FileNotFoundError(f"No trace directory found in {profile_dir}")
 
 
-def get_profile_dir(suite_name: str, profile: str) -> str:
-    "Get profile dir from suite name and profile name"
+def get_suite_tracesizes(suite: Suite) -> pd.DataFrame:
+    "Get the size of the trace directories for all profiles in a suite"
+    tracedirs = [get_tracedir(p.path) for p in suite.profiles]
+    tracesizes = [get_dir_size_cached(td)["fsize"].sum() for td in tracedirs]
+    profile_names = [p.name for p in suite.profiles]
 
-    suite_dir = get_suitedir(suite_name)
-    profile_dir = f"{suite_dir}/{profile}"
-    if not os.path.exists(profile_dir):
-        raise FileNotFoundError(f"Profile directory {profile_dir} does not exist")
-    return profile_dir
+    df = pd.DataFrame({"profile": profile_names, "trace_size": tracesizes})
+    return df
 
 
-def get_runtime(profile_dir: str) -> float:
+def get_profile_amr_runtime(profile_dir: Path) -> float:
     print(f"Getting runtime for profile {profile_dir}")
     mpi_log = f"{profile_dir}/mpi.log"
 
@@ -135,14 +141,19 @@ def get_runtime(profile_dir: str) -> float:
     return float(mobj.group(1))
 
 
-def get_suite_amr_runtimes(suite_dir: str) -> pd.DataFrame:
-    print(f"Getting AMR runtimes for suite {suite_dir}")
+def get_suite_amr_runtimes(suite: Suite) -> pd.DataFrame:
+    print(f"Getting AMR runtimes for suite {suite.name}")
 
-    profiles = get_suite_profiles(suite_dir)
-    profile_names = [os.path.basename(p) for p in profiles]
+    # Returns a dataframe like this:
+    #               profile  time_secs
+    # 0     10_dftracer     2.5723
+    # 1       11_scorep     2.6378
+    # 2  08_tau_default     3.1165
 
-    runtimes = [get_runtime(p) for p in profiles]
+    runtimes = [get_profile_amr_runtime(p.path) for p in suite.profiles]
+    profile_names = [p.name for p in suite.profiles]
     df = pd.DataFrame({"profile": profile_names, "time_secs": runtimes})
+
     return df
 
 
@@ -175,30 +186,42 @@ def read_duckdb(duckdb_path: str) -> pd.DataFrame:
     return df
 
 
-def pretty_size(size: int) -> str:
-    "Pretty print size in GB"
+def read_suites(suites_yaml: str) -> SuiteMap:
+    with open(suites_yaml, "r") as f:
+        yaml_data = yaml.load(f, Loader=yaml.FullLoader)
 
-    all_units = ["B", "KB", "MB", "GB", "TB"]
-    for unit in all_units:
-        if size < 1024:
-            return f"{size:.1f} {unit}"
-        size /= 1024
+    rootdir = Path(yaml_data["root"])
+    suites: SuiteMap = {}
+    for yd in yaml_data["suites"]:
+        suitedir = rootdir / yd["suitedir"]
+        # enumerate all directories in suitedir
+        prof_dirs = [d for d in suitedir.iterdir() if d.is_dir()]
+        prof_dirs = sorted(prof_dirs, key=lambda x: x.name)
 
-    return f"{size:.1f} TB"
+        # Override profiles if any specified
+        prof_dict = {os.path.basename(d): d for d in prof_dirs}
+        for o in yd.get("overrides", []):
+            prof_dict[o["name"]] = rootdir / o["suitedir"]
+        profiles = [Profile(name=n, path=p) for n, p in prof_dict.items()]
+
+        s = Suite(
+            name=yd["name"],
+            ranks=yd["ranks"],
+            aggs=yd["aggs"],
+            ts=yd["ts"],
+            suitedir=suitedir,
+            profiles=profiles,
+        )
+        suites[yd["name"]] = s
+
+    return suites
 
 
 if __name__ == "__main__":
-    # suite_root = "/mnt/ltio/orcajobs/suites"
-    # suite_name = "20251103_amr-r128-psm141-nohugepages-n20"
-    # suite_dir = f"{suite_root}/{suite_name}"
-    # # get_suite_amr_runtimes(suite_dir)
-    # duckdb_path = "/mnt/ltio/orcajobs/run1/duck.db"
-    # read_duckdb(duckdb_path)
-    suite_name = "20251106_amr-agg4-r512-n200-psmerrchk141"
-    profile_dir = get_profile_dir(suite_name, "7_trace_all")
-    print(profile_dir)
-    # check if profile_dir exists
-    print("Exists: ", os.path.exists(profile_dir))
-    sizes = get_dir_size_new(profile_dir)
-    print(sizes)
-    # compute_probe_freqs(profile_dir, "mpi_messages")
+    parent_dir = os.path.dirname(os.path.abspath(__file__))
+    yaml_fpath = os.path.join(parent_dir, "suites.yaml")
+    suites = read_suites(yaml_fpath)
+    df = get_suite_amr_runtimes(suites["idk"])
+    print(df)
+    df = get_suite_tracesizes(suites["idk"])
+    print(df)

@@ -29,8 +29,8 @@ def save_and_cls(fig: plt.Figure, fname: str):
 
 
 @log_time
-def plot_suitedir(suite_dir: str, **kwargs) -> pn.pane.Matplotlib:
-    rdf = get_suite_amr_runtimes(suite_dir)
+def plot_suite_runtimes(suite: Suite, **kwargs) -> pn.pane.Matplotlib:
+    rdf = get_suite_amr_runtimes(suite)
 
     # check if figsize is there in kwargs
     if "figsize" in kwargs:
@@ -51,12 +51,10 @@ def plot_suitedir(suite_dir: str, **kwargs) -> pn.pane.Matplotlib:
     print(labels)
     ax.bar_label(bars, labels)
 
-    suite_name = os.path.basename(suite_dir)
-
     ax.yaxis.set_major_formatter(mtick.FormatStrFormatter("%.1f"))
     ax.set_ylabel("Runtime (seconds)")
     ax.set_xlabel("Profile")
-    ax.set_title(f"Runtime of {suite_name}")
+    ax.set_title(f"Runtime of {suite.name}")
 
     ax.grid(which="major", color="#bbb")
     ax.grid(which="minor", color="#ddd")
@@ -70,20 +68,20 @@ def plot_suitedir(suite_dir: str, **kwargs) -> pn.pane.Matplotlib:
     ax.set_xticklabels(rdf["profile"], rotation=25)
     ax.set_ylim(bottom=0, top=ax.get_ylim()[1] * 1.3)
 
-    save_and_cls(fig, f"{suite_name}_runtime")
+    save_and_cls(fig, f"{suite.name}_runtime")
 
     return pn.pane.Matplotlib(fig, **kwargs)
-    # return pn.pane.Matplotlib(fig, dpi=300, width=800, format='svg', tight=True)
 
 
 @pn.cache
-def read_orca_overhead(profile_path: str, probe_name: str) -> pl.DataFrame:
-    orca_tracedirs = glob.glob(f"{profile_path}/parquet/orca_events/**")
+def read_orca_overhead(profile_path: Path, probe_name: str) -> pl.DataFrame:
+    # orca_tracedirs = glob.glob(f"{profile_path}/parquet/orca_events/**")
+    orcaevents_dir = get_tracedir(profile_path) / "orca_events"
 
-    if not orca_tracedirs:
+    if not orcaevents_dir.exists():
         return pl.DataFrame({"rank": [], "probe_name": [], "time_ms": []})
 
-    orca_pl = pl.read_parquet(orca_tracedirs, parallel="columns")
+    orca_pl = pl.read_parquet(orcaevents_dir, parallel="columns")
 
     orca_pl_x = orca_pl.filter(pl.col("op_type") == "X")
     pl_xg = orca_pl_x.group_by(["rank", "probe_name"]).agg(pl.sum("val"))
@@ -97,22 +95,19 @@ def read_orca_overhead(profile_path: str, probe_name: str) -> pl.DataFrame:
     return pl_filtered
 
 
-def read_suite_profiles(
-    suite_dir: str, probe_name: str
-) -> tuple[list[str], list[list[int]]]:
-    profile_paths = get_suite_profiles(suite_dir)
+def read_suite_overhead(suite: Suite, probe_name: str) -> pd.DataFrame:
+    profile_names = [p.name for p in suite.profiles]
+    profile_paths = [p.path for p in suite.profiles]
 
-    profile_names = []
     profile_times = []
     for p in profile_paths:
         try:
-            profile_names.append(os.path.basename(p))
             profile_times.append(read_orca_overhead(p, probe_name)["time_ms"].to_list())
         except Exception as e:
             print(f"Error reading profile {p}: {e}")
             continue
 
-    return (profile_names, profile_times)
+    return pd.DataFrame({"profile": profile_names, "time_ms": profile_times})
 
 
 def get_probe_freqs(profile_dir: str, tracer: str) -> pl.DataFrame:
@@ -193,10 +188,14 @@ def plot_overhead_rankwise(
 
 
 def plot_overhead_boxplot(
-    suite_dir: str, probe_name: str, **kwargs
+    suite: Suite, probe_name: str, **kwargs
 ) -> pn.pane.Matplotlib:
-    suite_name = os.path.basename(suite_dir)
-    profile_names, profile_times = read_suite_profiles(suite_dir, probe_name)
+    # profile_names = [p.name for p in suite.profiles]
+    # profile_times = [read_orca_overhead(p.path, probe_name)["time_ms"].to_list() for p in suite.profiles]
+    ohdf = read_suite_overhead(suite, probe_name)
+    print(ohdf)
+    profile_names = ohdf["profile"]
+    profile_times = ohdf["time_ms"]
 
     # check if figsize is there in kwargs
     if "figsize" in kwargs:
@@ -211,7 +210,7 @@ def plot_overhead_boxplot(
     ax.boxplot(data_y, positions=data_x, labels=profile_names)
     ax.set_ylabel("Time (s)")
     ax.set_xlabel("Profile")
-    ax.set_title(f"{probe_name}: {suite_name}")
+    ax.set_title(f"{probe_name}: {suite.name}")
     ax.tick_params(axis="x", rotation=25)
 
     ax.yaxis.set_major_formatter(mtick.FuncFormatter(lambda x, pos: f"{x/1e3:.1f}s"))
@@ -232,11 +231,10 @@ def plot_overhead_boxplot(
 
 
 @log_time
-def plot_data_volume(suite_name: str, **kwargs) -> pn.pane.Matplotlib:
-    suite_dir = get_suitedir(suite_name)
-    profile_dirs = get_suite_profiles(suite_dir)
-    sizes = [get_tracedir_size(p) for p in profile_dirs]
-    profiles = [os.path.basename(p) for p in profile_dirs]
+def plot_suite_data_volume(suite: Suite, **kwargs) -> pn.pane.Matplotlib:
+    tracesizes_df = get_suite_tracesizes(suite)
+    profiles = tracesizes_df["profile"]
+    sizes = tracesizes_df["trace_size"]
 
     ONE_MB = 2**20
     ONE_GB = 2**30
@@ -270,9 +268,9 @@ def plot_data_volume(suite_name: str, **kwargs) -> pn.pane.Matplotlib:
 
     # set an extra margin on the top
     ax.set_ylim(bottom=0, top=ax.get_ylim()[1] * 1.2)
-    ax.set_title(f"Data Volume: {suite_name}")
+    ax.set_title(f"Data Volume: {suite.name}")
 
-    plot_fname = f"{suite_name}_data_volume"
+    plot_fname = f"{suite.name}_data_volume"
     save_and_cls(fig, plot_fname)
     return pn.pane.Matplotlib(fig, **kwargs)
 
@@ -382,11 +380,11 @@ def run_add_2048x1(plot_kwargs: dict):
     pn.Row(*all_rt_panes).servable()
     pn.Row(*all_bp_panes).servable()
 
-    all_dvol_panes = []
-    for name in all_names:
-        pane = plot_data_volume(name, **plot_kwargs)
-        all_dvol_panes.append(pane)
-    pn.Row(*all_dvol_panes).servable()
+    # all_dvol_panes = []
+    # for name in all_names:
+    #     pane = plot_data_volume(name, **plot_kwargs)
+    #     all_dvol_panes.append(pane)
+    # pn.Row(*all_dvol_panes).servable()
 
 
 def run_add_4096x4(plot_kwargs: dict):
@@ -492,6 +490,18 @@ def run_tmp():
     pn.pane.Matplotlib(fig, width=1800).servable()
 
 
+def run_add_suites(suites: list[Suite], plot_kwargs: dict):
+    rtplot_panes = [plot_suite_runtimes(s, **plot_kwargs) for s in suites]
+    pn.Row(*rtplot_panes).servable()
+
+    dvolplot_panes = [plot_suite_data_volume(s, **plot_kwargs) for s in suites]
+    pn.Row(*dvolplot_panes).servable()
+
+    ohprobe = "PostTimestepAdvance"
+    ohplot_panes = [plot_overhead_boxplot(s, ohprobe, **plot_kwargs) for s in suites]
+    pn.Row(*ohplot_panes).servable()
+
+
 def run():
     plt.style.use("../larger_fonts.mplstyle")
     pn.extension()
@@ -505,14 +515,27 @@ def run():
         "tight": True,
     }
 
+    parent_dir = os.path.dirname(os.path.abspath(__file__))
+    yaml_fpath = os.path.join(parent_dir, "suites.yaml")
+    all_suites = read_suites(yaml_fpath)
+
+    suite_names = ["r2048_a2_n20", "r2048_a2_n200", "r2048_a2_n2000"]
+    suites = [all_suites[name] for name in suite_names]
+
+    run_add_suites(suites, plot_kwargs)
+
+    suite_names = ["r4096_a4_n20", "r4096_a4_n200"]
+    suites = [all_suites[name] for name in suite_names]
+    run_add_suites(suites, plot_kwargs)
+
     # run_add_hello_world()
     # run_add_512x1(plot_kwargs)
     # run_add_512x4(plot_kwargs)
     # run_add_512misc(plot_kwargs)
-    run_add_1024x1(plot_kwargs)
-    run_add_2048x1(plot_kwargs)
-    run_add_4096x4(plot_kwargs)
-    run_tmp()
+    # run_add_1024x1(plot_kwargs)
+    # run_add_2048x1(plot_kwargs)
+    # run_add_4096x4(plot_kwargs)
+    # run_tmp()
 
 
 if __name__ == "__main__":

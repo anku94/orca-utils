@@ -29,9 +29,49 @@ declare -A OR_AMR_PROFILES=(
   [7]="trace_tgt"
   [8]="tau_default"
   [9]="tau_nothrottle"
-  [10]="dftracer"
-  [11]="scorep"
+  [10]="tau_tracetgt"
+  [11]="dftracer"
+  [12]="scorep"
 )
+
+# cache_dir_filesizes: clear dirs > threshold and cache their fsizes
+# args: $1: dir path to clean up
+# - generates: $dir_path/filesizes_cached.csv
+cache_dir_filesizes() {
+  local dir_path=$1
+  local csv_file=$dir_path/filesizes_cached.csv
+  message "-INFO- compute_dir_filesizes: called with $dir_path"
+
+  # Clear dirs > threshold
+  local dirsz_kb_max=$((10 * 1024 * 1024)) # 10GB
+  local dirsz_kb_real=$(du -sk $dir_path | awk '{print $1}')
+  if [ $dirsz_kb_real -lt $dirsz_kb_max ]; then
+    message "-INFO- Directory size is less than $dirsz_kb_max KB, skipping"
+    return
+  fi
+
+  message "-INFO- Computing cached filesizes for: $dir_path"
+  message "-INFO- CSV file: $csv_file"
+
+  echo "file,size" >$csv_file
+  find $dir_path -type f -print0 | while IFS= read -r -d '' file; do
+    echo \"$file\",$(stat -c%s "$file")
+  done >>$csv_file
+
+  find "$dir_path" -mindepth 1 -type f -print0 | while IFS= read -r -d '' file; do
+    if [ "$(basename $file)" != "$(basename $csv_file)" ]; then
+      message "-INFO- Running rm $file"
+      rm $file &
+    fi
+  done
+}
+
+# cleanup_orca_jobdir: cleanup the ORCA job directory
+# - uses: $OR_JOBDIR
+cleanup_orca_jobdir() {
+  message "-INFO- Cleaning up ORCA job directory: $OR_JOBDIR"
+  cache_dir_filesizes $OR_JOBDIR/parquet
+}
 
 # prep_tau_jobdir: prepare the TAU job directory
 # - uses: $OR_JOBDIR
@@ -43,6 +83,15 @@ prep_tau_jobdir() {
   ensure_clean_dir $OR_JOBDIR/tau-profile
   add_mpi_env_var TRACEDIR $OR_JOBDIR/tau-trace
   add_mpi_env_var PROFDIR $OR_JOBDIR/tau-profile
+  add_mpi_env_var TAU_TRACE_FORMAT otf2
+
+  CLEANUP_CMD="cleanup_tau_jobdir"
+}
+
+# cleanup_tau_jobdir: cleanup the TAU job directory
+cleanup_tau_jobdir() {
+  message "-INFO- Cleaning up TAU job directory: $OR_JOBDIR"
+  cache_dir_filesizes $OR_JOBDIR/tau-trace
 }
 
 # prep_dftracer_jobdir: prepare jobdir for DFTracer
@@ -67,6 +116,14 @@ prep_dftracer_jobdir() {
   add_mpi_env_var DFTRACER_DISABLE_STDIO 1
   add_mpi_env_var DFTRACER_TRACE_COMPRESSION 0    # TODO: think about this
   add_mpi_env_var DFTRACER_TRACE_INTERVAL_MS 1000 # does this only log for 1s
+
+  CLEANUP_CMD="cleanup_dftracer_jobdir"
+}
+
+# cleanup_dftracer_jobdir: cleanup the DFTracer job directory
+cleanup_dftracer_jobdir() {
+  message "-INFO- Cleaning up DFTracer job directory: $OR_JOBDIR"
+  cache_dir_filesizes $OR_JOBDIR/trace
 }
 
 # prepare_scorep_jobdir: prepare jobdir for ScoreP
@@ -89,14 +146,23 @@ prepare_scorep_jobdir() {
   add_mpi_env_var KOKKOS_TOOLS_LIBS "$libkokpre"
   add_mpi_env_var SCOREP_EXPERIMENT_DIRECTORY "$tracedir"
   add_mpi_env_var SCOREP_MPI_ENABLE_GROUPS "COLL,P2P"
-  add_mpi_env_var SCOREP_ENABLE_TRACING 1
+  add_mpi_env_var SCOREP_ENABLE_TRACING 0
   add_mpi_env_var SCOREP_ENABLE_PROFILING 1
   add_mpi_env_var SCOREP_KOKKOS_ENABLE 1
+  add_mpi_env_var SCOREP_TOTAL_MEMORY $((128 * 1024 * 1024))
   add_mpi_env_var SCOREP_FILTERING_FILE /users/ankushj/llm-thinkspace/mpi-trace-test/scorep.filter
   # add_mpi_env_var SCOREP_TRACE_FORMAT csv
   # add_mpi_env_var SCOREP_TRACE_FILE "$OR_JOBDIR/trace/trace.log"
 
-  CLEANUP_CMD="bash $OR_JOBDIR/.scorep_preload/$(basename $OR_AMR_BIN).clean"
+  # CLEANUP_CMD="bash $OR_JOBDIR/.scorep_preload/$(basename $OR_AMR_BIN).clean"
+  CLEANUP_CMD="cleanup_scorep_jobdir"
+}
+
+# cleanup_scorep_jobdir: cleanup the ScoreP job directory
+cleanup_scorep_jobdir() {
+  message "-INFO- Cleaning up ScoreP job directory: $OR_JOBDIR"
+  bash $OR_JOBDIR/.scorep_preload/$(basename $OR_AMR_BIN).clean
+  cache_dir_filesizes $OR_JOBDIR/trace
 }
 
 # prep_mpiexp_jobdir: prepare jobdir for non-ORCA experiments
@@ -232,6 +298,8 @@ safe_delete_dir() {
 
   # if dir_todel does not exist or is not a directory, die
   [ ! -d "$dir_todel" ] && die "Directory to delete does not exist: $dir_todel"
+
+  echo "Deleting directory: $dir_todel"
 
   # delete the directory
   rm -rf $dir_todel
@@ -437,6 +505,30 @@ setup_profile_tau_nothrottle() {
   OR_MPI_BIN="tau_exec $OR_MPI_BIN"
 }
 
+setup_profile_tau_tracetgt() {
+  OR_ORCA_ENABLED=0
+  add_common_env_var TAU_TRACE 1
+  add_common_env_var TAU_THROTTLE 0
+  #add_common_env_var TAU_SELECT_FILE /users/ankushj/llm-thinkspace/select-mpi-kokkos.tau
+
+  local tau_filter=$OR_JOBDIR/filter.tau
+  cat <<EOF >$tau_filter
+BEGIN_EXCLUDE_LIST
+MPI_Test()
+MPI_Iprobe()
+TaskRegion::CheckAndUpdate#
+END_EXCLUDE_LIST
+EOF
+
+  add_common_env_var TAU_SELECT_FILE $tau_filter
+  # TAU hallucinates because of sizeof bugs without this
+  add_common_env_var TAU_PLUGINS_PATH ${TAU_ROOT}/x86_64/lib/shared-ompt-mpi-pdt-openmp
+  add_common_env_var TAU_PLUGINS "libTAU-filter-plugin.so(/users/ankushj/llm-thinkspace/select-mpi-kokkos.tau)"
+
+  OR_RUN_TYPE="tau"
+  OR_MPI_BIN="tau_exec $OR_MPI_BIN"
+}
+
 # dftracer: run with DFTracer preload (MPI + Kokkos tracing)
 setup_profile_dftracer() {
   OR_ORCA_ENABLED=0
@@ -484,6 +576,7 @@ run_profile() {
   case $OR_RUN_TYPE in
   orca)
     run_orcaexp
+    cleanup_orca_jobdir
     ;;
   *)
     run_mpiexp
@@ -520,7 +613,7 @@ get_profile_name_from_dir() {
 # - uses: $OR_PROFILES (comma-separated list of profile indices)
 main() {
   # if OR_PROFILES is not set, set a default
-  local profiles_def="0,1,4,5,7,8"
+  local profiles_def="0,1,4,5,7,8,10,11,12" # 12 scorep needs tuning
   OR_PROFILES=${OR_PROFILES:-$profiles_def}
 
   message "-INFO- Running profiles: $OR_PROFILES"
@@ -567,4 +660,11 @@ main() {
   done
 }
 
-main
+# main
+
+data_root=/mnt/ltio/orcajobs/suites
+# find all dirs named tau_trace in $data_root
+for dir in $(fdfind tau-trace $data_root); do
+  echo $dir
+  cache_dir_filesizes $dir
+done

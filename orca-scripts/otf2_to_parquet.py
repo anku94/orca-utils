@@ -7,11 +7,17 @@ import pyarrow.parquet as pq
 import otf2
 
 import re
+import argparse
 
 from dataclasses import dataclass
 import multiprocessing
 
 LocMap = Dict[int, otf2.definitions.Location]
+
+
+@dataclass
+class Args:
+    otf2_path: Path
 
 
 @dataclass
@@ -75,16 +81,15 @@ def do_conversion(job: ConversionJob) -> None:
     logging.info("wrote %d rows to %s", table.num_rows, job.pq_path)
 
 
-def main() -> None:
+def main(args: Args) -> None:
     """Entry point: read an OTF2 archive and emit a small Parquet sample."""
 
-    logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
-    data_root = Path("/mnt/ltio/orcajobs/suites")
-    suite_root = data_root / "20251202_amr-agg1-r512-n20-psmerrchk141"
-    trace_root = suite_root / "10_tau_tracetgt"
-    trace_path = trace_root / "tau-trace/traces.otf2"
+    trace_path = args.otf2_path
+    trace_root = trace_path.parent
+    logging.info("Converting %s", trace_path)
 
     pq_dir = trace_root / "parquet"
+    logging.info("Output directory: %s", pq_dir)
     pq_dir.mkdir(parents=True, exist_ok=True)
 
     all_jobs = []
@@ -99,5 +104,21 @@ def main() -> None:
         pool.map(do_conversion, all_jobs)
 
 
+def parse_args() -> Args:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--otf2-path", type=Path, required=True, help="Path to .otf2 file to convert"
+    )
+    args = parser.parse_args()
+
+    # ensure the path exists
+    if not args.otf2_path.exists():
+        raise FileNotFoundError(f"File {args.otf2_path} does not exist")
+
+    return Args(otf2_path=args.otf2_path)
+
+
 if __name__ == "__main__":
-    main()
+    logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+    args = parse_args()
+    main(args)

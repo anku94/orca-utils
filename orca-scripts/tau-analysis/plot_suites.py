@@ -49,7 +49,7 @@ def plot_suite_runtimes(suite: Suite, **kwargs) -> pn.pane.Matplotlib:
 
     labels = [f"{b+x:.1f}s\n({x/b*100:.1f}%)" for x, b in zip(data_yxtra, data_ybase)]
     print(labels)
-    ax.bar_label(bars, labels)
+    ax.bar_label(bars, labels, fontsize=10)
 
     ax.yaxis.set_major_formatter(mtick.FormatStrFormatter("%.1f"))
     ax.set_ylabel("Runtime (seconds)")
@@ -254,7 +254,7 @@ def plot_suite_data_volume(suite: Suite, **kwargs) -> pn.pane.Matplotlib:
     plt_bars = ax.bar(profiles, sizes)
 
     labels = [pretty_size(s) for s in sizes]
-    ax.bar_label(plt_bars, labels)
+    ax.bar_label(plt_bars, labels, fontsize=10)
 
     ax.yaxis.set_major_formatter(
         mtick.FuncFormatter(lambda x, pos: f"{x/ONE_GB:.1f}GB")
@@ -329,9 +329,9 @@ def run():
 
     plot_kwargs = {
         "dpi": 300,
-        "width": 450,
+        "width": 600,
         # "height": 300,
-        "figsize": (7, 4),
+        "figsize": (7, 3.5),
         "format": "svg",
         "tight": True,
     }
@@ -340,14 +340,17 @@ def run():
     yaml_fpath = os.path.join(parent_dir, "suites.yaml")
     all_suites = read_suites(yaml_fpath)
 
-    suite_names = ["r2048_a2_n20", "r2048_a2_n200", "r2048_a2_n2000"]
-    suites = [all_suites[name] for name in suite_names]
+    s2048 = ["r2048_a2_n20", "r2048_a2_n200", "r2048_a2_n2000"]
+    s4096 = ["r4096_a4_n20", "r4096_a4_n200", "r4096_a4_n2000"]
+    s512 = ["r512_a1_n20_v2", "r512_a1_n200_v2", "r512_a1_n2000_v2"]
 
-    run_add_suites(suites, plot_kwargs)
+    for suite_name in [s512]:
+        suites = [all_suites[name] for name in suite_name]
+        run_add_suites(suites, plot_kwargs)
 
-    suite_names = ["r4096_a4_n20", "r4096_a4_n200", "r4096_a4_n2000"]
-    suites = [all_suites[name] for name in suite_names]
-    run_add_suites(suites, plot_kwargs)
+    # s512 = ["r512_tmp"]
+    # suites = [all_suites[name] for name in s512]
+    # run_add_suites(suites, plot_kwargs)
 
 
 if __name__ == "__main__":

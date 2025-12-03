@@ -4,22 +4,24 @@ set -eu
 SCRIPT_DIR=$(dirname $(realpath $0))
 SUITE_ROOT=/mnt/ltio/orcajobs/suites
 
+OR_PREFIX=/users/ankushj/repos/orca-workspace/orca-install
 OR_UMB_PREFIX=/users/ankushj/repos/orca-workspace/orca-umb-install
 
 # setup_suite_common: setup common environment variables
 setup_suite_common() {
     # CTL node is implied, and will be added if ORCA is enabled
-    OR_AGGCNT=4 # AGG count
+    OR_AGGCNT=1 # AGG count
     # OR_MPI_NNODES=16  # MPI nodes
     # OR_MPI_NRANKS=1024 # MPI ranks per node
     # OR_DECK_NRANKS=$OR_MPI_NRANKS
-    OR_MPI_NRANKS=4096
-    OR_DECK_NRANKS=4096
+    OR_MPI_NRANKS=512
+    OR_DECK_NRANKS=512
     OR_MPI_PPN=16 # MPI ranks per node
 
     OR_AMR_POLICY="baseline" # policy name
     OR_AMR_BIN=$OR_UMB_PREFIX/bin/phoebus
     OR_AMR_DECK_IN=$OR_UMB_PREFIX/decks/blast_wave_3d.${OR_DECK_NRANKS}.pin.in
+    # OR_AMR_BIN=$OR_PREFIX/bin/example_prog
     # OR_AMR_NSTEPS: set in main loop
 
     OR_FLOW_YAML="" # Flow YAML is optional
@@ -123,7 +125,8 @@ setup_suite_export() {
 sweep_amr_nsteps() {
     # local all_amr_nsteps=(20 200 2000)
     # all_amr_nsteps=(20 200)
-    all_amr_nsteps=(2000)
+    all_amr_nsteps=(20 200)
+    all_amr_nsteps=(20)
 
     for amr_nsteps in "${all_amr_nsteps[@]}"; do
         OR_AMR_NSTEPS=$amr_nsteps

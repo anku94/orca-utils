@@ -81,7 +81,7 @@ def get_file_size(fpath: Path) -> int:
 
 
 def get_dir_size_cached(dir_path: Path, cache: bool = True) -> pd.DataFrame:
-    df_cache = f"{dir_path}/.dirsz_cached.csv"
+    df_cache = f"{dir_path}/filesizes_cached.csv"
     if cache and os.path.exists(df_cache):
         return pd.read_csv(df_cache)
 

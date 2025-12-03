@@ -56,3 +56,24 @@ suites:
     aggs: 4
     ts: 2000
     suitedir: 20251121_amr-agg4-r4096-n2000-psmerrchk141
+    # Temporary testing suites
+  - name: r512_tmp
+    ranks: 512
+    aggs: 1
+    ts: 20
+    suitedir: 20251201_amr-agg1-r512-n20-psmerrchk141-tmp
+  - name: r512_a1_n20_v2
+    ranks: 512
+    aggs: 1
+    ts: 20
+    suitedir: 20251201_amr-agg1-r512-n20-psmerrchk141
+  - name: r512_a1_n200_v2
+    ranks: 512
+    aggs: 1
+    ts: 200
+    suitedir: 20251201_amr-agg1-r512-n200-psmerrchk141
+  - name: r512_a1_n2000_v2
+    ranks: 512
+    aggs: 1
+    ts: 2000
+    suitedir: 20251201_amr-agg1-r512-n2000-psmerrchk141

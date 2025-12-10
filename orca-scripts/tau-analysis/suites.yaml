@@ -26,9 +26,6 @@ suites:
     suitedir: 20251119_amr-agg4-r4096-n200-psmerrchk141
   - name: r4096_a4_n2000
     suitedir: 20251121_amr-agg4-r4096-n2000-psmerrchk141
-    # Temporary testing suites
-  - name: r512_tmp
-    suitedir: 20251201_amr-agg1-r512-n20-psmerrchk141-tmp
     # New suites with TAU tracefmt fixed
   - name: r512_a1_n20_v2
     suitedir: 20251203_amr-agg1-r512-n20-psmerrchk141

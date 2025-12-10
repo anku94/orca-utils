@@ -14,6 +14,10 @@ SUITE_ROOT = "/mnt/ltio/orcajobs/suites"
 
 import time
 from functools import wraps
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,7 +194,7 @@ def read_suites(suites_yaml: str) -> SuiteMap:
     with open(suites_yaml, "r") as f:
         yaml_data = yaml.load(f, Loader=yaml.FullLoader)
 
-    print(f"YAML data: {yaml_data}")
+    # print(f"YAML data: {yaml_data}")
 
     rootdir = Path(yaml_data["root"])
     suites: SuiteMap = {}
@@ -198,7 +202,7 @@ def read_suites(suites_yaml: str) -> SuiteMap:
         suitedir = rootdir / yd["suitedir"]
         # enumerate all directories in suitedir
         if not suitedir.exists():
-            print(f"Suite {yd['name']} directory {suitedir} does not exist")
+            logger.warning(f"No suite {yd['name']} in dir: {suitedir}")
             continue
 
         prof_dirs = [d for d in suitedir.iterdir() if d.is_dir()]
@@ -210,7 +214,7 @@ def read_suites(suites_yaml: str) -> SuiteMap:
             prof_dict[o["name"]] = rootdir / o["suitedir"]
         profiles = [Profile(name=n, path=p) for n, p in prof_dict.items()]
 
-        print(f"Data: {yd}")
+        # print(f"Data: {yd}")
 
         s = Suite(
             name=yd["name"],
@@ -220,6 +224,20 @@ def read_suites(suites_yaml: str) -> SuiteMap:
         suites[yd["name"]] = s
 
     return suites
+
+
+def get_script_root() -> Path:
+    return Path(os.path.dirname(os.path.abspath(__file__)))
+
+
+def read_all_suites(suite_names: list[str] | None) -> SuiteMap:
+    yaml_fpath = get_script_root() / "suites.yaml"
+    suites = read_suites(yaml_fpath)
+
+    if suite_names is None:
+        return suites
+    else:
+        return [suites[name] for name in suite_names]
 
 
 if __name__ == "__main__":

@@ -18,7 +18,7 @@ LocMap = Dict[int, otf2.definitions.Location]
 @dataclass
 class Args:
     otf2_path: Path
-
+    num_ranks: int
 
 @dataclass
 class ConversionJob:
@@ -85,7 +85,7 @@ def main(args: Args) -> None:
     """Entry point: read an OTF2 archive and emit a small Parquet sample."""
 
     trace_path = args.otf2_path
-    trace_root = trace_path.parent
+    trace_root = trace_path.parent.parent
     logging.info("Converting %s", trace_path)
 
     pq_dir = trace_root / "parquet"
@@ -94,7 +94,7 @@ def main(args: Args) -> None:
 
     all_jobs = []
 
-    for rank in range(512):
+    for rank in range(args.num_ranks):
         pq_path = pq_dir / f"rank_{rank}.parquet"
         all_jobs.append(
             ConversionJob(trace_path=trace_path, rank=rank, pq_path=pq_path)
@@ -109,13 +109,16 @@ def parse_args() -> Args:
     parser.add_argument(
         "--otf2-path", type=Path, required=True, help="Path to .otf2 file to convert"
     )
+    parser.add_argument(
+        "--num-ranks", type=int, required=True, help="Number of ranks to convert"
+    )
     args = parser.parse_args()
 
     # ensure the path exists
     if not args.otf2_path.exists():
         raise FileNotFoundError(f"File {args.otf2_path} does not exist")
 
-    return Args(otf2_path=args.otf2_path)
+    return Args(otf2_path=args.otf2_path, num_ranks=args.num_ranks)
 
 
 if __name__ == "__main__":

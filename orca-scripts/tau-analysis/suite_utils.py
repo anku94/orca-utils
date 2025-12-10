@@ -25,9 +25,6 @@ class Profile:
 @dataclass(frozen=True, slots=True)
 class Suite:
     name: str
-    ranks: int
-    aggs: int  # aggregator count
-    ts: int  # MPI timesteps
     suitedir: Path
     profiles: list[Profile]
 
@@ -75,6 +72,7 @@ def get_dir_size(dir_path: Path) -> int:
             total_size += fpath.stat().st_size
     return total_size
 
+
 def get_file_size(fpath: Path) -> int:
     "Get the size of a file"
     return fpath.stat().st_size
@@ -115,7 +113,9 @@ def get_tracedir(profile_dir: Path) -> Path:
 def get_suite_tracesizes(suite: Suite) -> pd.DataFrame:
     "Get the size of the trace directories for all profiles in a suite"
     tracedirs = [get_tracedir(p.path) for p in suite.profiles]
-    tracesizes = [get_dir_size_cached(td)["fsize"].sum() for td in tracedirs]
+    trace_dfs = [get_dir_size_cached(td) for td in tracedirs]
+    print(trace_dfs)
+    tracesizes = [df["fsize"].sum() for df in trace_dfs]
     profile_names = [p.name for p in suite.profiles]
 
     df = pd.DataFrame({"profile": profile_names, "trace_size": tracesizes})
@@ -190,11 +190,17 @@ def read_suites(suites_yaml: str) -> SuiteMap:
     with open(suites_yaml, "r") as f:
         yaml_data = yaml.load(f, Loader=yaml.FullLoader)
 
+    print(f"YAML data: {yaml_data}")
+
     rootdir = Path(yaml_data["root"])
     suites: SuiteMap = {}
     for yd in yaml_data["suites"]:
         suitedir = rootdir / yd["suitedir"]
         # enumerate all directories in suitedir
+        if not suitedir.exists():
+            print(f"Suite {yd['name']} directory {suitedir} does not exist")
+            continue
+
         prof_dirs = [d for d in suitedir.iterdir() if d.is_dir()]
         prof_dirs = sorted(prof_dirs, key=lambda x: x.name)
 
@@ -204,11 +210,10 @@ def read_suites(suites_yaml: str) -> SuiteMap:
             prof_dict[o["name"]] = rootdir / o["suitedir"]
         profiles = [Profile(name=n, path=p) for n, p in prof_dict.items()]
 
+        print(f"Data: {yd}")
+
         s = Suite(
             name=yd["name"],
-            ranks=yd["ranks"],
-            aggs=yd["aggs"],
-            ts=yd["ts"],
             suitedir=suitedir,
             profiles=profiles,
         )

@@ -21,9 +21,10 @@ def main():
     print(counts.to_pandas().head(20))
 
     trace_dir = suite_root / "07_trace_tgt" / "parquet"
+    glob_patt = str(trace_dir / "**/*.parquet")
     # polars lazy query
     counts = (
-        pl.scan_parquet(trace_dir, extra_columns="ignore")
+        pl.scan_parquet(glob_patt, extra_columns="ignore")
         .filter(pl.col("rank") == 0)
         .group_by("probe_name", "timestep")
         .count()

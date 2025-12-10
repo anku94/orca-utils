@@ -318,9 +318,9 @@ def run_add_suites(suites: list[Suite], plot_kwargs: dict):
     dvolplot_panes = [plot_suite_data_volume(s, **plot_kwargs) for s in suites]
     pn.Row(*dvolplot_panes).servable()
 
-    ohprobe = "PostTimestepAdvance"
-    ohplot_panes = [plot_overhead_boxplot(s, ohprobe, **plot_kwargs) for s in suites]
-    pn.Row(*ohplot_panes).servable()
+    # ohprobe = "PostTimestepAdvance"
+    # ohplot_panes = [plot_overhead_boxplot(s, ohprobe, **plot_kwargs) for s in suites]
+    # pn.Row(*ohplot_panes).servable()
 
 
 def run():
@@ -340,11 +340,20 @@ def run():
     yaml_fpath = os.path.join(parent_dir, "suites.yaml")
     all_suites = read_suites(yaml_fpath)
 
-    s2048 = ["r2048_a2_n20", "r2048_a2_n200", "r2048_a2_n2000"]
-    s4096 = ["r4096_a4_n20", "r4096_a4_n200", "r4096_a4_n2000"]
-    s512 = ["r512_a1_n20_v2", "r512_a1_n200_v2", "r512_a1_n2000_v2"]
+    print(all_suites)
 
-    for suite_name in [s512]:
+    s2048 = ["r2048_a2_n20", "r2048_a2_n200", "r2048_a2_n2000"]
+    # s4096 = ["r4096_a4_n20", "r4096_a4_n200", "r4096_a4_n2000"]
+    # s4096 = ["r4096_a4_n20"]
+    s512 = ["r512_a1_n20_v2", "r512_a1_n200_v2", "r512_a1_n2000_v2"]
+    s1024 = ["r1024_a1_n20_v2", "r1024_a1_n200_v2", "r1024_a1_n2000_v2"]
+    s2048 = ["r2048_a2_n20_v2", "r2048_a2_n200_v2", "r2048_a2_n2000_v2"]
+    s4096 = ["r4096_a4_n20_v2", "r4096_a4_n200_v2", "r4096_a4_n2000_v2"]
+    s4096_v3 = ["r4096_a4_n20_v3", "r4096_a4_n200_v3", "r4096_a4_n2000_v3"]
+    s4096_v4 = ["r4096_a4_n2000_v4"]
+    # s512 = ["r512_a1_n20_v2"]
+
+    for suite_name in [s512, s1024, s2048, s4096, s4096_v3, s4096_v4]:
         suites = [all_suites[name] for name in suite_name]
         run_add_suites(suites, plot_kwargs)
 

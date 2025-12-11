@@ -1,3 +1,6 @@
+import logging
+from functools import wraps
+import time
 from dataclasses import dataclass
 from pathlib import Path
 import pandas as pd
@@ -7,23 +10,85 @@ import os
 import duckdb
 import polars as pl
 from datetime import datetime
+import otf2
 import yaml
 from concurrent.futures import ThreadPoolExecutor
 
 SUITE_ROOT = "/mnt/ltio/orcajobs/suites"
 
-import time
-from functools import wraps
-import logging
-
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True, slots=True)
+def _get_linecount_ascii(fpath: Path) -> int:
+    with open(fpath, "r") as f:
+        return len(f.readlines())
+
+
 class Profile:
-    name: str
-    path: Path
+    def __init__(self, name: str, path: Path):
+        self.name = name
+        self.path = path
+
+    def get_tracedir(self) -> Path:
+        if os.path.exists(f"{self.path}/parquet"):
+            return Path(f"{self.path}/parquet")
+        elif os.path.exists(f"{self.path}/tau-trace"):
+            return Path(f"{self.path}/tau-trace")
+        elif os.path.exists(f"{self.path}/trace"):
+            return Path(f"{self.path}/trace")
+        else:
+            raise FileNotFoundError(f"No trace directory found in {self.path}")
+
+    def _get_evtcount_otf2(self) -> int:
+        all_files = list(self.get_tracedir().glob("**/*.otf2"))
+        if len(all_files) == 0:
+            return -1
+
+        evtcnt = 0
+        for f in all_files:
+            reader = otf2.reader.Reader(str(f))
+            evtcnt += len(reader.events)
+        return evtcnt
+
+    def _get_evtcount_dft(self) -> int:
+        all_files = list(self.get_tracedir().glob("**/*.pfw"))
+        if len(all_files) == 0:
+            return -1
+
+        evtcnt = 0
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(_get_linecount_ascii, f)
+                       for f in all_files]
+            results = [future.result() for future in futures]
+        return sum(results)
+
+    def _get_evtcnt_parquet(self) -> int:
+        evtcnt = 0
+        for item in self.get_tracedir().iterdir():
+            if item.name == "orca_events" or not item.is_dir():
+                continue
+
+            glob_pattern = f"{item}/**/*.parquet"
+            try:
+                pl_df = pl.scan_parquet(glob_pattern, parallel="columns")
+                evtcnt += pl_df.count().collect().item(0, 0)
+            except Exception as e:
+                logger.error(f"Error scanning parquet files in {item}: {e}")
+                evtcnt = -1
+                continue
+
+        return evtcnt
+
+    def get_evtcnt(self) -> int:
+        if self.name == "07_trace_tgt":
+            return self._get_evtcnt_parquet()
+        elif self.name == "10_tau_tracetgt":
+            return self._get_evtcount_otf2()
+        elif self.name == "11_dftracer":
+            return self._get_evtcount_dft()
+        else:
+            return -1
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +102,13 @@ class Suite:
         for p in sorted(self.profiles, key=lambda x: x.name):
             s += f"  {p.name:20s}: {p.path}\n"
         return s
+
+    def get_prof_path(self, prof_name: str) -> Path:
+        profs = [p for p in self.profiles if p.name == prof_name]
+        if len(profs) == 0:
+            raise ValueError(
+                f"Profile {prof_name} not found in suite {self.name}")
+        return profs[0].path
 
 
 SuiteMap = dict[str, Suite]  # suite name -> suite

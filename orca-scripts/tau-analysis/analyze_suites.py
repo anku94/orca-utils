@@ -1,4 +1,5 @@
 import re
+import otf2
 from suite_utils import *
 from dataclasses import dataclass
 
@@ -60,10 +61,14 @@ def run_amr_tracesizes(suites: list[str]):
         sdf.insert(1, "ranks", suite_props.ranks)
         sdf.insert(2, "aggs", suite_props.aggs)
         sdf.insert(3, "steps", suite_props.steps)
+
+        evtcnts = [profile.get_evtcnt() for profile in suite.profiles]
+        sdf["evtcnt"] = evtcnts
+
         all_sdf.append(sdf)
 
     merged_sdf = pd.concat(all_sdf)
-    print(merged_sdf)
+    logger.info(merged_sdf)
 
     df_out = get_script_root() / "data" / "amr_tracesizes.csv"
     logger.info(f"Writing output to: {df_out}")

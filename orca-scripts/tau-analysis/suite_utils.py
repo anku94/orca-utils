@@ -80,15 +80,26 @@ class Profile:
 
         return evtcnt
 
-    def get_evtcnt(self) -> int:
+    def get_evtcnt(self, cached: bool = True) -> int:
+        evtcnt = -1
+
+        evtcnt_file = self.path / ".evtcnt"
+        if cached and evtcnt_file.exists():
+            with open(evtcnt_file, "r") as f:
+                evtcnt = int(f.read())
+            return evtcnt
+
         if self.name == "07_trace_tgt":
-            return self._get_evtcnt_parquet()
+            evtcnt = self._get_evtcnt_parquet()
         elif self.name == "10_tau_tracetgt":
-            return self._get_evtcount_otf2()
+            evtcnt = self._get_evtcount_otf2()
         elif self.name == "11_dftracer":
-            return self._get_evtcount_dft()
-        else:
-            return -1
+            evtcnt = self._get_evtcount_dft()
+
+        with open(evtcnt_file, "w") as f:
+            f.write(str(evtcnt))
+
+        return evtcnt
 
 
 @dataclass(frozen=True, slots=True)

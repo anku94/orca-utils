@@ -49,25 +49,40 @@ def do_conversion(job: ConversionJob) -> None:
     names = []
     types = []
 
-    for _, evt in reader.events([rank_loc]):
-        if isinstance(evt, otf2.events.Leave):
-            continue
-        elif isinstance(evt, otf2.events.Metric):
-            continue
+    total_evtcnt = 0
+    unknown_evtcnt = 0
+    unknown_names = set()
+
+    event_reader = reader.events([rank_loc])
+    reader_evtcnt = len(event_reader)
+    print(f"reader_events: {reader_evtcnt}")
+
+    for _, evt in event_reader:
+        # if isinstance(evt, otf2.events.Leave):
+        #     continue
+        # elif isinstance(evt, otf2.events.Metric):
+        #     continue
 
         timestamp = evt.time
         name = "unknown"
         ev_type = "unknown"
 
-        if hasattr(evt, "region"):
+        evt_name = evt.__class__.__name__
+
+        if evt_name == "MpiSend" or evt_name == "MpiRecv":
+            name = evt_name
+            ev_type = "p2p"
+        elif evt_name == "Enter" or evt_name == "Leave":
             name = evt.region.name
             ev_type = "region"
-        elif hasattr(evt, "collective_op"):
-            name = evt.collective_op.name
-            ev_type = "collective_op"
-        elif hasattr(evt, "program_name"):
-            name = evt.program_name
-            ev_type = "program"
+        elif evt_name == "Metric":
+            name = evt.metric.members[0].name
+            ev_type = "metric"
+        else:
+            unknown_evtcnt += 1
+            unknown_names.add(evt.__class__.__name__)
+
+        total_evtcnt += 1
 
         timestamps.append(timestamp)
         names.append(name)
@@ -78,6 +93,8 @@ def do_conversion(job: ConversionJob) -> None:
         names=["timestamp", "name", "type"],
     )
     pq.write_table(table, job.pq_path)
+    print(f"evtcnt (tot/unknown): {total_evtcnt}/{unknown_evtcnt}")
+    print(f"unknown names: {unknown_names}")
     logging.info("wrote %d rows to %s", table.num_rows, job.pq_path)
 
 

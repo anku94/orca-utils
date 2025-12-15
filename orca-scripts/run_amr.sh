@@ -31,7 +31,8 @@ declare -A OR_AMR_PROFILES=(
   [9]="tau_nothrottle"
   [10]="tau_tracetgt"
   [11]="dftracer"
-  [12]="scorep"
+  [12]="dftracer_comp"
+  [13]="scorep"
 )
 
 # cache_dir_filesizes: clear dirs > threshold and cache their fsizes
@@ -53,13 +54,13 @@ cache_dir_filesizes() {
   message "-INFO- Computing cached filesizes for: $dir_path"
   message "-INFO- CSV file: $csv_file"
 
-  echo "file,size" >$csv_file
+  echo "fpath,fsize" >$csv_file
   find $dir_path -type f -print0 | while IFS= read -r -d '' file; do
     echo \"$file\",$(stat -c%s "$file")
   done >>$csv_file
 
   find "$dir_path" -mindepth 1 -type f -print0 | while IFS= read -r -d '' file; do
-    if [ "$(basename $file)" != "$(basename $csv_file)" ]; then
+    if [ "$(basename $file)" != "$(basename $csv_file)" ] && [ "$(basename $file)" != "orca_events" ]; then
       message "-INFO- Running rm $file"
       rm $file &
     fi
@@ -114,7 +115,6 @@ prep_dftracer_jobdir() {
   add_mpi_env_var DFTRACER_DISABLE_IO 1
   add_mpi_env_var DFTRACER_DISABLE_POSIX 1
   add_mpi_env_var DFTRACER_DISABLE_STDIO 1
-  add_mpi_env_var DFTRACER_TRACE_COMPRESSION 0    # TODO: think about this
   add_mpi_env_var DFTRACER_TRACE_INTERVAL_MS 1000 # does this only log for 1s
 
   CLEANUP_CMD="cleanup_dftracer_jobdir"
@@ -393,7 +393,7 @@ setup_amr_common() {
   OR_AGG_BIN="$OR_PREFIX/scripts/orcawf_wrapper.sh agg"
 
   add_common_env_var PSM_CONNECT_TIMEOUT 30 # 30s timeout
-  add_common_env_var FI_UNIVERSE_SIZE 64    # need on wolf
+  add_common_env_var FI_UNIVERSE_SIZE 128   # need on wolf
   # add_common_env_var MV2_CM_RECV_BUFFERS 2048
   add_common_env_var MV2_ON_DEMAND_THRESHOLD 8192
 
@@ -439,6 +439,13 @@ setup_profile_tracers_disabled() {
   local cmdseq="set-flow disable-tracers; resume"
   set_new_yaml_with_cmdseq "$cmdseq"
   OR_RUN_TYPE="orca"
+
+  # add_orca_env_var FI_OFI_RXM_RX_SIZE 4096
+  # add_orca_env_var FI_OFI_RXM_MSG_RX_SIZE 512
+  # add_orca_env_var FI_OFI_RXM_COMP_PER_PROGRESS 128
+  # add_orca_env_var FI_LOG_LEVEL debug
+  # add_orca_env_var FI_LOG_SUBSYS ep_ctrl
+  # add_common_env_var FI_OFI_RXM_BUFFER_SIZE 8192
 }
 
 # tracendrop: trace and drop at MPI
@@ -514,8 +521,8 @@ setup_profile_tau_tracetgt() {
   local tau_filter=$OR_JOBDIR/filter.tau
   cat <<EOF >$tau_filter
 BEGIN_EXCLUDE_LIST
-MPI_Test()
-MPI_Iprobe()
+MPI_Test()#
+MPI_Iprobe#
 TaskRegion::CheckAndUpdate#
 END_EXCLUDE_LIST
 EOF
@@ -533,6 +540,14 @@ EOF
 setup_profile_dftracer() {
   OR_ORCA_ENABLED=0
   OR_RUN_TYPE="dftracer"
+  add_mpi_env_var DFTRACER_TRACE_COMPRESSION 0
+}
+
+# dftracer_comp: run with DFTracer preload (MPI + Kokkos tracing)
+setup_profile_dftracer_comp() {
+  OR_ORCA_ENABLED=0
+  OR_RUN_TYPE="dftracer"
+  add_mpi_env_var DFTRACER_TRACE_COMPRESSION 1
 }
 
 # scorep: run with ScoreP preload (MPI + Kokkos tracing)
@@ -613,7 +628,8 @@ get_profile_name_from_dir() {
 # - uses: $OR_PROFILES (comma-separated list of profile indices)
 main() {
   # if OR_PROFILES is not set, set a default
-  local profiles_def="0,1,4,5,7,8,10,11,12" # 12 scorep needs tuning
+  #local profiles_def="0,1,4,5,7,8,10,11,12" # 12 scorep needs tuning
+  local profiles_def="0,1,4,5,7,8,10,11" # 12 scorep needs tuning
   OR_PROFILES=${OR_PROFILES:-$profiles_def}
 
   message "-INFO- Running profiles: $OR_PROFILES"
@@ -621,7 +637,7 @@ main() {
   IFS=',' read -r -a PROFILES_ARRAY <<<"$OR_PROFILES"
 
   # Setup SUITEDIR. Add date, mkdir, write desc
-  add_date_to_suitedir
+  # add_date_to_suitedir: disabled, we do it manually
   message "-INFO- Suite dir: $OR_SUITEDIR"
   mkdir -p $OR_SUITEDIR
   echo "$OR_SUITE_DESC" >$OR_SUITEDIR/desc.md
@@ -660,11 +676,11 @@ main() {
   done
 }
 
-# main
+main
 
-data_root=/mnt/ltio/orcajobs/suites
-# find all dirs named tau_trace in $data_root
-for dir in $(fdfind tau-trace $data_root); do
-  echo $dir
-  cache_dir_filesizes $dir
-done
+# data_root=/mnt/ltio/orcajobs/suites
+# # find all dirs named tau_trace in $data_root
+# for dir in $(fdfind tau-trace $data_root); do
+#   echo $dir
+#   cache_dir_filesizes $dir
+# done

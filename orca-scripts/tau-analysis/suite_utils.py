@@ -14,7 +14,7 @@ import otf2
 import yaml
 from concurrent.futures import ThreadPoolExecutor
 
-SUITE_ROOT = "/mnt/ltio/orcajobs/suites"
+SUITE_ROOT = Path("/mnt/ltio/orcajobs/suites")
 
 
 logger = logging.getLogger(__name__)
@@ -26,9 +26,20 @@ def _get_linecount_ascii(fpath: Path) -> int:
 
 
 class Profile:
-    def __init__(self, name: str, path: Path):
-        self.name = name
+    def __init__(self, path: Path):
+        self.name = os.path.basename(path)
         self.path = path
+
+    def __lt__(self, other: 'Profile') -> bool:
+        return self.sort_key() < other.sort_key()
+
+    def __eq__(self, other: 'Profile') -> bool:
+        return self.sort_key() == other.sort_key()
+
+    def sort_key(self) -> tuple[int, int, int]:
+        mobj = re.match(r"^(\d+)_(.*)$", self.name)
+        assert mobj is not None
+        return int(mobj.group(1))
 
     def get_tracedir(self) -> Path:
         if os.path.exists(f"{self.path}/parquet"):
@@ -41,6 +52,8 @@ class Profile:
             raise FileNotFoundError(f"No trace directory found in {self.path}")
 
     def _get_evtcount_otf2(self) -> int:
+        logger.info(f"Getting event count for profile {self.name}")
+
         all_files = list(self.get_tracedir().glob("**/*.otf2"))
         if len(all_files) == 0:
             return -1
@@ -52,6 +65,8 @@ class Profile:
         return evtcnt
 
     def _get_evtcount_dft(self) -> int:
+        logger.info(f"Getting event count for profile {self.name}")
+
         all_files = list(self.get_tracedir().glob("**/*.pfw"))
         if len(all_files) == 0:
             return -1
@@ -64,6 +79,8 @@ class Profile:
         return sum(results)
 
     def _get_evtcnt_parquet(self) -> int:
+        logger.info(f"Getting event count for profile {self.name}")
+
         evtcnt = 0
         for item in self.get_tracedir().iterdir():
             if item.name == "orca_events" or not item.is_dir():
@@ -102,17 +119,36 @@ class Profile:
         return evtcnt
 
 
-@dataclass(frozen=True, slots=True)
 class Suite:
-    name: str
-    suitedir: Path
-    profiles: list[Profile]
+    def __init__(self, suitedir: Path, profiles: list[Profile]):
+        self.name = os.path.basename(suitedir)
+        self.suitedir = suitedir
+        self.profiles = sorted(profiles)
+
+        mobj = re.match(r"^(.*)-agg(\d+)-r(\d+)-n(\d+)-run(\d+)$", self.name)
+        assert mobj is not None
+
+        self.run_type = mobj.group(1)
+        self.naggs = int(mobj.group(2))
+        self.ranks = int(mobj.group(3))
+        self.nsteps = int(mobj.group(4))
+        self.run_id = int(mobj.group(5))
 
     def __repr__(self) -> str:
-        s = f"Suite(name={self.name}, {len(self.profiles)} profiles):\n"
-        for p in sorted(self.profiles, key=lambda x: x.name):
-            s += f"  {p.name:20s}: {p.path}\n"
+        s = f"Suite(name={self.name:28s}, "
+        s += f"ranks={self.ranks:4d}, "
+        s += f"naggs={self.naggs}, "
+        s += f"nsteps={self.nsteps:4d}, "
+        s += f"run_id={self.run_id}, "
+        s += f"nprofs={len(self.profiles)}"
+        s += ")"
+
+        # profs = ', '.join([p.name for p in self.profiles])
+        # s += f"\n  profiles[{len(self.profiles)}]: {profs}"
         return s
+
+    def sort_key(self) -> tuple[int, int, int]:
+        return (self.ranks, self.nsteps, self.run_id)
 
     def get_prof_path(self, prof_name: str) -> Path:
         profs = [p for p in self.profiles if p.name == prof_name]
@@ -199,25 +235,26 @@ def get_tracedir(profile_dir: Path) -> Path:
 
 def get_suite_tracesizes(suite: Suite) -> pd.DataFrame:
     "Get the size of the trace directories for all profiles in a suite"
+    logger.info(f"Getting trace sizes for suite {suite}")
+
+    df = get_suitedf(suite)
     tracedirs = [get_tracedir(p.path) for p in suite.profiles]
     trace_dfs = [get_dir_size_cached(td) for td in tracedirs]
-    print(trace_dfs)
     tracesizes = [df["fsize"].sum() for df in trace_dfs]
-    profile_names = [p.name for p in suite.profiles]
 
-    df = pd.DataFrame({"profile": profile_names, "trace_size": tracesizes})
+    df["trace_size"] = tracesizes
     return df
 
 
 def get_profile_amr_runtime(profile_dir: Path) -> float:
-    print(f"Getting runtime for profile {profile_dir}")
+    logger.debug(f"Getting runtime for profile {profile_dir}")
     mpi_log = f"{profile_dir}/mpi.log"
 
     with open(mpi_log, "r") as f:
         lines = f.readlines()
         lines = [l.strip() for l in lines if "walltime used" in l]
 
-    print(lines)
+    # print(lines)
     if len(lines) == 0:
         return 0
 
@@ -228,19 +265,31 @@ def get_profile_amr_runtime(profile_dir: Path) -> float:
     return float(mobj.group(1))
 
 
+def get_suitedf(suite: Suite) -> pd.DataFrame:
+    df_rows = []
+    for p in suite.profiles:
+        df_rows.append({
+            "name": p.name,
+            "nranks": suite.ranks,
+            "naggs": suite.naggs,
+            "nsteps": suite.nsteps,
+            "run_id": suite.run_id})
+
+    df = pd.DataFrame(df_rows)
+    return df
+
+
 def get_suite_amr_runtimes(suite: Suite) -> pd.DataFrame:
-    print(f"Getting AMR runtimes for suite {suite.name}")
+    logger.info(f"Getting AMR runtimes for suite {suite}")
 
     # Returns a dataframe like this:
     #               profile  time_secs
     # 0     10_dftracer     2.5723
     # 1       11_scorep     2.6378
     # 2  08_tau_default     3.1165
-
+    df = get_suitedf(suite)
     runtimes = [get_profile_amr_runtime(p.path) for p in suite.profiles]
-    profile_names = [p.name for p in suite.profiles]
-    df = pd.DataFrame({"profile": profile_names, "time_secs": runtimes})
-
+    df["time_secs"] = runtimes
     return df
 
 
@@ -309,12 +358,29 @@ def read_suites(suites_yaml: str) -> SuiteMap:
     return suites
 
 
+def read_v2_suites(root_subdir: str) -> list[Suite]:
+    root_suitepath = SUITE_ROOT / root_subdir
+    suite_dirs = [d for d in root_suitepath.iterdir() if d.is_dir()]
+    logger.info(f"Found {len(suite_dirs)} suites in {root_subdir}")
+
+    suites: list[Suite] = []
+    for suite_dir in suite_dirs:
+        prof_dirs = [d for d in suite_dir.iterdir() if d.is_dir()]
+        logger.debug(f"Found {len(prof_dirs)} profiles in suite {suite_dir}")
+
+        profiles = [Profile(path=d) for d in prof_dirs]
+        suite = Suite(suitedir=suite_dir, profiles=profiles)
+        suites.append(suite)
+
+    return sorted(suites, key=lambda x: x.sort_key())
+
+
 def get_script_root() -> Path:
     return Path(os.path.dirname(os.path.abspath(__file__)))
 
 
-def read_all_suites(suite_names: list[str] | None) -> SuiteMap:
-    yaml_fpath = get_script_root() / "suites.yaml"
+def read_all_suites(yaml_fname: str, suite_names: list[str] | None) -> SuiteMap:
+    yaml_fpath = get_script_root() / yaml_fname
     suites = read_suites(yaml_fpath)
 
     if suite_names is None:

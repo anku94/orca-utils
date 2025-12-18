@@ -269,10 +269,12 @@ def get_suitedf(suite: Suite) -> pd.DataFrame:
     df_rows = []
     for p in suite.profiles:
         df_rows.append({
-            "name": p.name,
-            "nranks": suite.ranks,
-            "naggs": suite.naggs,
-            "nsteps": suite.nsteps,
+            "root": suite.suitedir.parent,
+            "name": suite.name,
+            "profile": p.name,
+            "ranks": suite.ranks,
+            "aggs": suite.naggs,
+            "steps": suite.nsteps,
             "run_id": suite.run_id})
 
     df = pd.DataFrame(df_rows)

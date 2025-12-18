@@ -184,38 +184,20 @@ run() {
     )
 
     local -a all_steps=(20 2000)
+    # all_steps=(20)
     local -a all_nranks=(512 1024 2048)
+    all_nranks=(4096)
 
     for step in "${all_steps[@]}"; do
         for nranks in "${all_nranks[@]}"; do
             OR_MPI_NRANKS=$nranks
             OR_AMR_NSTEPS=$step
+            nrepeat=${steps_reps[$step]}
             OR_AGGCNT=${nranks_aggcnt[$nranks]}
-            echo "nranks: $nranks, aggcnt: $OR_AGGCNT, step: $step"
-            # sweep_all $nrepeat
+            echo "nranks: $nranks, aggcnt: $OR_AGGCNT, step: $step, reps: $nrepeat"
+            sweep_all $nrepeat
         done
     done
-
-    # nrepeat=1
-    # OR_AMR_NSTEPS=20
-
-    # for nranks in "${all_nranks[@]}"; do
-    #     OR_MPI_NRANKS=$nranks
-    #     OR_AGGCNT=${nranks_aggcnt[$nranks]}
-    #     echo "nranks: $nranks, aggcnt: $OR_AGGCNT"
-    #     sweep_all $nrepeat
-    # done
-
-    # nrepeat=3
-    # OR_AMR_NSTEPS=2000
-
-    # for nranks in "${all_nranks[@]}"; do
-    #     OR_MPI_NRANKS=$nranks
-    #     OR_AGGCNT=${nranks_aggcnt[$nranks]}
-    #     echo "nranks: $nranks, aggcnt: $OR_AGGCNT"
-    #     sweep_all $nrepeat
-    # done
-
 }
 
 run

@@ -6,20 +6,15 @@ import logging
 
 
 def run_amr_runtimes(suites: list[Suite], save: bool = False):
-    # suites = read_all_suites("suites_v2.yaml", suites)
-    # all_rdf = []
-    # for suite in suites:
-    #     rdf = get_suite_amr_runtimes(suite)
-    #     all_rdf.append(rdf)
     all_rdf = [get_suite_amr_runtimes(suite) for suite in suites]
     merged_rdf = pd.concat(all_rdf)
 
     # (nranks, nsteps, run_id) is the primary key
-    merged_base = merged_rdf[merged_rdf["name"] == "00_noorca"].copy()
+    merged_base = merged_rdf[merged_rdf["profile"] == "00_noorca"].copy()
     merged_rdf = merged_rdf.merge(merged_base, on=[
-                                  "nranks", "nsteps", "run_id"], how="left", suffixes=("", "_base"), validate="m:1")
+                                  "ranks", "steps", "run_id"], how="left", suffixes=("", "_base"), validate="m:1")
     merged_rdf["ratio"] = merged_rdf["time_secs"] / merged_rdf["time_secs_base"]
-    colstodrop = ["name_base", "naggs_base"]
+    colstodrop = ["root_base", "name_base", "profile_base", "aggs_base"]
     merged_rdf = merged_rdf.drop(columns=colstodrop)
     print(merged_rdf.to_string())
 

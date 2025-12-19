@@ -62,3 +62,12 @@ suites:
     # 4000 ranks, third run
   - name: r4096_a4_n2000_v4
     suitedir: 20251204_amr-agg4-r4096-n2000-psmerrchk141_r3
+    # 512 ranks, after MPI_Get_count added
+  - name: r512_n20_v1_r1
+    suitedir: 20251211_amr-agg1-r512-n20-psmerrchk141-run1
+  - name: r512_n2000_v1_r1
+    suitedir: 20251211_amr-agg1-r512-n2000-psmerrchk141-run1
+  - name: r512_n2000_v1_r2
+    suitedir: 20251211_amr-agg1-r512-n2000-psmerrchk141-run2
+  - name: r512_n2000_v1_r3
+    suitedir: 20251212_amr-agg1-r512-n2000-psmerrchk141-run3

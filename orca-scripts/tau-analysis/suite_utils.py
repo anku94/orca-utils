@@ -381,6 +381,10 @@ def get_script_root() -> Path:
     return Path(os.path.dirname(os.path.abspath(__file__)))
 
 
+def get_repo_data_dir() -> Path:
+    return get_script_root() / "data"
+
+
 def read_all_suites(yaml_fname: str, suite_names: list[str] | None) -> SuiteMap:
     yaml_fpath = get_script_root() / yaml_fname
     suites = read_suites(yaml_fpath)

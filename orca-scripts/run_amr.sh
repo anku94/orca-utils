@@ -20,19 +20,21 @@ HOSTFILE=/tmp/hostfile.txt
 
 declare -A OR_AMR_PROFILES=(
   [0]="noorca"
-  [1]="tracers_disabled"
-  [2]="tracendrop_mpi"
-  [3]="tracendrop_agg"
-  [4]="tracendrop_agg_tgt"
-  [5]="trace_mpisync"
-  [6]="trace_all"
-  [7]="trace_tgt"
+  [1]="or_tracers_disabled"
+  [2]="or_tracendrop_mpi"
+  [3]="or_tracendrop_agg"
+  [4]="or_tracendrop_agg_tgt"
+  [5]="or_trace_mpisync"
+  [6]="or_trace_all"
+  [7]="or_tracetgt"
   [8]="tau_default"
   [9]="tau_nothrottle"
   [10]="tau_tracetgt"
   [11]="dftracer"
   [12]="dftracer_comp"
   [13]="scorep"
+  [14]="or_tracetgt_ofitcp"
+  [15]="or_ntv_mpiwait"
 )
 
 # cache_dir_filesizes: clear dirs > threshold and cache their fsizes
@@ -393,7 +395,8 @@ setup_amr_common() {
   OR_AGG_BIN="$OR_PREFIX/scripts/orcawf_wrapper.sh agg"
 
   add_common_env_var PSM_CONNECT_TIMEOUT 30 # 30s timeout
-  add_common_env_var FI_UNIVERSE_SIZE 128   # need on wolf
+  add_common_env_var FI_UNIVERSE_SIZE 512   # need on wolf
+  add_common_env_var FI_OFI_RXM_BUFFER_SIZE 64
   # add_common_env_var MV2_CM_RECV_BUFFERS 2048
   add_common_env_var MV2_ON_DEMAND_THRESHOLD 8192
 
@@ -416,9 +419,9 @@ setup_profile_shorttimeout() {
   # add_common_env_var PSM_FLOW_CREDITS=32
 }
 
-# set_new_yaml_with_cmdseq: modify yaml to set new cmdseq
+# update_cfgyaml_with_cmdseq: modify yaml to set new cmdseq
 # creates a new yaml in $jobdir and overwrites $OR_CFG_YAML
-set_new_yaml_with_cmdseq() {
+update_cfgyaml_with_cmdseq() {
   local cmdseq=$1
   # can not pass space-separated values via env vars easily
   # we must hack the YAML directly
@@ -434,10 +437,10 @@ setup_profile_noorca() {
   OR_RUN_TYPE="orca" # dir layout is still orc
 }
 
-# orcadisabled: load ORCA but disable tracers
-setup_profile_tracers_disabled() {
+# or_tracers_disabled: load ORCA but disable tracers
+setup_profile_or_tracers_disabled() {
   local cmdseq="set-flow disable-tracers; resume"
-  set_new_yaml_with_cmdseq "$cmdseq"
+  update_cfgyaml_with_cmdseq "$cmdseq"
   OR_RUN_TYPE="orca"
 
   # add_orca_env_var FI_OFI_RXM_RX_SIZE 4096
@@ -448,50 +451,51 @@ setup_profile_tracers_disabled() {
   # add_common_env_var FI_OFI_RXM_BUFFER_SIZE 8192
 }
 
-# tracendrop: trace and drop at MPI
-setup_profile_tracendrop_mpi() {
+# or_tracendrop_mpi: trace and drop at MPI
+setup_profile_or_tracendrop_mpi() {
   local cmdseq="set-flow trace-and-drop-mpi; resume"
-  set_new_yaml_with_cmdseq "$cmdseq"
+  update_cfgyaml_with_cmdseq "$cmdseq"
   OR_RUN_TYPE="orca"
 }
 
-# tracendrop: trace and drop at MPI
-setup_profile_tracendrop_agg() {
+# or_tracendrop_agg: trace and drop at MPI
+setup_profile_or_tracendrop_agg() {
   local cmdseq="set-flow trace-and-drop-agg"
   cmdseq="$cmdseq; resume"
-  set_new_yaml_with_cmdseq "$cmdseq"
+  update_cfgyaml_with_cmdseq "$cmdseq"
   OR_RUN_TYPE="orca"
 }
 
-# tracendrop_agg_tgt: trace and drop at AGG, targeted disabling of probes
-setup_profile_tracendrop_agg_tgt() {
+# or_tracendrop_agg_tgt: trace and drop at AGG, targeted disabling of probes
+setup_profile_or_tracendrop_agg_tgt() {
   local cmdseq="set-flow trace-and-drop-agg"
   cmdseq="$cmdseq; disable-probe mpi_messages MPI_Test"
   cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
   cmdseq="$cmdseq; resume"
-  set_new_yaml_with_cmdseq "$cmdseq"
+  update_cfgyaml_with_cmdseq "$cmdseq"
   OR_RUN_TYPE="orca"
 }
 
-setup_profile_trace_mpisync() {
+setup_profile_or_trace_mpisync() {
   local cmdseq="set-flow enable-tracers mpi_collectives; resume"
-  set_new_yaml_with_cmdseq "$cmdseq"
+  update_cfgyaml_with_cmdseq "$cmdseq"
   OR_RUN_TYPE="orca"
 }
 
-# trace_all: trace all tracers
-setup_profile_trace_all() {
+# or_trace_all: trace all tracers
+setup_profile_or_trace_all() {
   local cmdseq="set-flow enable-tracers; resume"
-  set_new_yaml_with_cmdseq "$cmdseq"
+  update_cfgyaml_with_cmdseq "$cmdseq"
   OR_RUN_TYPE="orca"
 }
 
-# trace_tgt: trace all tracers
-setup_profile_trace_tgt() {
-  local cmdseq="set-flow enable-tracers; resume"
+# or_tracetgt: trace all tracers
+setup_profile_or_tracetgt() {
+  local cmdseq="set-flow enable-tracers"
   cmdseq="$cmdseq; disable-probe mpi_messages MPI_Test"
   cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
-  set_new_yaml_with_cmdseq "$cmdseq"
+  cmdseq="$cmdseq; resume"
+  update_cfgyaml_with_cmdseq "$cmdseq"
   OR_RUN_TYPE="orca"
 }
 
@@ -554,6 +558,37 @@ setup_profile_dftracer_comp() {
 setup_profile_scorep() {
   OR_ORCA_ENABLED=0
   OR_RUN_TYPE="scorep"
+}
+
+# or_tracetgt_ofitcp: trace all tracers
+setup_profile_or_tracetgt_ofitcp() {
+  OR_RUN_TYPE="orca"
+
+  local cmdseq="set-flow enable-tracers"
+  cmdseq="$cmdseq; disable-probe mpi_messages MPI_Test"
+  cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
+  cmdseq="$cmdseq; resume"
+  update_cfgyaml_with_cmdseq "$cmdseq"
+
+  add_common_env_var ORCA_HG_PROTO "ofi+tcp"
+  # add_common_env_var ORCA_NA_NO_BLOCK 1
+  # add_common_env_var NA_OFI_UNEXPECTED_TAG_MSG 1
+  add_common_env_var FI_TCP_IFACE ibs2
+  # add_common_env_var HG_LOG_LEVEL info
+  # add_common_env_var FI_LOG_LEVEL debug
+}
+
+# or_ntv_mpiwait: trace all tracers
+setup_profile_or_ntv_mpiwait() {
+  OR_RUN_TYPE="orca"
+  local cmdseq="set-flow file /users/ankushj/repos/orca-workspace/orca-utils/orca-scripts/flows/mpiwait.yaml"
+  cmdseq="$cmdseq; disable-probe mpi_messages MPI_Test"
+  cmdseq="$cmdseq; disable-probe mpi_messages MPI_Iprobe"
+  cmdseq="$cmdseq; disable-probe mpi_messages MPI_Isend"
+  cmdseq="$cmdseq; disable-probe mpi_messages MPI_Irecv"
+  cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
+  cmdseq="$cmdseq; resume"
+  update_cfgyaml_with_cmdseq "$cmdseq"
 }
 
 # setup_profile: call profile-specific setup function
@@ -629,7 +664,8 @@ get_profile_name_from_dir() {
 main() {
   # if OR_PROFILES is not set, set a default
   #local profiles_def="0,1,4,5,7,8,10,11,12" # 12 scorep needs tuning
-  local profiles_def="0,1,4,5,7,8,10,11" # 12 scorep needs tuning
+  # local profiles_def="0,1,4,5,7,8,10,11" # 12 scorep needs tuning
+  local profiles_def="0,5,7,15" # no competition here
   OR_PROFILES=${OR_PROFILES:-$profiles_def}
 
   message "-INFO- Running profiles: $OR_PROFILES"

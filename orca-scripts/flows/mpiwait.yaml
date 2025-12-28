@@ -1,0 +1,11 @@
+nodes:
+  mpi_waits:
+    from: [mpi_messages]
+    sql: |
+          SELECT * FROM mpi_messages 
+          WHERE probe_name = 'MPI_Wait'
+          AND dura_ns > 100000
+sinks:
+  mpi_waits_sink:
+    from: mpi_waits
+    type: parquet

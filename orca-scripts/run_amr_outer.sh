@@ -6,6 +6,11 @@ SCRIPT_DIR=$(dirname $(realpath $0))
 
 OR_PREFIX=/users/ankushj/repos/orca-workspace/orca-install
 OR_UMB_PREFIX=/users/ankushj/repos/orca-workspace/orca-umb-install
+MPI_HOME=/users/ankushj/amr-workspace/mvapich-install-ub22
+
+export PATH=$MPI_HOME/bin:$PATH
+source $OR_PREFIX/scripts/common.sh
+source $OR_PREFIX/scripts/orca_common.sh
 
 # setup_suite_common: setup common environment variables
 setup_suite_common() {
@@ -13,6 +18,8 @@ setup_suite_common() {
     # OR_AGGCNT=1 # AGG count
     # OR_MPI_NNODES=16  # MPI nodes
     # OR_MPI_NRANKS=1024 # MPI ranks per node
+    # OR_DECK_NRANKS=512
+
     OR_DECK_NRANKS=$OR_MPI_NRANKS
     OR_MPI_PPN=16 # MPI ranks per node
 
@@ -94,7 +101,7 @@ echo 1024 | sudo tee /sys/devices/system/node/node0/hugepages/hugepages-2048kB/n
 # setup_suite_export: run after setting up a suite
 # to export the suite variables to the environment
 setup_suite_export() {
-    OR_MPI_NNODES=$((OR_MPI_NRANKS / OR_MPI_PPN))
+    OR_MPI_NNODES=$(((OR_MPI_NRANKS + OR_MPI_PPN - 1) / OR_MPI_PPN))
 
     export OR_SUITEDIR="${SUITE_ROOT}/${OR_SUITENAME}"
     export OR_SUITE_DESC
@@ -131,6 +138,37 @@ update_hostfile() {
     python $check_script -e mon8 -o $hostfile
 }
 
+prep_hostfiles() {
+    local hostfile=$1
+    local -i norca=$2
+
+    local hostfile_orca=$1_orca
+    local hostfile_mpi=$1_mpi
+
+    # Ensure that $hostfile exists
+    [ ! -f $hostfile ] && die "Hostfile does not exist: $hostfile"
+
+    # move the last k nodes to the orca hostfile
+    local -i ntot=$(wc -l <$hostfile)
+    local -i nmpi=$((ntot - norca))
+
+    # copy first nmpi nodes to the mpi hostfile
+    # awk is used to ensure trailing newlines are present
+    head -n $nmpi $hostfile | awk "{print}" >$hostfile_mpi
+    tail -n $norca $hostfile | awk "{print}" >$hostfile_orca
+
+    echo "-INFO- ORCA hostfile: $hostfile_orca, $(wc -l <$hostfile_orca) nodes"
+    echo "-INFO- MPI hostfile: $hostfile_mpi, $(wc -l <$hostfile_mpi) nodes"
+
+    local orca_script=$SCRIPT_DIR/prep_orcanodes.sh
+
+    local orca_hosts=$(cat $hostfile_orca | paste -s -d, -)
+    echo "-INFO- ORCA hosts: $orca_hosts"
+
+    # prep orca nodes
+    do_mpirun $norca 1 "none" "" "$orca_hosts" "$orca_script" "" ""
+}
+
 # resize_exp: call with 90,180,260
 # will resize to 90 nnodes first then 180 then 260
 resize_exp() {
@@ -147,7 +185,9 @@ sweep_all() {
     for run_id in $(seq 1 $nruns); do
         echo "nranks: $OR_MPI_NRANKS, aggcnt: $OR_AGGCNT, run_id: $run_id"
 
-        update_hostfile $hostfile
+        echo "Skipping hostfile update"
+        # update_hostfile $hostfile
+
         export HOSTFILE=$hostfile
         OR_RUN_ID=$run_id
 
@@ -160,7 +200,7 @@ sweep_all() {
 }
 
 run() {
-    SUITE_ROOT=/mnt/ltio/orcajobs/suites/20251212
+    SUITE_ROOT=/mnt/ltio/orcajobs/suites/20251227
     local -i nrepeat=0
 
     # export OR_PROFILES=0
@@ -180,13 +220,20 @@ run() {
 
     declare -A steps_reps=(
         [20]=1
-        [2000]=3
+        [200]=1
+        [300]=1
+        [500]=1
+        [1000]=1
+        [2000]=1
     )
 
     local -a all_steps=(20 2000)
-    # all_steps=(20)
+    all_steps=(2000)
     local -a all_nranks=(512 1024 2048)
-    all_nranks=(4096)
+    all_nranks=(2048)
+
+    # prep_hostfiles /tmp/hostfile.txt 3
+    # exit 0
 
     for step in "${all_steps[@]}"; do
         for nranks in "${all_nranks[@]}"; do

@@ -4,7 +4,6 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 import pandas as pd
-import glob
 import re
 import os
 import duckdb
@@ -13,6 +12,7 @@ from datetime import datetime
 import otf2
 import yaml
 from concurrent.futures import ThreadPoolExecutor
+import argparse
 
 SUITE_ROOT = Path("/mnt/ltio/orcajobs/suites")
 
@@ -360,18 +360,17 @@ def read_suites(suites_yaml: str) -> SuiteMap:
     return suites
 
 
-def read_v2_suites(root_subdir: str) -> list[Suite]:
-    root_suitepath = SUITE_ROOT / root_subdir
-    suite_dirs = [d for d in root_suitepath.iterdir() if d.is_dir()]
-    logger.info(f"Found {len(suite_dirs)} suites in {root_subdir}")
+def read_v2_suites(suite_rootdir: Path) -> list[Suite]:
+    suite_dirs = [d for d in suite_rootdir.iterdir() if d.is_dir()]
+    logger.info(f"Found {len(suite_dirs)} suites in {suite_rootdir}")
 
     suites: list[Suite] = []
-    for suite_dir in suite_dirs:
-        prof_dirs = [d for d in suite_dir.iterdir() if d.is_dir()]
-        logger.debug(f"Found {len(prof_dirs)} profiles in suite {suite_dir}")
+    for suite_rootdir in suite_dirs:
+        prof_dirs = [d for d in suite_rootdir.iterdir() if d.is_dir()]
+        logger.debug(f"Found {len(prof_dirs)} profiles in suite {suite_rootdir}")
 
         profiles = [Profile(path=d) for d in prof_dirs]
-        suite = Suite(suitedir=suite_dir, profiles=profiles)
+        suite = Suite(suitedir=suite_rootdir, profiles=profiles)
         suites.append(suite)
 
     return sorted(suites, key=lambda x: x.sort_key())

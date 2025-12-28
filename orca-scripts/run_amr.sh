@@ -616,7 +616,6 @@ run_profile() {
   local profile_dir=$(get_profile_dir $OR_SUITEDIR $pidx)
 
   # Auto-computed variables
-  OR_ORCA_NNODES=$((OR_AGGCNT + 1)) # Add +1 for CTL
   OR_JOBDIR=$profile_dir
 
   setup_amr_common    # common setup

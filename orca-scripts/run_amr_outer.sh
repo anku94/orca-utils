@@ -12,6 +12,11 @@ export PATH=$MPI_HOME/bin:$PATH
 source $OR_PREFIX/scripts/common.sh
 source $OR_PREFIX/scripts/orca_common.sh
 
+# All hostfiles
+OR_HOSTFILE=/tmp/hostfile
+OR_HOSTFILE_ORCA=${OR_HOSTFILE}_orca
+OR_HOSTFILE_MPI=${OR_HOSTFILE}_mpi
+
 # setup_suite_common: setup common environment variables
 setup_suite_common() {
     # CTL node is implied, and will be added if ORCA is enabled
@@ -20,22 +25,19 @@ setup_suite_common() {
     # OR_MPI_NRANKS=1024 # MPI ranks per node
     # OR_DECK_NRANKS=512
 
-    OR_DECK_NRANKS=$OR_MPI_NRANKS
-    OR_MPI_PPN=16 # MPI ranks per node
+    OR_NRANKS_DECK=$OR_NRANKS_MPI
+    OR_PPN_MPI=16 # MPI ranks per node
 
     OR_AMR_POLICY="baseline" # policy name
     OR_AMR_BIN=$OR_UMB_PREFIX/bin/phoebus
-    OR_AMR_DECK_IN=$OR_UMB_PREFIX/decks/blast_wave_3d.${OR_DECK_NRANKS}.pin.in
+    OR_AMR_DECK_IN=$OR_UMB_PREFIX/decks/blast_wave_3d.${OR_NRANKS_DECK}.pin.in
     # OR_AMR_BIN=$OR_PREFIX/bin/example_prog
     # OR_AMR_NSTEPS: set in main loop
 
     OR_FLOW_YAML="" # Flow YAML is optional
 
     # Suite name: e.g. amr-agg1-r256-n200
-    local suite_name="amr-agg${OR_AGGCNT}"
-    suite_name="${suite_name}-r${OR_MPI_NRANKS}-n${OR_AMR_NSTEPS}-run${OR_RUN_ID}"
-    OR_SUITENAME=$suite_name
-    # OR_SUITEDIR="${SUITE_ROOT}/${suite_name}"
+    OR_SUITENAME="amr-agg${OR_NNODES_AGG}-r${OR_NRANKS_MPI}-n${OR_AMR_NSTEPS}-run${OR_RUN_ID}"
 }
 
 # sets: OR_SUITEDIR, OR_SUITE_DESC, OR_ALL_COMMON_ENV_VARS,
@@ -101,11 +103,12 @@ echo 1024 | sudo tee /sys/devices/system/node/node0/hugepages/hugepages-2048kB/n
 # setup_suite_export: run after setting up a suite
 # to export the suite variables to the environment
 setup_suite_export() {
-    OR_MPI_NNODES=$(((OR_MPI_NRANKS + OR_MPI_PPN - 1) / OR_MPI_PPN))
+    OR_NNODES_MPI=$(((OR_NRANKS_MPI + OR_PPN_MPI - 1) / OR_PPN_MPI))
 
     export OR_SUITEDIR="${SUITE_ROOT}/${OR_SUITENAME}"
     export OR_SUITE_DESC
-    export OR_AGGCNT OR_MPI_NNODES OR_MPI_NRANKS OR_MPI_PPN
+    export OR_HOSTFILE_MPI OR_HOST_CTL OR_HOSTS_AGG # host info
+    export OR_NNODES_MPI OR_NNODES_AGG OR_NRANKS_MPI OR_PPN_MPI
     export OR_AMR_POLICY OR_AMR_BIN OR_AMR_DECK_IN OR_AMR_NSTEPS
     export OR_FLOW_YAML
 
@@ -130,43 +133,86 @@ sweep_amr_nsteps() {
     done
 }
 
-# update_hostfile: compute stragglers and update hostfile
-update_hostfile() {
-    local hostfile=$1
-    local check_script=/users/ankushj/repos/orca-workspace/orca-utils/orca-scripts/check_hosts.py
-
-    python $check_script -e mon8 -o $hostfile
-}
-
-prep_hostfiles() {
-    local hostfile=$1
-    local -i norca=$2
-
-    local hostfile_orca=$1_orca
-    local hostfile_mpi=$1_mpi
+# allocate_orca_hosts: allocate orca hosts from the total hostfile
+# call this function after `update_hostfile`
+# - $1: number of nodes to be allocated for ORCA
+# - rest are used for MPI
+# - generates files: $OR_HOSTFILE_ORCA and $OR_HOSTFILE_MPI
+allocate_orca_hosts() {
+    local -i nnorca=$1 # number of orca nodes
 
     # Ensure that $hostfile exists
-    [ ! -f $hostfile ] && die "Hostfile does not exist: $hostfile"
+    [ ! -f $OR_HOSTFILE ] && die "Hostfile does not exist: $OR_HOSTFILE"
 
     # move the last k nodes to the orca hostfile
-    local -i ntot=$(wc -l <$hostfile)
-    local -i nmpi=$((ntot - norca))
+    local -i nntot=$(wc -l <$OR_HOSTFILE)
+    local -i nnmpi=$((nntot - nnorca))
+
+    message "-INFO- [allocate_orca_hosts] Dividing hostfile=$OR_HOSTFILE into orca and mpi hostfiles"
+    message "-INFO- [allocate_orca_hosts] nodecnt tot=$nntot, orca=$nnorca, mpi=$nnmpi"
 
     # copy first nmpi nodes to the mpi hostfile
     # awk is used to ensure trailing newlines are present
-    head -n $nmpi $hostfile | awk "{print}" >$hostfile_mpi
-    tail -n $norca $hostfile | awk "{print}" >$hostfile_orca
+    head -n $nnmpi $OR_HOSTFILE | awk "{print}" >$OR_HOSTFILE_MPI
+    tail -n $nnorca $OR_HOSTFILE | awk "{print}" >$OR_HOSTFILE_ORCA
 
-    echo "-INFO- ORCA hostfile: $hostfile_orca, $(wc -l <$hostfile_orca) nodes"
-    echo "-INFO- MPI hostfile: $hostfile_mpi, $(wc -l <$hostfile_mpi) nodes"
+    message "-INFO- [allocate_orca_hosts] generated ORCA hostfile: $OR_HOSTFILE_ORCA with $(wc -l <$OR_HOSTFILE_ORCA) nodes"
+    message "-INFO- [allocate_orca_hosts] generated MPI hostfile: $OR_HOSTFILE_MPI with $(wc -l <$OR_HOSTFILE_MPI) nodes"
+}
 
+# prep_orca_hosts: prep all ORCA nodes using the prep script
+# script applies wolf-specific tuning to qib
+# - uses: hostfile at $OR_HOSTFILE_ORCA
+# - $1: number of nodes to be prepped for ORCA
+# - call this function after `allocate_orca_hosts`
+# - generates files: $OR_HOSTFILE_ORCA and $OR_HOSTFILE_MPI
+prep_orca_hosts() {
     local orca_script=$SCRIPT_DIR/prep_orcanodes.sh
 
-    local orca_hosts=$(cat $hostfile_orca | paste -s -d, -)
-    echo "-INFO- ORCA hosts: $orca_hosts"
+    [ ! -f $OR_HOSTFILE_ORCA ] && die "ORCA hostfile does not exist: $OR_HOSTFILE_ORCA"
+    local orca_hosts=$(cat $OR_HOSTFILE_ORCA | paste -s -d, -)
+    local nnorca=$(wc -l <$OR_HOSTFILE_ORCA)
+    message "-INFO- [prep_orca_hosts] ORCA hosts (count=$nnorca): $orca_hosts"
 
     # prep orca nodes
-    do_mpirun $norca 1 "none" "" "$orca_hosts" "$orca_script" "" ""
+    # do_mpirun $nnorca 1 "none" "" "$orca_hosts" "$orca_script" "" ""
+}
+
+# ensure_hostfile_nodecnt: ensure that the hostfile has at least $nnodes nodes
+# - $1: hostfile
+# - $2: number of nodes
+# - dies if the hostfile has less than $nnodes nodes
+ensure_hostfile_nodecnt() {
+    local hostfile=$1
+    local -i nnodes=$2
+
+    local nnodes_actual=$(wc -l <$hostfile)
+    if [ $nnodes_actual -lt $nnodes ]; then
+        die "Hostfile $hostfile has $nnodes_actual nodes, expected $nnodes"
+    else
+        message "-INFO- [ensure_hostfile_nodecnt] Hostfile $hostfile has $nnodes_actual nodes, expected $nnodes. OK."
+    fi
+}
+
+# assign_orca_nodes: assign actual AGGs/CTL from $OR_HOSTFILE_ORCA
+# - $1: number of AGGs (1 extra CTL node is implied)
+# - sets: $OR_AGGCNT, $OR_HOST_CTL, $OR_HOSTS_AGG
+# - dies if $OR_HOSTFILE_ORCA has less than $naggs+1 nodes
+assign_orca_nodes() {
+    local -i naggs=$1
+    local -i nnodes_avail=$(wc -l <$OR_HOSTFILE_ORCA)
+    if [ $nnodes_avail -lt $((naggs + 1)) ]; then
+        die "Hostfile $OR_HOSTFILE_ORCA has $nnodes_avail nodes, need $naggs+1"
+    else
+        message "-INFO- [assign_orca_nodes] Hostfile $OR_HOSTFILE_ORCA has $nnodes_avail nodes, expected $naggs+1. OK."
+    fi
+
+    OR_AGGCNT=$naggs
+    OR_HOST_CTL=$(head -n 1 $OR_HOSTFILE_ORCA | awk "{print}" | paste -sd, -)
+    OR_HOSTS_AGG=$(tail -n $naggs $OR_HOSTFILE_ORCA | awk "{print}" | paste -sd, -)
+
+    message "-INFO- [assign_orca_nodes] CTL node           : $OR_HOST_CTL"
+    message "-INFO- [assign_orca_nodes] AGG nodes (count=$naggs): $OR_HOSTS_AGG"
 }
 
 # resize_exp: call with 90,180,260
@@ -181,14 +227,12 @@ resize_exp() {
 # sweep_all: supply nruns as $1
 sweep_all() {
     local -i nruns=$1
-    local hostfile=/tmp/hostfile.txt
     for run_id in $(seq 1 $nruns); do
-        echo "nranks: $OR_MPI_NRANKS, aggcnt: $OR_AGGCNT, run_id: $run_id"
+        echo "nranks: $OR_NRANKS_MPI, nnodes_agg: $OR_NNODES_AGG, run_id: $run_id"
 
         echo "Skipping hostfile update"
         # update_hostfile $hostfile
 
-        export HOSTFILE=$hostfile
         OR_RUN_ID=$run_id
 
         setup_suite_common
@@ -200,8 +244,10 @@ sweep_all() {
 }
 
 run() {
-    SUITE_ROOT=/mnt/ltio/orcajobs/suites/20251227
+    SUITE_ROOT=/mnt/ltio/orcajobs/suites/20251228-tmp
     local -i nrepeat=0
+
+    local -i nnodes_max_orca=5 # max nodes we will use for ORCA
 
     # export OR_PROFILES=0
     # OR_AMR_NSTEPS=20
@@ -228,20 +274,28 @@ run() {
     )
 
     local -a all_steps=(20 2000)
-    all_steps=(2000)
+    all_steps=(20)
     local -a all_nranks=(512 1024 2048)
     all_nranks=(2048)
 
-    # prep_hostfiles /tmp/hostfile.txt 3
-    # exit 0
+    # generate $OR_HOSTFILE
+    # python $SCRIPT_DIR/check_hosts.py -e mon8 -o $OR_HOSTFILE
+    allocate_orca_hosts $nnodes_max_orca
+    prep_orca_hosts
+    ensure_hostfile_nodecnt $OR_HOSTFILE_ORCA $nnodes_max_orca
+    ensure_hostfile_nodecnt $OR_HOSTFILE_MPI 256
+    # assign_orca_nodes 2
 
     for step in "${all_steps[@]}"; do
         for nranks in "${all_nranks[@]}"; do
-            OR_MPI_NRANKS=$nranks
+            OR_NRANKS_MPI=$nranks
             OR_AMR_NSTEPS=$step
             nrepeat=${steps_reps[$step]}
-            OR_AGGCNT=${nranks_aggcnt[$nranks]}
-            echo "nranks: $nranks, aggcnt: $OR_AGGCNT, step: $step, reps: $nrepeat"
+
+            OR_NNODES_AGG=${nranks_aggcnt[$nranks]}
+            assign_orca_nodes $OR_NNODES_AGG
+
+            echo "nranks: $nranks, nnodes_agg: $OR_NNODES_AGG, step: $step, reps: $nrepeat"
             sweep_all $nrepeat
         done
     done

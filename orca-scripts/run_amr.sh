@@ -62,7 +62,9 @@ cache_dir_filesizes() {
   done >>$csv_file
 
   find "$dir_path" -mindepth 1 -type f -print0 | while IFS= read -r -d '' file; do
-    if [ "$(basename $file)" != "$(basename $csv_file)" ] && [ "$(basename $file)" != "orca_events" ]; then
+    local fname=$(basename $file)
+    local pardir_name=$(basename $(dirname $file))
+    if [ "$fname" != "$(basename $csv_file)" ] && [ "$pardir_name" != "orca_events" ]; then
       message "-INFO- Running rm $file"
       rm $file &
     fi

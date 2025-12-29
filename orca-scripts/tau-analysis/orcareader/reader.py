@@ -85,9 +85,9 @@ class OrcaReader:
 
         if ranks:
             rbeg, rend = ranks
-            return [orca_events_dir / f"rank_{r}.parquet" for r in range(rbeg, rend)]
+            return [orca_events_dir / f"R{r}.parquet" for r in range(rbeg, rend)]
         else:
-            return list(orca_events_dir.glob("rank_*.parquet"))
+            return list(orca_events_dir.glob("R*.parquet"))
 
     def read_orca_events(self, ranks: Range | None = None) -> pl.DataFrame:
         """Read orca_events table for specified rank range.
@@ -99,3 +99,13 @@ class OrcaReader:
         logger.info(f"read_orca_events: reading {len(files)} files")
         df = pl.read_parquet(files)
         return df
+
+    def get_glob_pattern(self, table: str) -> str:
+        """Get glob pattern for table."""
+        if table == "orca_events":
+            return self._index.root / "orca_events" / "R*.parquet"
+        else:
+            table_dir = self._index.root / table
+            if not table_dir.exists():
+                raise FileNotFoundError(f"Table directory not found: {table_dir}")
+            return self._index.root / table / "**"/ "*.parquet"

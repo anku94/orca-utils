@@ -1,12 +1,51 @@
 """Find stragglers in ORCA traces."""
 
-from pathlib import Path
-
 import polars as pl
-
+from pathlib import Path
 from orcareader import OrcaReader
+from collections import Counter
 
-SUITES_ROOT = Path("/mnt/ltio/orcajobs/suites")
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import matplotlib.ticker as mtick
+
+SUITES_ROOT = Path("/mnt/ltio/orcajobs/suites/20251227")
+
+def read_syncmat(prof_root: Path) -> np.ndarray:
+    reader = OrcaReader(prof_root)
+    glob_patt = reader.get_glob_pattern("mpi_collectives")
+    df = pl.scan_parquet(glob_patt, parallel="columns").select(
+        ["swid", "rank", "dura_ns"]).collect()
+
+    df_pivot = df.pivot(on="rank", index="swid",
+                        values="dura_ns").fill_null(0).drop("swid")
+    npmat = df_pivot.to_numpy()
+
+    return npmat
+
+
+def analyze_syncmat(npmat: np.ndarray) -> None:
+    stragger_rankcnt = Counter()
+    straggler_nodecnt = Counter()
+    k = 32
+
+    for ts in range(npmat.shape[0]):
+        row = npmat[ts, :]
+        ksmallest = np.argpartition(row, k)[:k]
+        for rank in ksmallest:
+            rint = int(rank)
+            nint = rint // 16
+            stragger_rankcnt[rint] += 1
+            straggler_nodecnt[nint] += 1
+
+    node_cntmax = 16 * npmat.shape[0]
+
+    # print top 10 straggler nodes
+    print("Top 10 straggler nodes:")
+    for node, cnt in straggler_nodecnt.most_common(10):
+        print(f"Node {node}: {cnt} occurrences ({cnt/node_cntmax*100:.1f}%)")
+
 
 
 def run_analyze_orca_events(reader: OrcaReader) -> None:
@@ -19,9 +58,9 @@ def run_analyze_orca_events(reader: OrcaReader) -> None:
     )
 
     ptile_vals = [0.5, 0.9, 0.99, 0.999, 1.0]
-    ptile_names = [f"p{int(q*1000)/10:.1f}".replace(".", "_") for q in ptile_vals]
+    ptile_names = [f"p{int(q*1000)/10:.1f}".replace(".", "_")
+                   for q in ptile_vals]
     ptiles = list(zip(ptile_names, ptile_vals))
-
 
     df_ptiles = (
         df.group_by("probe_name")
@@ -46,13 +85,12 @@ def run_analyze_orca_events(reader: OrcaReader) -> None:
     print(dfs.head(20))
 
 
-
 def main() -> None:
-    suite = "20251121_amr-agg4-r4096-n500-psmerrchk141-tmp"
-    profile = "07_trace_tgt"
-    trace_root = SUITES_ROOT / suite / profile
-    reader = OrcaReader(trace_root)
-    run_analyze_orca_events(reader)
+    suite = "amr-agg4-r4096-n1000-run3"
+    profile = "05_or_trace_mpisync"
+    prof_root = SUITES_ROOT / suite / profile
+    syncmat = read_syncmat(prof_root)
+    analyze_syncmat(syncmat)
 
 
 if __name__ == "__main__":

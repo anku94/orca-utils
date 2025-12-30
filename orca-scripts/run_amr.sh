@@ -14,10 +14,6 @@ export PATH=$PATH:${TAU_ROOT}/x86_64/bin
 source $OR_PREFIX/scripts/common.sh
 source $OR_PREFIX/scripts/orca_common.sh
 
-# Can use check_hosts.py to generate a hostfile on emulab
-# e.g. `check_hosts.py -o /tmp/hostfile.txt -e mon8`
-HOSTFILE=/tmp/hostfile.txt
-
 declare -A OR_AMR_PROFILES=(
   [0]="noorca"
   [1]="or_tracers_disabled"
@@ -34,7 +30,9 @@ declare -A OR_AMR_PROFILES=(
   [12]="dftracer_comp"
   [13]="scorep"
   [14]="or_tracetgt_ofitcp"
-  [15]="or_ntv_mpiwait"
+  [15]="or_ntv_mpiwait_onlycnt"
+  [16]="or_ntv_mpiwait_tracecnt"
+  [17]="or_ntv_kokkos"
 )
 
 # cache_dir_filesizes: clear dirs > threshold and cache their fsizes
@@ -74,6 +72,8 @@ cache_dir_filesizes() {
 # cleanup_orca_jobdir: cleanup the ORCA job directory
 # - uses: $OR_JOBDIR
 cleanup_orca_jobdir() {
+  # temporarily disable
+  # message "!! WARN !! Skipping cleanup of ORCA job directory: $OR_JOBDIR"
   message "-INFO- Cleaning up ORCA job directory: $OR_JOBDIR"
   cache_dir_filesizes $OR_JOBDIR/parquet
 }
@@ -204,14 +204,13 @@ run_mpiexp() {
   [ ! -d "$OR_JOBDIR" ] && die "OR_JOBDIR is not a valid directory: $OR_JOBDIR"
   prep_mpiexp_jobdir
 
-  [ -z $HOSTFILE ] && die "HOSTFILE is not set"
-  [ ! -f $HOSTFILE ] && die "HOSTFILE does not exist"
-  validate_hostcnt
+  [ -z $OR_HOSTFILE_MPI ] && die "OR_HOSTFILE_MPI is not set"
+  [ ! -f $OR_HOSTFILE_MPI ] && die "OR_HOSTFILE_MPI does not exist"
+  ensure_hostfile_nodecnt $OR_HOSTFILE_MPI $OR_NNODES_MPI
 
-  # for common.sh, set nodes=MPI nodes
-  nodes=$OR_MPI_NNODES # dont set bbos_buddies
-
-  # Let common.sh generate $vpic_nodes and $bbos_nodes
+  # let common.sh generate $vpic_nodes (we don't use bbos_nodes)
+  HOSTFILE=$OR_HOSTFILE_MPI
+  nodes=$OR_NNODES_MPI
   gen_hosts
   message "-INFO- vpic_nodes: $vpic_nodes"
 
@@ -222,7 +221,7 @@ run_mpiexp() {
 
   # 'activate' the env vars and run MPI app
   local mpi_env_vars=($OR_MPI_ENV_STR)
-  do_mpirun $OR_MPI_NRANKS $OR_MPI_PPN "none" mpi_env_vars[@] \
+  do_mpirun $OR_NRANKS_MPI $OR_PPN_MPI "none" mpi_env_vars[@] \
     "$vpic_nodes" "$OR_MPI_BIN" "" $mpi_logfile
 
   # if cleanup command is set, run it, and unset it
@@ -580,14 +579,35 @@ setup_profile_or_tracetgt_ofitcp() {
   # add_common_env_var FI_LOG_LEVEL debug
 }
 
-# or_ntv_mpiwait: trace all tracers
-setup_profile_or_ntv_mpiwait() {
+# or_ntv_mpiwait_onlycnt: count of MPI_Wait calls > 10ms to CTL
+setup_profile_or_ntv_mpiwait_onlycnt() {
   OR_RUN_TYPE="orca"
-  local cmdseq="set-flow file /users/ankushj/repos/orca-workspace/orca-utils/orca-scripts/flows/mpiwait.yaml"
+  local cmdseq="set-flow file /users/ankushj/repos/orca-workspace/orca-utils/orca-scripts/flows/mpiwait_onlycnt.yaml"
   cmdseq="$cmdseq; disable-probe mpi_messages MPI_Test"
   cmdseq="$cmdseq; disable-probe mpi_messages MPI_Iprobe"
   cmdseq="$cmdseq; disable-probe mpi_messages MPI_Isend"
   cmdseq="$cmdseq; disable-probe mpi_messages MPI_Irecv"
+  cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
+  cmdseq="$cmdseq; resume"
+  update_cfgyaml_with_cmdseq "$cmdseq"
+}
+
+# or_ntv_mpiwait_tracecnt: trace count of MPI_Wait calls > 10ms
+setup_profile_or_ntv_mpiwait_tracecnt() {
+  OR_RUN_TYPE="orca"
+  local cmdseq="set-flow file /users/ankushj/repos/orca-workspace/orca-utils/orca-scripts/flows/mpiwait_tracecnt.yaml"
+  cmdseq="$cmdseq; disable-probe mpi_messages MPI_Test"
+  cmdseq="$cmdseq; disable-probe mpi_messages MPI_Iprobe"
+  cmdseq="$cmdseq; disable-probe mpi_messages MPI_Isend"
+  cmdseq="$cmdseq; disable-probe mpi_messages MPI_Irecv"
+  cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
+  cmdseq="$cmdseq; resume"
+  update_cfgyaml_with_cmdseq "$cmdseq"
+}
+
+setup_profile_or_ntv_kokkos() {
+  OR_RUN_TYPE="orca"
+  local cmdseq="set-flow file /users/ankushj/repos/orca-workspace/orca-utils/orca-scripts/flows/kokkos_kernels.yaml"
   cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
   cmdseq="$cmdseq; resume"
   update_cfgyaml_with_cmdseq "$cmdseq"
@@ -666,7 +686,7 @@ main() {
   # if OR_PROFILES is not set, set a default
   #local profiles_def="0,1,4,5,7,8,10,11,12" # 12 scorep needs tuning
   # local profiles_def="0,1,4,5,7,8,10,11" # 12 scorep needs tuning
-  local profiles_def="0,5,7,15" # no competition here
+  local profiles_def="0,5,7,10,11,15,16,17" # no competition here
   OR_PROFILES=${OR_PROFILES:-$profiles_def}
 
   message "-INFO- Running profiles: $OR_PROFILES"

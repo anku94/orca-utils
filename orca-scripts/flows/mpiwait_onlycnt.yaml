@@ -1,0 +1,11 @@
+nodes:
+  mpi_waitcnts:
+    from: [mpi_messages]
+    sql: |
+          SELECT COUNT(*) FROM mpi_messages 
+          WHERE probe_name = 'MPI_Wait'
+          AND dura_ns > 100000
+sinks:
+  mpi_waitcnts_sink:
+    from: mpi_waitcnts
+    type: grafana

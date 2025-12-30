@@ -240,7 +240,17 @@ def get_suite_tracesizes(suite: Suite) -> pd.DataFrame:
     df = get_suitedf(suite)
     tracedirs = [get_tracedir(p.path) for p in suite.profiles]
     trace_dfs = [get_dir_size_cached(td) for td in tracedirs]
-    tracesizes = [df["fsize"].sum() for df in trace_dfs]
+
+    tracesizes = []
+    for prof, ptdf in zip(suite.profiles, trace_dfs):
+        mobj = re.match(r"^(\d+)_or_(.*)$", prof.name)
+        if mobj:
+            # filter out orca_events
+            logger.warning(f"{prof.name}: excluding orca_events from tracesz calc")
+            ptdf = ptdf[~ptdf["fpath"].str.contains("orca_events")]
+            tracesizes.append(ptdf["fsize"].sum())
+        else:
+            tracesizes.append(ptdf["fsize"].sum())
 
     df["trace_size"] = tracesizes
     return df

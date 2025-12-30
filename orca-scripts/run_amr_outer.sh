@@ -175,7 +175,7 @@ prep_orca_hosts() {
     message "-INFO- [prep_orca_hosts] ORCA hosts (count=$nnorca): $orca_hosts"
 
     # prep orca nodes
-    # do_mpirun $nnorca 1 "none" "" "$orca_hosts" "$orca_script" "" ""
+    do_mpirun $nnorca 1 "none" "" "$orca_hosts" "$orca_script" "" ""
 }
 
 # ensure_hostfile_nodecnt: ensure that the hostfile has at least $nnodes nodes
@@ -226,8 +226,11 @@ resize_exp() {
 
 # sweep_all: supply nruns as $1
 sweep_all() {
-    local -i nruns=$1
-    for run_id in $(seq 1 $nruns); do
+    # local -i nruns=$1
+    local -i nrbeg=$1
+    local -i nrend=$2
+
+    for run_id in $(seq $nrbeg $nrend); do
         echo "nranks: $OR_NRANKS_MPI, nnodes_agg: $OR_NNODES_AGG, run_id: $run_id"
 
         echo "Skipping hostfile update"
@@ -244,7 +247,7 @@ sweep_all() {
 }
 
 run() {
-    SUITE_ROOT=/mnt/ltio/orcajobs/suites/20251228-tmp
+    SUITE_ROOT=/mnt/ltio/orcajobs/suites/20251229
     local -i nrepeat=0
 
     local -i nnodes_max_orca=5 # max nodes we will use for ORCA
@@ -267,36 +270,34 @@ run() {
     declare -A steps_reps=(
         [20]=1
         [200]=1
-        [300]=1
-        [500]=1
-        [1000]=1
-        [2000]=1
+        [2000]=3
     )
 
     local -a all_steps=(20 2000)
-    all_steps=(20)
-    local -a all_nranks=(512 1024 2048)
-    all_nranks=(2048)
+    all_steps=(20 2000)
+    local -a all_nranks=(512 1024 2048 4096)
+    all_nranks=(512 1024 2048)
 
     # generate $OR_HOSTFILE
     # python $SCRIPT_DIR/check_hosts.py -e mon8 -o $OR_HOSTFILE
-    allocate_orca_hosts $nnodes_max_orca
-    prep_orca_hosts
-    ensure_hostfile_nodecnt $OR_HOSTFILE_ORCA $nnodes_max_orca
-    ensure_hostfile_nodecnt $OR_HOSTFILE_MPI 256
-    # assign_orca_nodes 2
+    # allocate_orca_hosts $nnodes_max_orca
+    # prep_orca_hosts
+    # ensure_hostfile_nodecnt $OR_HOSTFILE_ORCA $nnodes_max_orca
+    # ensure_hostfile_nodecnt $OR_HOSTFILE_MPI 256
+    # exit 0
 
     for step in "${all_steps[@]}"; do
         for nranks in "${all_nranks[@]}"; do
             OR_NRANKS_MPI=$nranks
             OR_AMR_NSTEPS=$step
-            nrepeat=${steps_reps[$step]}
+            # nrepeat=${steps_reps[$step]}
+            nrepeat=1
 
             OR_NNODES_AGG=${nranks_aggcnt[$nranks]}
             assign_orca_nodes $OR_NNODES_AGG
 
             echo "nranks: $nranks, nnodes_agg: $OR_NNODES_AGG, step: $step, reps: $nrepeat"
-            sweep_all $nrepeat
+            sweep_all 1 1
         done
     done
 }

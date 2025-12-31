@@ -174,16 +174,24 @@ cleanup_scorep_jobdir() {
 prep_caliper_jobdir() {
   message "-INFO- Preparing Caliper job directory: $OR_JOBDIR"
 
+  # ORCA uses 8x4MB bulk buffers. We wanted to be generous and let
+  # Caliper use 64MB buffers, but found it to not help
+  # (Too much jitter)
+  # * Caliper/512 AMR ranks/100 timesteps/tracetgt
+  #   - With 64MB buffers: 219s
+  #   - With 4MB buffers:  118s
+  #   - With 1MB buffers:  47s
+  local trace_bufsz=1 # in MB
   local libcali="$ORUMB_PREFIX/lib/libcaliper.so"
   local tracedir="$OR_JOBDIR/trace"
   ensure_clean_dir $tracedir
 
-  message "-INFO- Caliper xclcfg: ${CALI_XCL_CFG}"
-
-  local cali_evtcfg="outdir=${tracedir},output=mpi-%mpi.rank%.cali"
-  local cali_cfg="event-trace(${cali_evtcfg}),trace.mpi,trace.kokkos"
-  cali_cfg="${cali_cfg},exclude_regions=\"${CALI_XCL_CFG}\""
-  message "-INFO- Caliper config: ${cali_cfg}"
+  add_mpi_env_var CALI_SERVICES_ENABLE "async_event,event,recorder,timer,trace,mpi,kokkostime"
+  # This is in MB
+  add_mpi_env_var CALI_TRACE_BUFFER_SIZE $trace_bufsz
+  add_mpi_env_var CALI_TRACE_BUFFER_POLICY flush
+  add_mpi_env_var CALI_RECORDER_FILENAME "mpi-%mpi.rank%.cali"
+  add_mpi_env_var CALI_RECORDER_DIRECTORY $tracedir
 
   # MPI will automatically be loaded via some Gotcha magic
   add_mpi_env_var KOKKOS_TOOLS_LIBS "$libcali"
@@ -428,7 +436,7 @@ setup_amr_common() {
 
   add_common_env_var PSM_CONNECT_TIMEOUT 30 # 30s timeout
   add_common_env_var FI_UNIVERSE_SIZE 512   # need on wolf
-  add_common_env_var FI_OFI_RXM_BUFFER_SIZE 64
+  # add_common_env_var FI_OFI_RXM_BUFFER_SIZE 64
   # add_common_env_var MV2_CM_RECV_BUFFERS 2048
   add_common_env_var MV2_ON_DEMAND_THRESHOLD 8192
 
@@ -648,9 +656,12 @@ setup_profile_or_ntv_kokkos() {
 # caliper_tracetgt: caliper with the tracetgt profile
 setup_profile_caliper_tracetgt() {
   OR_RUN_TYPE="caliper"
-  CALI_XCL_CFG="startswith(Kokkos::Tools)" # works for Kokkos Fence
-  CALI_XCL_CFG="$CALI_XCL_CFG,MPI_Test,TaskRegion::CheckAndUpdate"
-  add_common_env_var CALI_MPI_MSG_TRACING true
+  local cali_xclcfg="startswith(Kokkos::Tools)" # works for Kokkos Fence
+  cali_xclcfg="$cali_xclcfg,TaskRegion::CheckAndUpdate"
+
+  add_mpi_env_var CALI_EVENT_EXCLUDE_REGIONS "${cali_xclcfg}"
+  add_mpi_env_var CALI_MPI_BLACKLIST "MPI_Test"
+  add_mpi_env_var CALI_MPI_MSG_TRACING true
 }
 
 # setup_profile: call profile-specific setup function

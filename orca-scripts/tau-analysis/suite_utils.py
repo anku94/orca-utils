@@ -247,7 +247,7 @@ def get_suite_tracesizes(suite: Suite) -> pd.DataFrame:
         if mobj:
             # filter out orca_events
             logger.warning(f"{prof.name}: excluding orca_events from tracesz calc")
-            ptdf = ptdf[~ptdf["fpath"].str.contains("orca_events")]
+            ptdf = ptdf[~ptdf["fpath"].str.contains("orca_events", na=False)]
             tracesizes.append(ptdf["fsize"].sum())
         else:
             tracesizes.append(ptdf["fsize"].sum())

@@ -33,6 +33,7 @@ declare -A OR_AMR_PROFILES=(
   [15]="or_ntv_mpiwait_onlycnt"
   [16]="or_ntv_mpiwait_tracecnt"
   [17]="or_ntv_kokkos"
+  [18]="caliper_tracetgt"
 )
 
 # cache_dir_filesizes: clear dirs > threshold and cache their fsizes
@@ -169,6 +170,33 @@ cleanup_scorep_jobdir() {
   cache_dir_filesizes $OR_JOBDIR/trace
 }
 
+# prep_caliper_jobdir: prepare jobdir for Caliper
+prep_caliper_jobdir() {
+  message "-INFO- Preparing Caliper job directory: $OR_JOBDIR"
+
+  local libcali="$ORUMB_PREFIX/lib/libcaliper.so"
+  local tracedir="$OR_JOBDIR/trace"
+  ensure_clean_dir $tracedir
+
+  message "-INFO- Caliper xclcfg: ${CALI_XCL_CFG}"
+
+  local cali_evtcfg="outdir=${tracedir},output=mpi-%mpi.rank%.cali"
+  local cali_cfg="event-trace(${cali_evtcfg}),trace.mpi,trace.kokkos"
+  cali_cfg="${cali_cfg},exclude_regions=\"${CALI_XCL_CFG}\""
+  message "-INFO- Caliper config: ${cali_cfg}"
+
+  # MPI will automatically be loaded via some Gotcha magic
+  add_mpi_env_var KOKKOS_TOOLS_LIBS "$libcali"
+  add_mpi_env_var CALI_CONFIG "$cali_cfg"
+  CLEANUP_CMD="cleanup_caliper_jobdir"
+}
+
+# cleanup_caliper_jobdir: cleanup the Caliper job directory
+cleanup_caliper_jobdir() {
+  message "-INFO- Cleaning up Caliper job directory: $OR_JOBDIR"
+  cache_dir_filesizes $OR_JOBDIR/trace
+}
+
 # prep_mpiexp_jobdir: prepare jobdir for non-ORCA experiments
 # - uses: $OR_JOBDIR (this dir must exist)
 # - sets vars as per prep function
@@ -185,6 +213,9 @@ prep_mpiexp_jobdir() {
     ;;
   scorep)
     prepare_scorep_jobdir
+    ;;
+  caliper)
+    prep_caliper_jobdir
     ;;
   *)
     die "Invalid OR_RUN_TYPE: $OR_RUN_TYPE"
@@ -605,12 +636,21 @@ setup_profile_or_ntv_mpiwait_tracecnt() {
   update_cfgyaml_with_cmdseq "$cmdseq"
 }
 
+# or_ntv_kokkos: trace specific Kokkos kernels and aggregate
 setup_profile_or_ntv_kokkos() {
   OR_RUN_TYPE="orca"
   local cmdseq="set-flow file /users/ankushj/repos/orca-workspace/orca-utils/orca-scripts/flows/kokkos_kernels.yaml"
   cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
   cmdseq="$cmdseq; resume"
   update_cfgyaml_with_cmdseq "$cmdseq"
+}
+
+# caliper_tracetgt: caliper with the tracetgt profile
+setup_profile_caliper_tracetgt() {
+  OR_RUN_TYPE="caliper"
+  CALI_XCL_CFG="startswith(Kokkos::Tools)" # works for Kokkos Fence
+  CALI_XCL_CFG="$CALI_XCL_CFG,MPI_Test,TaskRegion::CheckAndUpdate"
+  add_common_env_var CALI_MPI_MSG_TRACING true
 }
 
 # setup_profile: call profile-specific setup function
@@ -623,7 +663,7 @@ setup_profile() {
   if declare -f "$setup_func" >/dev/null; then
     $setup_func
   else
-    echo "No setup function for profile: $profile"
+    echo "No setup function for profile: $pidx"
     exit 1
   fi
 }

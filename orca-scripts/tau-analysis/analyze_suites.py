@@ -3,6 +3,7 @@ import otf2
 from suite_utils import *
 from dataclasses import dataclass
 import logging
+from pathlib import Path
 
 
 def log_rdf_summary(rdf: pd.DataFrame):
@@ -26,7 +27,7 @@ def log_sdf_summary(sdf: pd.DataFrame):
 
     # convert trace_size to GB
     sdf_agg["trace_size"] = sdf_agg["trace_size"].apply(
-        lambda x: f"{x/2**30:.0f} GB")
+        lambda x: f"{x/2**30:.2f} GB")
     # pivot to make profiles a column
     sdf_agg = sdf_agg.pivot(
         index=["steps", "ranks"], columns="profile", values="trace_size")
@@ -45,7 +46,10 @@ def run_amr_runtimes(suites: list[Suite], df_path: Path, save: bool = False):
         merged_rdf["time_secs_base"]
     colstodrop = ["root_base", "name_base", "profile_base", "aggs_base"]
     merged_rdf = merged_rdf.drop(columns=colstodrop)
-    # print(merged_rdf.to_string())
+    # sort by: steps, ranks, agg, profile, run_id
+    merged_rdf = merged_rdf.sort_values(
+        by=["steps", "ranks", "aggs", "profile", "run_id"])
+    print(merged_rdf.to_string())
     log_rdf_summary(merged_rdf)
 
     if save:
@@ -85,8 +89,9 @@ def run(suite_dir: Path):
     runtimes_path = get_script_root() / "data" / f"{suite_name}_runtimes.csv"
     tracesizes_path = get_script_root() / "data" / \
         f"{suite_name}_tracesizes.csv"
-    run_amr_runtimes(suites, runtimes_path, save=False)
-    run_amr_tracesizes(suites, tracesizes_path, save=False)
+    do_save = True
+    run_amr_runtimes(suites, runtimes_path, save=do_save)
+    run_amr_tracesizes(suites, tracesizes_path, save=do_save)
 
 
 if __name__ == "__main__":

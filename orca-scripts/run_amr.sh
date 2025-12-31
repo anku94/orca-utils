@@ -91,6 +91,8 @@ prep_tau_jobdir() {
   add_mpi_env_var PROFDIR $OR_JOBDIR/tau-profile
   add_mpi_env_var TAU_TRACE_FORMAT otf2
 
+  # Increasing TAU buffer size made no difference at 10248/2048 ranks
+  # DISABLED: add_common_env_var TAU_MAX_RECORDS 25000000 # 2.5M records
   CLEANUP_CMD="cleanup_tau_jobdir"
 }
 
@@ -121,6 +123,10 @@ prep_dftracer_jobdir() {
   add_mpi_env_var DFTRACER_DISABLE_POSIX 1
   add_mpi_env_var DFTRACER_DISABLE_STDIO 1
   add_mpi_env_var DFTRACER_TRACE_INTERVAL_MS 1000 # does this only log for 1s
+  # Increasing default dftracer buffer size led to:
+  # - 555s vs 372s at 1024 ranks
+  # - 659s vs 401s at 2048 ranks
+  # DISABLED: add_mpi_env_var DFTRACER_WRITE_BUFFER_SIZE $((64 * 1024 * 1024)) # 64MB
 
   CLEANUP_CMD="cleanup_dftracer_jobdir"
 }
@@ -151,10 +157,13 @@ prepare_scorep_jobdir() {
   add_mpi_env_var KOKKOS_TOOLS_LIBS "$libkokpre"
   add_mpi_env_var SCOREP_EXPERIMENT_DIRECTORY "$tracedir"
   add_mpi_env_var SCOREP_MPI_ENABLE_GROUPS "COLL,P2P"
-  add_mpi_env_var SCOREP_ENABLE_TRACING 0
-  add_mpi_env_var SCOREP_ENABLE_PROFILING 1
+  add_mpi_env_var SCOREP_ENABLE_TRACING 1
+  add_mpi_env_var SCOREP_ENABLE_PROFILING 0
   add_mpi_env_var SCOREP_KOKKOS_ENABLE 1
-  add_mpi_env_var SCOREP_TOTAL_MEMORY $((128 * 1024 * 1024))
+
+  # 48MB is the minimum needed to get 512 ranks/200 timesteps to work
+  # Tried increasing in 8MB intervals. 40MB leads to OOM/crash
+  add_mpi_env_var SCOREP_TOTAL_MEMORY $((48 * 1024 * 1024))
   add_mpi_env_var SCOREP_FILTERING_FILE /users/ankushj/llm-thinkspace/mpi-trace-test/scorep.filter
   # add_mpi_env_var SCOREP_TRACE_FORMAT csv
   # add_mpi_env_var SCOREP_TRACE_FILE "$OR_JOBDIR/trace/trace.log"
@@ -195,7 +204,6 @@ prep_caliper_jobdir() {
 
   # MPI will automatically be loaded via some Gotcha magic
   add_mpi_env_var KOKKOS_TOOLS_LIBS "$libcali"
-  add_mpi_env_var CALI_CONFIG "$cali_cfg"
   CLEANUP_CMD="cleanup_caliper_jobdir"
 }
 
@@ -779,6 +787,14 @@ main() {
     message "-INFO- Running profile: ${OR_AMR_PROFILES[$pidx]}"
 
     local pdir=$(get_profile_dir $OR_SUITEDIR $pidx)
+    message "-INFO- Profile dir: $pdir"
+
+    # skip if profile dir already exists
+    # if [ -d $pdir ]; then
+    #   message "-INFO- Profile dir already exists, skipping"
+    #   continue
+    # fi
+
     ensure_empty_dir $pdir
     run_profile $pidx
   done

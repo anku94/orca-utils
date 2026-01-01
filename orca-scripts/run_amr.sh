@@ -29,11 +29,12 @@ declare -A OR_AMR_PROFILES=(
   [11]="dftracer"
   [12]="dftracer_comp"
   [13]="scorep"
-  [14]="or_tracetgt_ofitcp"
-  [15]="or_ntv_mpiwait_onlycnt"
-  [16]="or_ntv_mpiwait_tracecnt"
-  [17]="or_ntv_kokkos"
-  [18]="caliper_tracetgt"
+  [14]="or_ntv_mpiwait_onlycnt"
+  [15]="or_ntv_mpiwait_tracecnt"
+  [16]="or_ntv_kokkos"
+  [17]="caliper_tracetgt"
+  [18]="or_tcp_tracesync"
+  [19]="or_tcp_tracetgt"
 )
 
 # cache_dir_filesizes: clear dirs > threshold and cache their fsizes
@@ -608,8 +609,17 @@ setup_profile_scorep() {
   OR_RUN_TYPE="scorep"
 }
 
-# or_tracetgt_ofitcp: trace all tracers
-setup_profile_or_tracetgt_ofitcp() {
+# or_tcp_tracesync: trace only MPI collectives
+setup_profile_or_tcp_tracesync() {
+  OR_RUN_TYPE="orca"
+  local cmdseq="set-flow enable-tracers mpi_collectives; resume"
+  update_cfgyaml_with_cmdseq "$cmdseq"
+  add_common_env_var ORCA_HG_PROTO "ofi+tcp"
+  add_common_env_var FI_TCP_IFACE ibs2
+}
+
+# or_tcp_tracetgt: trace all tracers
+setup_profile_or_tcp_tracetgt() {
   OR_RUN_TYPE="orca"
 
   local cmdseq="set-flow enable-tracers"
@@ -619,11 +629,7 @@ setup_profile_or_tracetgt_ofitcp() {
   update_cfgyaml_with_cmdseq "$cmdseq"
 
   add_common_env_var ORCA_HG_PROTO "ofi+tcp"
-  # add_common_env_var ORCA_NA_NO_BLOCK 1
-  # add_common_env_var NA_OFI_UNEXPECTED_TAG_MSG 1
   add_common_env_var FI_TCP_IFACE ibs2
-  # add_common_env_var HG_LOG_LEVEL info
-  # add_common_env_var FI_LOG_LEVEL debug
 }
 
 # or_ntv_mpiwait_onlycnt: count of MPI_Wait calls > 10ms to CTL

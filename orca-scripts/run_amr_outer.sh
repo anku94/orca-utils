@@ -17,6 +17,14 @@ OR_HOSTFILE=/tmp/hostfile
 OR_HOSTFILE_ORCA=${OR_HOSTFILE}_orca
 OR_HOSTFILE_MPI=${OR_HOSTFILE}_mpi
 
+# Suite notes:
+## 20251229: ORCA full + TAU + Dftracer
+## 20251230:
+## - TAU/dftracer increase buffer size experiments (futile)
+## - scorep and caliper at r=512/n=200
+## 20260101: ofi+tcp exps
+## - TODO
+
 # setup_suite_common: setup common environment variables
 setup_suite_common() {
     # CTL node is implied, and will be added if ORCA is enabled
@@ -246,18 +254,27 @@ sweep_all() {
     done
 }
 
+# prep_all_hosts: prep all hosts for the suite
+#   $1: number of nodes to reserve for MPI
+#   $2: number of nodes to reserve/prep for ORCA
+# - Will generate: $OR_HOSTFILE, $OR_HOSTFILE_ORCA, $OR_HOSTFILE_MPI
+# - Will call prep_orca_hosts for ORCA nodes (qib reconfig)
+# - Will ensure that ORCA/MPI hostfiles have at least that many nodes
+prep_all_hosts() {
+    local -i nnodes_mpi=$1
+    local -i nnodes_max_orca=$2
+
+    # generate $OR_HOSTFILE
+    python $SCRIPT_DIR/check_hosts.py -e mon8 -o $OR_HOSTFILE
+    allocate_orca_hosts $nnodes_max_orca
+    prep_orca_hosts
+    ensure_hostfile_nodecnt $OR_HOSTFILE_ORCA $nnodes_max_orca
+    ensure_hostfile_nodecnt $OR_HOSTFILE_MPI $nnodes_mpi
+}
+
 run() {
-    SUITE_ROOT=/mnt/ltio/orcajobs/suites/20251229
+    SUITE_ROOT=/mnt/ltio/orcajobs/suites/20260101
     local -i nrepeat=0
-
-    local -i nnodes_max_orca=5 # max nodes we will use for ORCA
-
-    # export OR_PROFILES=0
-    # OR_AMR_NSTEPS=20
-    # OR_MPI_NRANKS=2048
-    # OR_AGGCNT=2
-    # # resize_exp 161
-    # sweep_all $nrepeat
 
     # declare a nranks->aggcnt map
     declare -A nranks_aggcnt=(
@@ -274,24 +291,14 @@ run() {
     )
 
     local -a all_steps=(20 2000)
-    all_steps=(20 2000)
+    all_steps=(20)
+
     local -a all_nranks=(512 1024 2048 4096)
-    all_nranks=(512 1024 2048)
+    all_nranks=(512)
 
-    # generate $OR_HOSTFILE
-    # python $SCRIPT_DIR/check_hosts.py -e mon8 -o $OR_HOSTFILE
-    # allocate_orca_hosts $nnodes_max_orca
-    # prep_orca_hosts
-    # ensure_hostfile_nodecnt $OR_HOSTFILE_ORCA $nnodes_max_orca
-    # ensure_hostfile_nodecnt $OR_HOSTFILE_MPI 256
-    # exit 0
-
-    for step in "${all_steps[@]}"; do
-        for nranks in "${all_nranks[@]}"; do
-            OR_NRANKS_MPI=$nranks
-            OR_AMR_NSTEPS=$step
-            # nrepeat=${steps_reps[$step]}
-            nrepeat=1
+    for OR_AMR_NSTEPS in "${all_steps[@]}"; do
+        for OR_NRANKS_MPI in "${all_nranks[@]}"; do
+            # nrepeat=${steps_reps[$OR_AMR_NSTEPS]}
 
             OR_NNODES_AGG=${nranks_aggcnt[$nranks]}
             assign_orca_nodes $OR_NNODES_AGG
@@ -302,4 +309,20 @@ run() {
     done
 }
 
-run
+run_ofitcp() {
+    SUITE_ROOT=/mnt/ltio/orcajobs/suites/20260101
+
+    OR_PROFILES=0,5,7,18,19
+    OR_NRANKS_MPI=512
+    OR_AMR_NSTEPS=20
+    OR_NNODES_AGG=1
+    assign_orca_nodes $OR_NNODES_AGG
+
+    echo "nranks: $OR_NRANKS_MPI, nnodes_agg: $OR_NNODES_AGG, step: $OR_AMR_NSTEPS"
+    sweep_all 1 1
+}
+
+# prep_all_hosts 256 5 # 256: max MPI, 5: max ORCA
+# run
+
+run_ofitcp

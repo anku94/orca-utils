@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+Range = tuple[float, float]
 QueryType = Literal["count_window", "count_sync_maxdur", "count_mpi_wait_dur"]
 
 

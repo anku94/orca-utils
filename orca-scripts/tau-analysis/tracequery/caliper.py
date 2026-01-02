@@ -7,10 +7,13 @@ from pathlib import Path
 import pandas as pd
 from caliperreader import CaliperReader
 
+from .common import Range
+
 
 # -----------------------------------------------------------------------------
 # Module-level worker functions for multiprocessing (must be picklable)
 # -----------------------------------------------------------------------------
+
 
 def _read_cali_df(trace_file: Path) -> pd.DataFrame:
     """Read a .cali file into a DataFrame."""
@@ -47,11 +50,12 @@ def _prep_mpi_wait_worker(trace_file: Path) -> pd.DataFrame:
     return df[["time.duration.ns"]].astype(float)
 
 
-def _prep_window_worker(trace_file: Path) -> pd.DataFrame:
-    """Worker for count_window."""
+def _count_window_worker(args: tuple[Path, float]) -> int:
+    """Count events in first window_ns nanoseconds."""
+    trace_file, window_ns = args
     df = _read_cali_df(trace_file)
-    df = df[df["time.offset.ns"].notna()]
-    return df[["time.offset.ns"]].astype(float)
+    ts = df["time.offset.ns"].astype(float)
+    return int((ts < window_ns).sum())
 
 
 class CaliperQuery:
@@ -114,22 +118,23 @@ class CaliperQuery:
     # count_window: count events within a time window from trace start
     # -------------------------------------------------------------------------
 
-    def count_window(self, window_s: float = 1.0) -> int:
-        """Count events within a time window from trace start."""
+    def get_window_bounds(self, window_s: float = 1.0) -> Range:
+        """Get the time range for the first window_s seconds of the trace.
+
+        Caliper's time.offset.ns is already relative to global start, so bounds are trivial.
+        """
+        return (0.0, window_s * 1e9)
+
+    def count_window(self, time_range: Range) -> int:
+        """Count events within a time window."""
+        window_ns = time_range[1]  # time_range[0] is 0 for Caliper
+        args = [(f, window_ns) for f in self.trace_files]
         if self.nworkers > 1:
             with Pool(self.nworkers) as pool:
-                dfs = pool.map(_prep_window_worker, self.trace_files)
+                counts = pool.map(_count_window_worker, args)
         else:
-            dfs = [_prep_window_worker(f) for f in self.trace_files]
+            counts = [_count_window_worker(a) for a in args]
 
-        combined = pd.concat(dfs, ignore_index=True)
-        ts_min = combined["time.offset.ns"].min()
-        ts_max = ts_min + window_s * 1e9
-        count = ((combined["time.offset.ns"] >= ts_min) & (combined["time.offset.ns"] < ts_max)).sum()
-
-        print(
-            f"[Caliper] nranks={self.nranks}, events={len(combined)}, "
-            f"in_first_{window_s}s: {count}"
-        )
-        return count
-
+        total = sum(counts)
+        print(f"[Caliper] events in window: {total}")
+        return total

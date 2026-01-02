@@ -24,11 +24,13 @@ class DfTracerQuery:
     def _load_traces(self):
         """Lazy load traces."""
         if self._traces is None:
-            dfa = analyzer.init_with_hydra(hydra_overrides=[
-                "analyzer=dftracer",
-                "cluster=local",
-                f"trace_path={self.trace_dir}",
-            ])
+            dfa = analyzer.init_with_hydra(
+                hydra_overrides=[
+                    "analyzer=dftracer",
+                    "cluster=local",
+                    f"trace_path={self.trace_dir}",
+                ]
+            )
             self._traces = dfa.analyzer.read_trace(
                 str(self.trace_dir), extra_columns=None, extra_columns_fn=None
             )
@@ -67,9 +69,7 @@ class DfTracerQuery:
         """Count MPI_Wait calls exceeding threshold."""
         traces = self._load_traces()
 
-        mpi_wait = traces[
-            (traces.cat == "mpi") & (traces.func_name == "MPI_Wait")
-        ]
+        mpi_wait = traces[(traces.cat == "mpi") & (traces.func_name == "MPI_Wait")]
         # time is in seconds
         count = ((mpi_wait.time * 1e3) >= thresh_ms).sum().compute()
 
@@ -83,15 +83,15 @@ class DfTracerQuery:
     def get_window_bounds(self, window_s: float = 1.0) -> Range:
         """Get the time range for the first window_s seconds of the trace."""
         traces = self._load_traces()
-        # time_start is in seconds
-        ts_min, _ = dask.compute(traces.time_start.min(), traces.time_start.max())
-        return (ts_min, ts_min + window_s)
+        # time_start is in microseconds
+        win_start = traces.time_start.min().compute()
+        win_end = win_start + window_s * 1e6
+        return (win_start, win_end)
 
     def count_window(self, time_range: Range) -> int:
         """Count events within a time window."""
         traces = self._load_traces()
-        count = traces.time_start.between(*time_range).sum().compute()
+        count = traces.time_start.between(*time_range).count().compute()
 
         print(f"[DfTracer] events in window: {count}")
         return int(count)
-

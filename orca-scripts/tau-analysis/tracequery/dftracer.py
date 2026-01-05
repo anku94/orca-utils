@@ -20,18 +20,32 @@ class DfTracerQuery:
         """trace_dir should contain the dftracer trace files."""
         self.trace_dir = trace_dir
         self._traces = None
+        self._dfa = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+    def close(self):
+        """Shutdown Dask cluster."""
+        if self._dfa is not None:
+            self._dfa.shutdown()
+            self._dfa = None
+            self._traces = None
 
     def _load_traces(self):
         """Lazy load traces."""
         if self._traces is None:
-            dfa = analyzer.init_with_hydra(
+            self._dfa = analyzer.init_with_hydra(
                 hydra_overrides=[
                     "analyzer=dftracer",
                     "cluster=local",
                     f"trace_path={self.trace_dir}",
                 ]
             )
-            self._traces = dfa.analyzer.read_trace(
+            self._traces = self._dfa.analyzer.read_trace(
                 str(self.trace_dir), extra_columns=None, extra_columns_fn=None
             )
         return self._traces

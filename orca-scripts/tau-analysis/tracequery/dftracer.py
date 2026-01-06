@@ -16,11 +16,17 @@ COLLECTIVES = {
 
 
 class DfTracerQuery:
-    def __init__(self, trace_dir: Path):
-        """trace_dir should contain the dftracer trace files."""
+
+    def __init__(self, trace_dir: Path, tmp_dir: Path):
+        """trace_dir should contain the dftracer trace files.
+           tmp_dir is used for shuffler spills and all
+        """
         self.trace_dir = trace_dir
+        self._tmp_dir = tmp_dir
         self._traces = None
         self._dfa = None
+
+        assert self._tmp_dir.exists()
 
     def __enter__(self):
         return self
@@ -38,16 +44,15 @@ class DfTracerQuery:
     def _load_traces(self):
         """Lazy load traces."""
         if self._traces is None:
-            self._dfa = analyzer.init_with_hydra(
-                hydra_overrides=[
-                    "analyzer=dftracer",
-                    "cluster=local",
-                    f"trace_path={self.trace_dir}",
-                ]
-            )
-            self._traces = self._dfa.analyzer.read_trace(
-                str(self.trace_dir), extra_columns=None, extra_columns_fn=None
-            )
+            self._dfa = analyzer.init_with_hydra(hydra_overrides=[
+                "analyzer=dftracer",
+                "cluster=local",
+                f"trace_path={self.trace_dir}",
+                f"cluster.local_directory={self._tmp_dir}",
+            ])
+            self._traces = self._dfa.analyzer.read_trace(str(self.trace_dir),
+                                                         extra_columns=None,
+                                                         extra_columns_fn=None)
         return self._traces
 
     # -------------------------------------------------------------------------
@@ -58,9 +63,8 @@ class DfTracerQuery:
         """Count collectives where max duration across ranks exceeds threshold."""
         traces = self._load_traces()
 
-        mpi_filtered = traces[
-            (traces.cat == "mpi") & (traces.func_name.isin(COLLECTIVES))
-        ]
+        mpi_filtered = traces[(traces.cat == "mpi")
+                              & (traces.func_name.isin(COLLECTIVES))]
         mpi_pd = mpi_filtered[["pid", "time_start", "time"]].compute()
 
         if mpi_pd.empty:
@@ -83,7 +87,8 @@ class DfTracerQuery:
         """Count MPI_Wait calls exceeding threshold."""
         traces = self._load_traces()
 
-        mpi_wait = traces[(traces.cat == "mpi") & (traces.func_name == "MPI_Wait")]
+        mpi_wait = traces[(traces.cat == "mpi")
+                          & (traces.func_name == "MPI_Wait")]
         # time is in seconds
         count = ((mpi_wait.time * 1e3) >= thresh_ms).sum().compute()
 

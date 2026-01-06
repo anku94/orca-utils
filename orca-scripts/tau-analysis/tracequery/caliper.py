@@ -59,15 +59,23 @@ def _count_window_worker(args: tuple[Path, float]) -> int:
 
 
 class CaliperQuery:
-    def __init__(self, trace_dir: Path, nranks: int, nworkers: int = 1):
+    def __init__(self, trace_dir: Path, nranks: int = -1, nworkers: int = 1):
         self.trace_dir = trace_dir
         self.nranks = nranks
         self.nworkers = nworkers
 
-        all_fnames = [f"mpi-{i}.cali" for i in range(nranks)]
-        self.trace_files = [trace_dir / fname for fname in all_fnames]
+        print(f"[Caliper] trace_dir: {trace_dir}, nranks: {nranks}, nworkers: {nworkers}")
+
+        if nranks == -1:
+            self.trace_files = [f for f in trace_dir.glob("mpi-*.cali")]
+        else:
+            all_fnames = [f"mpi-{i}.cali" for i in range(nranks)]
+            self.trace_files = [trace_dir / fname for fname in all_fnames]
+
         for fname in self.trace_files:
             assert fname.exists(), f"File {fname} does not exist"
+
+        print(f"[Caliper] found {len(self.trace_files)} trace files")
 
     # -------------------------------------------------------------------------
     # count_sync_maxdur: count collectives where max duration across ranks > threshold

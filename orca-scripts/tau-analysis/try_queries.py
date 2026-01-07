@@ -31,6 +31,8 @@ def now_micros() -> int:
 
 
 def test_dftracer(run_dir: Path):
+    suite_dir = Path("/mnt/ltio/orcajobs/suites/20251212")
+    run_dir = suite_dir / "amr-agg1-r512-n20-run1/11_dftracer"
     trace_dir = run_dir / "trace-small"
     dfa = analyzer.init_with_hydra(
         hydra_overrides=[
@@ -129,7 +131,7 @@ def test_orca(run_dir: Path) -> QueryResult:
 
 
 def run_adhoc():
-    prof_root = (
+    prof_root = Path(
         "/mnt/ltio/orcajobs/suites/20251227/amr-agg4-r4096-n20-run1/07_or_tracetgt"
     )
     reader = OrcaReader(prof_root)
@@ -159,6 +161,10 @@ def run():
     df = pd.DataFrame([df_qr, orca_qr])
     # df.to_csv('query_results.csv', index=False)
     print(df)
+
+def run_cali_adhoc():
+    trace_dir = "/mnt/ltio/orcajobs/suites/20251230/amr-agg1-r512-n20-run1/18_caliper_tracetgt/trace"
+    pass
 
 
 if __name__ == "__main__":

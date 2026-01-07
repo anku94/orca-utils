@@ -85,11 +85,12 @@ def parse_opts() -> Path:
 
 def run(suite_dir: Path):
     suites = read_v2_suites(suite_dir)
-    suite_name = suite_dir.name
-    runtimes_path = get_script_root() / "data" / f"{suite_name}_runtimes.csv"
-    tracesizes_path = get_script_root() / "data" / \
-        f"{suite_name}_tracesizes.csv"
+    suite_name = f"{suite_dir.name}_ofitcp"
+    runtimes_path = get_script_root() / f"data/{suite_name}_runtimes.csv"
+    tracesizes_path = get_script_root() / f"data/{suite_name}_tracesizes.csv"
     do_save = True
+    logger.info(f"Will write runtimes to: {runtimes_path}")
+    logger.info(f"Will write tracesizes to: {tracesizes_path}")
     run_amr_runtimes(suites, runtimes_path, save=do_save)
     run_amr_tracesizes(suites, tracesizes_path, save=do_save)
 

@@ -61,6 +61,12 @@ cache_dir_filesizes() {
     echo \"$file\",$(stat -c%s "$file")
   done >>$csv_file
 
+  # check if OR_SKIP_CLEANUP is set
+  if [ -n "${OR_SKIP_CLEANUP:-}" ]; then
+    message "-INFO- OR_SKIP_CLEANUP is set, skipping cleanup"
+    return
+  fi
+
   find "$dir_path" -mindepth 1 -type f -print0 | while IFS= read -r -d '' file; do
     local fname=$(basename $file)
     local pardir_name=$(basename $(dirname $file))
@@ -161,10 +167,14 @@ prepare_scorep_jobdir() {
   add_mpi_env_var SCOREP_ENABLE_TRACING 1
   add_mpi_env_var SCOREP_ENABLE_PROFILING 0
   add_mpi_env_var SCOREP_KOKKOS_ENABLE 1
+  add_mpi_env_var SCOREP_MAX_GETHOSTID_RETRIES 25
 
   # 48MB is the minimum needed to get 512 ranks/200 timesteps to work
   # Tried increasing in 8MB intervals. 40MB leads to OOM/crash
-  add_mpi_env_var SCOREP_TOTAL_MEMORY $((48 * 1024 * 1024))
+  # 48MB works for 512-1024 ranks, 64MB crashes at 2048 ranks (last flush)
+  # 80MB works at 2048 ranks, crashes at 4096 ranks
+  # 144MB works at 4096 ranks, 128MB crashes, 136MB: smallest size that works
+  add_mpi_env_var SCOREP_TOTAL_MEMORY $((136 * 1024 * 1024))
   add_mpi_env_var SCOREP_FILTERING_FILE /users/ankushj/llm-thinkspace/mpi-trace-test/scorep.filter
   # add_mpi_env_var SCOREP_TRACE_FORMAT csv
   # add_mpi_env_var SCOREP_TRACE_FILE "$OR_JOBDIR/trace/trace.log"
@@ -273,6 +283,7 @@ run_mpiexp() {
     "$vpic_nodes" "$OR_MPI_BIN" "" $mpi_logfile
 
   # if cleanup command is set, run it, and unset it
+  # message "!! WARN !! Skipping cleanup command: $CLEANUP_CMD"
   if [ -n "${CLEANUP_CMD:-}" ]; then
     message "-INFO- Running cleanup command: $CLEANUP_CMD"
     $CLEANUP_CMD
@@ -612,17 +623,19 @@ setup_profile_scorep() {
 # or_tcp_tracesync: trace only MPI collectives
 setup_profile_or_tcp_tracesync() {
   OR_RUN_TYPE="orca"
-  local cmdseq="set-flow enable-tracers mpi_collectives; resume"
+  local cmdseq="set-flow trace-and-drop-agg mpi_collectives; resume"
   update_cfgyaml_with_cmdseq "$cmdseq"
   add_common_env_var ORCA_HG_PROTO "ofi+tcp"
   add_common_env_var FI_TCP_IFACE ibs2
+  add_common_env_var ORCA_HGBLK_INFLTMAX 3
 }
 
 # or_tcp_tracetgt: trace all tracers
 setup_profile_or_tcp_tracetgt() {
   OR_RUN_TYPE="orca"
 
-  local cmdseq="set-flow enable-tracers"
+  # local cmdseq="set-flow enable-tracers"
+  local cmdseq="set-flow trace-and-drop-agg"
   cmdseq="$cmdseq; disable-probe mpi_messages MPI_Test"
   cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
   cmdseq="$cmdseq; resume"
@@ -630,6 +643,7 @@ setup_profile_or_tcp_tracetgt() {
 
   add_common_env_var ORCA_HG_PROTO "ofi+tcp"
   add_common_env_var FI_TCP_IFACE ibs2
+  add_orca_env_var ORCA_HGBLK_INFLTMAX 3
 }
 
 # or_ntv_mpiwait_onlycnt: count of MPI_Wait calls > 10ms to CTL
@@ -673,8 +687,13 @@ setup_profile_caliper_tracetgt() {
   local cali_xclcfg="startswith(Kokkos::Tools)" # works for Kokkos Fence
   cali_xclcfg="$cali_xclcfg,TaskRegion::CheckAndUpdate"
 
+  local mpi_xl="MPI_File_open,MPI_File_close,MPI_file_read,MPI_file_write,MPI_file_seek"
+  mpi_xl="$mpi_xl,MPI_Test,MPI_Iprobe,MPI_Iallreduce,MPI_Finalize"
+  mpi_xl="$mpi_xl,MPI_Status_set_elements_x,MPI_Type_size_x"
+  mpi_xl="$mpi_xl,MPI_Comm_disconnect,MPI_Comm_dup,MPI_Comm_free"
+
   add_mpi_env_var CALI_EVENT_EXCLUDE_REGIONS "${cali_xclcfg}"
-  add_mpi_env_var CALI_MPI_BLACKLIST "MPI_Test"
+  add_mpi_env_var CALI_MPI_BLACKLIST "${mpi_xl}"
   add_mpi_env_var CALI_MPI_MSG_TRACING true
 }
 
@@ -716,7 +735,6 @@ run_profile() {
     ;;
   *)
     run_mpiexp
-    # echo "TODO: run_mpiexp"
     ;;
   esac
 

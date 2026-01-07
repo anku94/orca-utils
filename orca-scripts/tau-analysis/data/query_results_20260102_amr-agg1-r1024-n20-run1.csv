@@ -17,3 +17,8 @@ count_window,/mnt/ltio/orcajobs/suites/20260102/amr-agg1-r1024-n20-run1/17_calip
 count_sync_maxdur,/mnt/ltio/orcajobs/suites/20260102/amr-agg1-r1024-n20-run1/07_or_tracetgt/parquet,orca,"thresh_ms=10.0,count=23",54712
 count_mpi_wait_dur,/mnt/ltio/orcajobs/suites/20260102/amr-agg1-r1024-n20-run1/07_or_tracetgt/parquet,orca,"thresh_ms=1.0,count=0",61687
 count_window,/mnt/ltio/orcajobs/suites/20260102/amr-agg1-r1024-n20-run1/07_or_tracetgt/parquet,orca,"window_s=1.0,count=6538967",327328
+count_sync_maxdur,/mnt/ltio/orcajobs/suites/20260102/amr-agg1-r1024-n20-run1/11_dftracer/trace,dftracer,"thresh_ms=10.0,count=117",392298121
+count_mpi_wait_dur,/mnt/ltio/orcajobs/suites/20260102/amr-agg1-r1024-n20-run1/11_dftracer/trace,dftracer,"thresh_ms=1.0,count=0",397254468
+count_sync_maxdur,/mnt/ltio/orcajobs/suites/20260102/amr-agg1-r1024-n20-run1/11_dftracer/trace,dftracer,"thresh_ms=10.0,count=117",391415883
+count_mpi_wait_dur,/mnt/ltio/orcajobs/suites/20260102/amr-agg1-r1024-n20-run1/11_dftracer/trace,dftracer,"thresh_ms=1.0,count=0",388558052
+count_window,/mnt/ltio/orcajobs/suites/20260102/amr-agg1-r1024-n20-run1/11_dftracer/trace,dftracer,"window_s=1.0,count=29802229",388916982

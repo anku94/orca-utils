@@ -311,18 +311,83 @@ run() {
 
 run_ofitcp() {
     SUITE_ROOT=/mnt/ltio/orcajobs/suites/20260101
-
-    OR_PROFILES=0,5,7,18,19
     OR_NRANKS_MPI=512
-    OR_AMR_NSTEPS=20
+
+    # First, verbs with aggcnt=1
+    export OR_PROFILES=0,5,7
     OR_NNODES_AGG=1
     assign_orca_nodes $OR_NNODES_AGG
 
-    echo "nranks: $OR_NRANKS_MPI, nnodes_agg: $OR_NNODES_AGG, step: $OR_AMR_NSTEPS"
-    sweep_all 1 1
+    for OR_AMR_NSTEPS in 20 200 2000; do
+        echo "OR_AMR_NSTEPS: $OR_AMR_NSTEPS"
+        echo "nranks: $OR_NRANKS_MPI, nnodes_agg: $OR_NNODES_AGG, step: $OR_AMR_NSTEPS"
+        sweep_all 1 3
+    done
+
+    exit 0
+
+    # Then, TCP with aggcnt=2
+    export OR_PROFILES=18,19
+    OR_NNODES_AGG=2
+    assign_orca_nodes $OR_NNODES_AGG
+
+    for OR_AMR_NSTEPS in 20 200 2000; do
+        echo "OR_AMR_NSTEPS: $OR_AMR_NSTEPS"
+        echo "nranks: $OR_NRANKS_MPI, nnodes_agg: $OR_NNODES_AGG, step: $OR_AMR_NSTEPS"
+        sweep_all 1 3
+    done
+}
+
+# run_datagen: generate data for query suite
+run_datagen() {
+    SUITE_ROOT=/mnt/ltio/orcajobs/suites/20260102
+    export OR_PROFILES=7,11,17
+
+    #for OR_NRANKS_MPI in 512 1024 2048 4096; do
+    for OR_NRANKS_MPI in 512 1024 2048 4096; do
+        for OR_AMR_NSTEPS in 20 200; do
+            OR_NNODES_AGG=$(((OR_NRANKS_MPI + 1023) / 1024))
+            assign_orca_nodes $OR_NNODES_AGG
+
+            echo "nranks: $OR_NRANKS_MPI, nnodes_agg: $OR_NNODES_AGG, step: $OR_AMR_NSTEPS"
+            sweep_all 1 1
+        done
+    done
+}
+
+run_idk() {
+    SUITE_ROOT=/mnt/ltio/orcajobs/suites/20260106
+    # export OR_PROFILES=0,17
+    export OR_PROFILES=13
+
+    export OR_SKIP_CLEANUP=1
+
+    for OR_NRANKS_MPI in 512 1024 2048 4096; do
+        for OR_AMR_NSTEPS in 20 200; do
+            OR_NNODES_AGG=$(((OR_NRANKS_MPI + 1023) / 1024))
+            assign_orca_nodes $OR_NNODES_AGG
+
+            echo "nranks: $OR_NRANKS_MPI, nnodes_agg: $OR_NNODES_AGG, step: $OR_AMR_NSTEPS"
+            sweep_all 1 1
+        done
+    done
+
+    unset OR_SKIP_CLEANUP
+
+    for OR_NRANKS_MPI in 512 1024 2048 4096; do
+        for OR_AMR_NSTEPS in 20 200; do
+            OR_NNODES_AGG=$(((OR_NRANKS_MPI + 1023) / 1024))
+            assign_orca_nodes $OR_NNODES_AGG
+
+            echo "nranks: $OR_NRANKS_MPI, nnodes_agg: $OR_NNODES_AGG, step: $OR_AMR_NSTEPS"
+            sweep_all 2 3
+        done
+    done
 }
 
 # prep_all_hosts 256 5 # 256: max MPI, 5: max ORCA
 # run
 
-run_ofitcp
+# run_ofitcp
+# run_datagen
+run_idk

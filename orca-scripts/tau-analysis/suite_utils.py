@@ -30,13 +30,13 @@ class Profile:
         self.name = os.path.basename(path)
         self.path = path
 
-    def __lt__(self, other: 'Profile') -> bool:
+    def __lt__(self, other: "Profile") -> bool:
         return self.sort_key() < other.sort_key()
 
-    def __eq__(self, other: 'Profile') -> bool:
+    def __eq__(self, other: "Profile") -> bool:
         return self.sort_key() == other.sort_key()
 
-    def sort_key(self) -> tuple[int, int, int]:
+    def sort_key(self) -> int:
         mobj = re.match(r"^(\d+)_(.*)$", self.name)
         assert mobj is not None
         return int(mobj.group(1))
@@ -73,8 +73,7 @@ class Profile:
 
         evtcnt = 0
         with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = [executor.submit(_get_linecount_ascii, f)
-                       for f in all_files]
+            futures = [executor.submit(_get_linecount_ascii, f) for f in all_files]
             results = [future.result() for future in futures]
         return sum(results)
 
@@ -153,8 +152,7 @@ class Suite:
     def get_prof_path(self, prof_name: str) -> Path:
         profs = [p for p in self.profiles if p.name == prof_name]
         if len(profs) == 0:
-            raise ValueError(
-                f"Profile {prof_name} not found in suite {self.name}")
+            raise ValueError(f"Profile {prof_name} not found in suite {self.name}")
         return profs[0].path
 
 
@@ -278,14 +276,17 @@ def get_profile_amr_runtime(profile_dir: Path) -> float:
 def get_suitedf(suite: Suite) -> pd.DataFrame:
     df_rows = []
     for p in suite.profiles:
-        df_rows.append({
-            "root": suite.suitedir.parent,
-            "name": suite.name,
-            "profile": p.name,
-            "ranks": suite.ranks,
-            "aggs": suite.naggs,
-            "steps": suite.nsteps,
-            "run_id": suite.run_id})
+        df_rows.append(
+            {
+                "root": suite.suitedir.parent,
+                "name": suite.name,
+                "profile": p.name,
+                "ranks": suite.ranks,
+                "aggs": suite.naggs,
+                "steps": suite.nsteps,
+                "run_id": suite.run_id,
+            }
+        )
 
     df = pd.DataFrame(df_rows)
     return df
@@ -334,7 +335,7 @@ def read_duckdb(duckdb_path: str) -> pd.DataFrame:
     return df
 
 
-def read_suites(suites_yaml: str) -> SuiteMap:
+def read_suites(suites_yaml: Path) -> SuiteMap:
     with open(suites_yaml, "r") as f:
         yaml_data = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -356,12 +357,11 @@ def read_suites(suites_yaml: str) -> SuiteMap:
         prof_dict = {os.path.basename(d): d for d in prof_dirs}
         for o in yd.get("overrides", []):
             prof_dict[o["name"]] = rootdir / o["suitedir"]
-        profiles = [Profile(name=n, path=p) for n, p in prof_dict.items()]
+        profiles = [Profile(path=p) for p in prof_dict.values()]
 
         # print(f"Data: {yd}")
 
         s = Suite(
-            name=yd["name"],
             suitedir=suitedir,
             profiles=profiles,
         )
@@ -401,12 +401,11 @@ def read_all_suites(yaml_fname: str, suite_names: list[str] | None) -> SuiteMap:
     if suite_names is None:
         return suites
     else:
-        return [suites[name] for name in suite_names]
+        return {name: suites[name] for name in suite_names}
 
 
 if __name__ == "__main__":
-    parent_dir = os.path.dirname(os.path.abspath(__file__))
-    yaml_fpath = os.path.join(parent_dir, "suites.yaml")
+    yaml_fpath = get_script_root() / "suites.yaml"
     suites = read_suites(yaml_fpath)
     df = get_suite_amr_runtimes(suites["idk"])
     print(df)

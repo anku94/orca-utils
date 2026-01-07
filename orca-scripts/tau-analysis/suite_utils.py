@@ -13,6 +13,7 @@ import otf2
 import yaml
 from concurrent.futures import ThreadPoolExecutor
 import argparse
+import subprocess
 
 SUITE_ROOT = Path("/mnt/ltio/orcajobs/suites")
 
@@ -23,6 +24,42 @@ logger = logging.getLogger(__name__)
 def _get_linecount_ascii(fpath: Path) -> int:
     with open(fpath, "r") as f:
         return len(f.readlines())
+
+
+def _get_linecount_ascii_wc(fpath: Path) -> int:
+    wc_out = subprocess.check_output(["wc", "-l", fpath])
+    return int(wc_out.split()[0])
+
+
+def _get_linecount_ascii_wc_batch(fpaths: list[Path]) -> int:
+    logger.info(f"Getting line count for {len(fpaths)} files")
+    fpath_strs = [str(fpath) for fpath in fpaths]
+
+    wc_out = subprocess.check_output(["wc", "-l", *fpath_strs])
+    wc_str = wc_out.decode("utf-8")
+    # logger.info(f"WC output: {wc_str}")
+    wc_lines = wc_str.split("\n")
+    wc_lines = [l.strip() for l in wc_lines if l.strip()]
+
+    mobj = re.match(r"^(\d+)\s+total$", wc_lines[-1])
+    assert mobj is not None
+    return int(mobj.group(1))
+
+
+def _get_linecount_parallel(fpaths: list[Path], nworkers: int = 16) -> int:
+    # divide fpaths into nworkers chunks
+    chunk_size = len(fpaths) // nworkers
+    chunks = [fpaths[i : i + chunk_size] for i in range(0, len(fpaths), chunk_size)]
+    chunk_sizes = ",".join([str(len(chunk)) for chunk in chunks])
+    logger.info(f"Chunk sizes: {chunk_sizes}")
+
+    with ThreadPoolExecutor(max_workers=nworkers) as executor:
+        futures = [
+            executor.submit(_get_linecount_ascii_wc_batch, chunk) for chunk in chunks
+        ]
+        results = [future.result() for future in futures]
+
+    return sum(results)
 
 
 class Profile:
@@ -64,18 +101,15 @@ class Profile:
             evtcnt += len(reader.events)
         return evtcnt
 
-    def _get_evtcount_dft(self) -> int:
-        logger.info(f"Getting event count for profile {self.name}")
+    def _get_evtcnt_ascii_generic(self, glob_patt: str, nworkers: int = 8) -> int:
+        tracedir = self.get_tracedir()
+        all_files = list(tracedir.glob(glob_patt))
+        logger.info(f"Found {len(all_files)} files ({tracedir}, glob_patt={glob_patt})")
 
-        all_files = list(self.get_tracedir().glob("**/*.pfw"))
         if len(all_files) == 0:
             return -1
 
-        evtcnt = 0
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = [executor.submit(_get_linecount_ascii, f) for f in all_files]
-            results = [future.result() for future in futures]
-        return sum(results)
+        return _get_linecount_parallel(all_files, nworkers=nworkers)
 
     def _get_evtcnt_parquet(self) -> int:
         logger.info(f"Getting event count for profile {self.name}")
@@ -105,12 +139,18 @@ class Profile:
                 evtcnt = int(f.read())
             return evtcnt
 
+        if evtcnt_file.exists():
+            os.remove(evtcnt_file)
+            logger.info(f"Removed cached event count file: {evtcnt_file}")
+
         if self.name == "07_trace_tgt":
             evtcnt = self._get_evtcnt_parquet()
-        elif self.name == "10_tau_tracetgt":
+        elif self.name == "10_tau_tracetgt" or self.name == "13_scorep":
             evtcnt = self._get_evtcount_otf2()
         elif self.name == "11_dftracer":
-            evtcnt = self._get_evtcount_dft()
+            evtcnt = self._get_evtcnt_ascii_generic("*.pfw")
+        elif self.name == "17_caliper_tracetgt":
+            evtcnt = self._get_evtcnt_ascii_generic("*.cali")
 
         with open(evtcnt_file, "w") as f:
             f.write(str(evtcnt))

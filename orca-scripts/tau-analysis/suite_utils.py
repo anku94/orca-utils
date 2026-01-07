@@ -14,6 +14,7 @@ import yaml
 from concurrent.futures import ThreadPoolExecutor
 import argparse
 import subprocess
+import pandas as pd
 
 SUITE_ROOT = Path("/mnt/ltio/orcajobs/suites")
 
@@ -156,6 +157,50 @@ class Profile:
             f.write(str(evtcnt))
 
         return evtcnt
+
+    def get_tracestats_df(self, cached: bool = True) -> pd.DataFrame:
+        trace_dir = self.get_tracedir()
+        oedf_glob = trace_dir / "orca_events" / "R*.parquet"
+
+        if not oedf_glob.parent.exists():
+            logger.warning(f"No orca_events directory found in {trace_dir}")
+            return pd.DataFrame()
+
+        flagg_cached = f"{trace_dir}/tracestats_cached.csv"
+        if cached and os.path.exists(flagg_cached):
+            return pd.read_csv(flagg_cached)
+
+        if os.path.exists(flagg_cached):
+            os.remove(flagg_cached)
+            logger.info(f"Removed cached tracestats file: {flagg_cached}")
+
+        cols = ["probe_name", "ts_ns", "timestep", "swid", "rank", "val"]
+        fldf = (
+            pl.scan_parquet(oedf_glob)
+            .filter(pl.col("probe_name").str.starts_with("fljob"))
+            .select(cols)
+            .collect()
+        )
+
+        # First check that all timesteps have the same number of rows
+        check_df = fldf.group_by("timestep").agg(pl.len())
+        assert check_df["len"].unique().len() == 1
+
+        # Group by (timestep, probe_name), add val
+        flagg_df = (
+            fldf.group_by(["timestep", "probe_name"])
+            .agg(pl.col("val").sum(), pl.mean("ts_ns"))
+            .sort("timestep")
+        )
+        flagg_df = flagg_df.filter(pl.col("probe_name").str.starts_with("fljob.nrows"))
+        fl_pdf = flagg_df.pivot(on="probe_name", index="timestep", values=["val"])
+        fl_pdf = fl_pdf.to_pandas()
+        fl_pdf.insert(0, "tracedir", str(trace_dir))
+
+        logger.info(f"Writing cached tracestats to: {flagg_cached}")
+        fl_pdf.to_csv(flagg_cached, index=False)
+
+        return fl_pdf
 
 
 class Suite:

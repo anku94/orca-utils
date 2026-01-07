@@ -1,10 +1,13 @@
 import re
 import otf2
+from polars.selectors import starts_with
 from suite_utils import *
 from dataclasses import dataclass
 import logging
 from pathlib import Path
 import sys
+import pandas as pd
+import polars as pl
 
 
 @dataclass
@@ -44,6 +47,20 @@ def log_sdf_summary(sdf: pd.DataFrame):
         index=["steps", "ranks"], columns="profile", values="trace_size"
     )
     print(sdf_agg.to_string())
+
+
+def log_tstatsdf_summary(tdf: pd.DataFrame):
+    # groupby tracedir, timestep, sum fljob.nrows_in and fljob.nrows_out
+    tdf_agg = (
+        tdf.groupby(["tracedir"])
+        .agg({"fljob.nrows_in": "sum", "fljob.nrows_out": "sum"})
+        .reset_index()
+    )
+    # compute ratio
+    ratio = tdf_agg["fljob.nrows_out"] / tdf_agg["fljob.nrows_in"]
+    ratio_str = ratio.apply(lambda x: f"{x*100:.1f}%")
+    tdf_agg["ratio"] = ratio_str
+    print(tdf_agg.to_string())
 
 
 def run_amr_runtimes(suites: list[Suite], df_path: Path, save: bool = False):
@@ -93,6 +110,24 @@ def run_amr_tracesizes(suites: list[Suite], df_path: Path, save: bool = False):
         merged_sdf.to_csv(df_path, index=False)
 
 
+def run_tracestats(suites: list[Suite], df_path: Path, save: bool = False):
+    all_tdf = []
+
+    for suite in suites:
+        for p in suite.profiles:
+            tdf = p.get_tracestats_df()
+            tdf.insert(0, "suite", suite.name)
+            tdf.insert(1, "profile", p.name)
+            all_tdf.append(tdf)
+
+    merged_tdf = pd.concat(all_tdf)
+    log_tstatsdf_summary(merged_tdf)
+
+    if save:
+        logger.info(f"Writing output to: {df_path}")
+        merged_tdf.to_csv(df_path, index=False)
+
+
 def parse_opts() -> ParseOpts:
     parser = argparse.ArgumentParser()
     parser.add_argument("--suite-dir", "-d", type=Path, required=True)
@@ -103,7 +138,6 @@ def parse_opts() -> ParseOpts:
 
 def run(opts: ParseOpts):
     suites = read_v2_suites(opts.suite_dir)
-
     suite_name = f"{opts.suite_dir.name}"
 
     rdf_path = get_repo_data_dir() / "runtimes" / f"{suite_name}.csv"
@@ -111,11 +145,59 @@ def run(opts: ParseOpts):
     sdf_path = get_repo_data_dir() / "tracesizes" / f"{suite_name}.csv"
     sdf_path.parent.mkdir(parents=True, exist_ok=True)
 
+    tstats_path = get_repo_data_dir() / "tracestats" / f"{suite_name}.csv"
+    tstats_path.parent.mkdir(parents=True, exist_ok=True)
+
     logger.info(f"Will write runtimes to: {rdf_path}")
     logger.info(f"Will write tracesizes to: {sdf_path}")
+    logger.info(f"Will write tracestats to: {tstats_path}")
 
     run_amr_runtimes(suites, rdf_path, save=opts.save)
     run_amr_tracesizes(suites, sdf_path, save=opts.save)
+    run_tracestats(suites, tstats_path, save=opts.save)
+
+
+def tmp():
+    rootdir = "/mnt/ltio/orcajobs/suites/20251229/amr-agg1-r512-n2000-run1/16_or_ntv_mpiwait_tracecnt/parquet"
+    root_path = Path(rootdir)
+    oedf_path = root_path / "orca_events" / "R*.parquet"
+    cols = ["probe_name", "timestamp", "timestep", "swid", "rank", "ts_ns", "val"]
+    fldf = (
+        pl.scan_parquet(oedf_path)
+        .filter(pl.col("probe_name").str.starts_with("fljob"))
+        .select(cols)
+        .collect()
+    )
+    fldf
+
+    # groupby timestep, count rows, avg ts_ns
+    check_df = fldf.group_by("timestep").agg(pl.len())
+    assert check_df["len"].unique().len() == 1
+    # get unique len values
+
+    check_df
+
+    # groupby (timestep, probe_name), add val
+    flagg_df = (
+        fldf.group_by(["timestep", "probe_name"])
+        .agg(pl.col("val").sum(), pl.mean("ts_ns"))
+        .sort("timestep")
+    )
+    flagg_df
+    # only keep probe_name that starts with fljob.nrows
+    flagg_df = flagg_df.filter(pl.col("probe_name").str.starts_with("fljob.nrows"))
+    flagg_df
+    fl_pdf = flagg_df.pivot(on="probe_name", index="timestep", values=["val"])
+    fl_pdf = fl_pdf.to_pandas()
+    fl_pdf.insert(0, "tracedir", rootdir)
+    fl_pdf
+
+    rootdir
+    suite_name = "20251229"
+    flpdf_path = get_repo_data_dir() / "tracestats" / f"{suite_name}.csv"
+    flpdf_path.parent.mkdir(parents=True, exist_ok=True)
+    fl_pdf.to_csv(flpdf_path, index=False)
+    # get one column per unique probe_name value
 
 
 if __name__ == "__main__":
@@ -123,3 +205,4 @@ if __name__ == "__main__":
     opts = parse_opts()
     logger.info(f"Analyzing suites in: {opts.suite_dir}, save={opts.save}")
     run(opts)
+    # tmp()

@@ -122,8 +122,12 @@ class Profile:
 
             glob_pattern = f"{item}/**/*.parquet"
             try:
-                pl_df = pl.scan_parquet(glob_pattern, parallel="columns")
-                evtcnt += pl_df.count().collect().item(0, 0)
+                pl_df = (
+                    pl.scan_parquet(glob_pattern, parallel="columns")
+                    .select(pl.len())
+                    .collect()
+                )
+                evtcnt += pl_df.item(0, 0)
             except Exception as e:
                 logger.error(f"Error scanning parquet files in {item}: {e}")
                 evtcnt = -1
@@ -144,7 +148,7 @@ class Profile:
             os.remove(evtcnt_file)
             logger.info(f"Removed cached event count file: {evtcnt_file}")
 
-        if self.name == "07_trace_tgt":
+        if self.name == "07_or_tracetgt":
             evtcnt = self._get_evtcnt_parquet()
         elif self.name == "10_tau_tracetgt" or self.name == "13_scorep":
             evtcnt = self._get_evtcount_otf2()

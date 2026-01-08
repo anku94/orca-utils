@@ -1,7 +1,7 @@
 root,name,profile,ranks,aggs,steps,run_id,trace_size,evtcnt
 /mnt/ltio/orcajobs/suites/20251229,amr-agg1-r512-n20-run1,00_noorca,512,1,20,1,0,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg1-r512-n20-run1,05_or_trace_mpisync,512,1,20,1,785676,-1
-/mnt/ltio/orcajobs/suites/20251229,amr-agg1-r512-n20-run1,07_or_tracetgt,512,1,20,1,181761676,-1
+/mnt/ltio/orcajobs/suites/20251229,amr-agg1-r512-n20-run1,07_or_tracetgt,512,1,20,1,181761676,20127023
 /mnt/ltio/orcajobs/suites/20251229,amr-agg1-r512-n20-run1,10_tau_tracetgt,512,1,20,1,683341891,54979232
 /mnt/ltio/orcajobs/suites/20251229,amr-agg1-r512-n20-run1,11_dftracer,512,1,20,1,2334441346,19088301
 /mnt/ltio/orcajobs/suites/20251229,amr-agg1-r512-n20-run1,15_or_ntv_mpiwait_onlycnt,512,1,20,1,0,-1
@@ -33,7 +33,7 @@ root,name,profile,ranks,aggs,steps,run_id,trace_size,evtcnt
 /mnt/ltio/orcajobs/suites/20251229,amr-agg1-r512-n2000-run3,17_or_ntv_kokkos,512,1,2000,3,5161547,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg1-r1024-n20-run1,00_noorca,1024,1,20,1,0,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg1-r1024-n20-run1,05_or_trace_mpisync,1024,1,20,1,1401333,-1
-/mnt/ltio/orcajobs/suites/20251229,amr-agg1-r1024-n20-run1,07_or_tracetgt,1024,1,20,1,289622610,-1
+/mnt/ltio/orcajobs/suites/20251229,amr-agg1-r1024-n20-run1,07_or_tracetgt,1024,1,20,1,289622610,32819812
 /mnt/ltio/orcajobs/suites/20251229,amr-agg1-r1024-n20-run1,10_tau_tracetgt,1024,1,20,1,1187800382,95010474
 /mnt/ltio/orcajobs/suites/20251229,amr-agg1-r1024-n20-run1,11_dftracer,1024,1,20,1,3586840297,29828317
 /mnt/ltio/orcajobs/suites/20251229,amr-agg1-r1024-n20-run1,15_or_ntv_mpiwait_onlycnt,1024,1,20,1,0,-1
@@ -65,7 +65,7 @@ root,name,profile,ranks,aggs,steps,run_id,trace_size,evtcnt
 /mnt/ltio/orcajobs/suites/20251229,amr-agg1-r1024-n2000-run3,17_or_ntv_kokkos,1024,1,2000,3,5161547,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg2-r2048-n20-run1,00_noorca,2048,2,20,1,0,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg2-r2048-n20-run1,05_or_trace_mpisync,2048,2,20,1,2705223,-1
-/mnt/ltio/orcajobs/suites/20251229,amr-agg2-r2048-n20-run1,07_or_tracetgt,2048,2,20,1,480854513,-1
+/mnt/ltio/orcajobs/suites/20251229,amr-agg2-r2048-n20-run1,07_or_tracetgt,2048,2,20,1,480854513,55366677
 /mnt/ltio/orcajobs/suites/20251229,amr-agg2-r2048-n20-run1,10_tau_tracetgt,2048,2,20,1,2088470862,166372754
 /mnt/ltio/orcajobs/suites/20251229,amr-agg2-r2048-n20-run1,11_dftracer,2048,2,20,1,5808986524,48867666
 /mnt/ltio/orcajobs/suites/20251229,amr-agg2-r2048-n20-run1,15_or_ntv_mpiwait_onlycnt,2048,2,20,1,0,-1
@@ -97,7 +97,7 @@ root,name,profile,ranks,aggs,steps,run_id,trace_size,evtcnt
 /mnt/ltio/orcajobs/suites/20251229,amr-agg2-r2048-n2000-run3,17_or_ntv_kokkos,2048,2,2000,3,6157462,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n20-run1,00_noorca,4096,4,20,1,0,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n20-run1,05_or_trace_mpisync,4096,4,20,1,5554005,-1
-/mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n20-run1,07_or_tracetgt,4096,4,20,1,1179376817,-1
+/mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n20-run1,07_or_tracetgt,4096,4,20,1,1179376817,131938247
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n20-run1,10_tau_tracetgt,4096,4,20,1,4689787643,373475140
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n20-run1,11_dftracer,4096,4,20,1,13972151368,116282862
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n20-run1,15_or_ntv_mpiwait_onlycnt,4096,4,20,1,0,-1
@@ -105,7 +105,7 @@ root,name,profile,ranks,aggs,steps,run_id,trace_size,evtcnt
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n20-run1,17_or_ntv_kokkos,4096,4,20,1,92612,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run1,00_noorca,4096,4,2000,1,0,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run1,05_or_trace_mpisync,4096,4,2000,1,523077775,-1
-/mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run1,07_or_tracetgt,4096,4,2000,1,111027091405,-1
+/mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run1,07_or_tracetgt,4096,4,2000,1,111027091405,12283273003
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run1,10_tau_tracetgt,4096,4,2000,1,424739215059,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run1,11_dftracer,4096,4,2000,1,1489867395074,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run1,15_or_ntv_mpiwait_onlycnt,4096,4,2000,1,0,-1
@@ -113,7 +113,7 @@ root,name,profile,ranks,aggs,steps,run_id,trace_size,evtcnt
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run1,17_or_ntv_kokkos,4096,4,2000,1,8149292,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run2,00_noorca,4096,4,2000,2,0,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run2,05_or_trace_mpisync,4096,4,2000,2,526666783,-1
-/mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run2,07_or_tracetgt,4096,4,2000,2,113422979034,-1
+/mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run2,07_or_tracetgt,4096,4,2000,2,113422979034,12272816620
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run2,10_tau_tracetgt,4096,4,2000,2,424822678115,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run2,11_dftracer,4096,4,2000,2,1490662145067,-1
 /mnt/ltio/orcajobs/suites/20251229,amr-agg4-r4096-n2000-run2,15_or_ntv_mpiwait_onlycnt,4096,4,2000,2,0,-1

@@ -54,8 +54,8 @@ root,name,profile,ranks,aggs,steps,run_id,trace_size,evtcnt
 /mnt/ltio/orcajobs/suites/20260106,amr-agg2-r2048-n200-run3,13_scorep,2048,2,200,3,26397855133,-1
 /mnt/ltio/orcajobs/suites/20260106,amr-agg2-r2048-n200-run3,17_caliper_tracetgt,2048,2,200,3,186714526452,-1
 /mnt/ltio/orcajobs/suites/20260106,amr-agg4-r4096-n20-run1,00_noorca,4096,4,20,1,0,-1
-/mnt/ltio/orcajobs/suites/20260106,amr-agg4-r4096-n20-run1,13_scorep,4096,4,20,1,11381431109,-1
-/mnt/ltio/orcajobs/suites/20260106,amr-agg4-r4096-n20-run1,17_caliper_tracetgt,4096,4,20,1,39655376900,-1
+/mnt/ltio/orcajobs/suites/20260106,amr-agg4-r4096-n20-run1,13_scorep,4096,4,20,1,11381431109,909511188
+/mnt/ltio/orcajobs/suites/20260106,amr-agg4-r4096-n20-run1,17_caliper_tracetgt,4096,4,20,1,39655376900,605817534
 /mnt/ltio/orcajobs/suites/20260106,amr-agg4-r4096-n20-run2,00_noorca,4096,4,20,2,0,-1
 /mnt/ltio/orcajobs/suites/20260106,amr-agg4-r4096-n20-run2,13_scorep,4096,4,20,2,11377724315,-1
 /mnt/ltio/orcajobs/suites/20260106,amr-agg4-r4096-n20-run2,17_caliper_tracetgt,4096,4,20,2,37886950656,-1

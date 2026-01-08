@@ -50,6 +50,10 @@ def log_sdf_summary(sdf: pd.DataFrame):
 
 
 def log_tstatsdf_summary(tdf: pd.DataFrame):
+    if len(tdf) == 0:
+        logger.warning("No tracestats data found")
+        return
+
     # groupby tracedir, timestep, sum fljob.nrows_in and fljob.nrows_out
     tdf_agg = (
         tdf.groupby(["tracedir"])
@@ -157,52 +161,8 @@ def run(opts: ParseOpts):
     run_tracestats(suites, tstats_path, save=opts.save)
 
 
-def tmp():
-    rootdir = "/mnt/ltio/orcajobs/suites/20251229/amr-agg1-r512-n2000-run1/16_or_ntv_mpiwait_tracecnt/parquet"
-    root_path = Path(rootdir)
-    oedf_path = root_path / "orca_events" / "R*.parquet"
-    cols = ["probe_name", "timestamp", "timestep", "swid", "rank", "ts_ns", "val"]
-    fldf = (
-        pl.scan_parquet(oedf_path)
-        .filter(pl.col("probe_name").str.starts_with("fljob"))
-        .select(cols)
-        .collect()
-    )
-    fldf
-
-    # groupby timestep, count rows, avg ts_ns
-    check_df = fldf.group_by("timestep").agg(pl.len())
-    assert check_df["len"].unique().len() == 1
-    # get unique len values
-
-    check_df
-
-    # groupby (timestep, probe_name), add val
-    flagg_df = (
-        fldf.group_by(["timestep", "probe_name"])
-        .agg(pl.col("val").sum(), pl.mean("ts_ns"))
-        .sort("timestep")
-    )
-    flagg_df
-    # only keep probe_name that starts with fljob.nrows
-    flagg_df = flagg_df.filter(pl.col("probe_name").str.starts_with("fljob.nrows"))
-    flagg_df
-    fl_pdf = flagg_df.pivot(on="probe_name", index="timestep", values=["val"])
-    fl_pdf = fl_pdf.to_pandas()
-    fl_pdf.insert(0, "tracedir", rootdir)
-    fl_pdf
-
-    rootdir
-    suite_name = "20251229"
-    flpdf_path = get_repo_data_dir() / "tracestats" / f"{suite_name}.csv"
-    flpdf_path.parent.mkdir(parents=True, exist_ok=True)
-    fl_pdf.to_csv(flpdf_path, index=False)
-    # get one column per unique probe_name value
-
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     opts = parse_opts()
     logger.info(f"Analyzing suites in: {opts.suite_dir}, save={opts.save}")
     run(opts)
-    # tmp()

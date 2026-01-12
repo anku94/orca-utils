@@ -35,6 +35,7 @@ declare -A OR_AMR_PROFILES=(
   [17]="caliper_tracetgt"
   [18]="or_tcp_tracesync"
   [19]="or_tcp_tracetgt"
+  [20]="or_disable_paused" # used for agentic workflows
 )
 
 # cache_dir_filesizes: clear dirs > threshold and cache their fsizes
@@ -678,6 +679,13 @@ setup_profile_or_ntv_kokkos() {
   local cmdseq="set-flow file /users/ankushj/repos/orca-workspace/orca-utils/orca-scripts/flows/kokkos_kernels.yaml"
   cmdseq="$cmdseq; disable-probe kokkos_events region::TaskRegion::CheckAndUpdate"
   cmdseq="$cmdseq; resume"
+  update_cfgyaml_with_cmdseq "$cmdseq"
+}
+
+# or_disable_paused: start disabled/paused
+setup_profile_or_disable_paused() {
+  OR_RUN_TYPE="orca"
+  local cmdseq="set-flow disable-tracers"
   update_cfgyaml_with_cmdseq "$cmdseq"
 }
 

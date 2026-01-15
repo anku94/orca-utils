@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from orcareader import OrcaReader
+import polars as pl
 
 
 SUITES_ROOT = Path("/mnt/ltio/orcajobs/suites")
@@ -58,8 +59,10 @@ def run_orca_events_queries(reader: OrcaReader, rank_range: Range) -> None:
 def main() -> None:
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
-    suite = "20251120_amr-agg4-r4096-n20-psmerrchk141-tmp"
-    profile = "07_trace_tgt"
+    # /mnt/ltio/orcajobs/suites/20251229/amr-agg1-r512-n20-run1/07_or_tracetgt/parquet
+
+    suite = "20251229/amr-agg1-r512-n20-run1"
+    profile = "07_or_tracetgt"
     trace_root = SUITES_ROOT / suite / profile
 
     print(f"Trace root: {trace_root}")
@@ -67,10 +70,15 @@ def main() -> None:
     print(f"Discovered tables: {', '.join(reader.tables)}")
     print()
 
-    run_timestep_queries(reader, ts_range=(13, 15))
-    run_swid_queries(reader, swid_range=(60, 90))
-    run_file_queries(reader, swid_range=(60, 90))
-    run_orca_events_queries(reader, rank_range=(0, 100))
+    df = reader.read_swid(swid_range=(60, 61), table="kokkos_events").filter(
+        pl.col("rank").is_between(100, 101)
+    )
+    print(df.head(10))
+
+    # run_timestep_queries(reader, ts_range=(13, 15))
+    # run_swid_queries(reader, swid_range=(60, 90), table="kokkos_events")
+    # run_file_queries(reader, swid_range=(60, 90))
+    # run_orca_events_queries(reader, rank_range=(0, 100))
 
 
 if __name__ == "__main__":

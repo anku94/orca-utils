@@ -41,6 +41,26 @@ class OrcaReader:
         """Return list of discovered tables."""
         return self._index.tables
 
+    def get_glob_pattern(self, table: str) -> str:
+        """Get glob pattern for table."""
+        if table == "orca_events":
+            return str(self._index.root / "orca_events" / "R*.parquet")
+        else:
+            table_dir = self._index.root / table
+            if not table_dir.exists():
+                raise FileNotFoundError(f"Table directory not found: {table_dir}")
+            return str(self._index.root / table / "**" / "*.parquet")
+
+    def query_ts_files(self, table: str, ts_range: Range) -> list[Path]:
+        """Low-level access: return file paths for timestep range (no reading)."""
+        return self._index.query_ts(table, ts_range)
+
+    def query_swid_files(
+        self, swid_range: Range, table: str = "mpi_collectives"
+    ) -> list[Path]:
+        """Low-level access: return file paths for swid range (no reading)."""
+        return self._index.query_swid(swid_range, table)
+
     def read_ts(self, table: str, ts_range: Range) -> pl.DataFrame:
         """Read table data for timestep range {ts_range}."""
         logger.info(f"read_ts: table={table}, range={ts_range}")
@@ -69,16 +89,6 @@ class OrcaReader:
         df = pl.read_parquet(files)
         return _apply_trace_transforms(df)
 
-    def query_ts_files(self, table: str, ts_range: Range) -> list[Path]:
-        """Low-level access: return file paths for timestep range (no reading)."""
-        return self._index.query_ts(table, ts_range)
-
-    def query_swid_files(
-        self, swid_range: Range, table: str = "mpi_collectives"
-    ) -> list[Path]:
-        """Low-level access: return file paths for swid range (no reading)."""
-        return self._index.query_swid(swid_range, table)
-
     def query_orca_events_files(self, ranks: Range | None = None) -> list[Path]:
         """Low-level access: return file paths for orca_events (no reading)."""
         orca_events_dir = self._index.root / "orca_events"
@@ -99,13 +109,3 @@ class OrcaReader:
         logger.info(f"read_orca_events: reading {len(files)} files")
         df = pl.read_parquet(files)
         return df
-
-    def get_glob_pattern(self, table: str) -> str:
-        """Get glob pattern for table."""
-        if table == "orca_events":
-            return self._index.root / "orca_events" / "R*.parquet"
-        else:
-            table_dir = self._index.root / table
-            if not table_dir.exists():
-                raise FileNotFoundError(f"Table directory not found: {table_dir}")
-            return self._index.root / table / "**"/ "*.parquet"

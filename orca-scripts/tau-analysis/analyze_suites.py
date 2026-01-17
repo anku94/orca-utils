@@ -144,6 +144,15 @@ def run(opts: ParseOpts):
     suites = read_v2_suites(opts.suite_dir)
     suite_name = f"{opts.suite_dir.name}"
 
+    # suites = [s for s in suites if s.ranks == 4096 and s.nsteps == 20]
+    # for s in suites:
+    #     for p in s.profiles:
+    #         if p.name != "07_or_tracetgt":
+    #             continue
+    #         evtcnt = p.get_evtcnt(cached=False)
+    #         print(f"Profile {p.name} has {evtcnt} events")
+    # sys.exit(0)
+
     rdf_path = get_repo_data_dir() / "runtimes" / f"{suite_name}.csv"
     rdf_path.parent.mkdir(parents=True, exist_ok=True)
     sdf_path = get_repo_data_dir() / "tracesizes" / f"{suite_name}.csv"

@@ -1,0 +1,24 @@
+# Polars analysis events only (idx | description)
+# Other tool uses are captured automatically by parsing logic
+18 | Analyze MPI collective probe counts
+20 | Analyze Kokkos probe counts by frequency
+21 | Identify top probes for disabling
+30 | Analyze per-rank collective timing stats
+31 | Compute straggler spread across collectives
+32 | Identify collectives with high spread
+33 | Drill into anomalous timesteps
+37 | Load slow Kokkos events (>1ms)
+39 | Correlate Kokkos events with MPI stalls
+40 | Analyze patterns during straggler timesteps
+41 | Identify BuildAndPost::Clear correlation
+51 | Analyze buffer clear counts
+52 | Correlate clears with mesh redistribution
+53 | Identify rank 2847 anomaly
+54 | Analyze RedistributeAndRefineMeshBlocks
+55 | Compare BuildAndPost::Clear across ranks
+56 | Analyze MPI message patterns
+57 | Correlate buffer counts with wait times
+58 | Identify causal chain
+68 | Verify hypothesis with wait correlation
+74 | Analyze MPI wait statistics
+75 | Correlate waits with identified ranks

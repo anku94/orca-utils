@@ -1,0 +1,46 @@
+t_secs,ts_wall,ts_sim,track,event_type,label
+0.0,2026-01-17T03:07:54.223000,,user,feedback,read /users/ankushj/repos/orca-workspace/orca-utils/orca-scr...
+42.215,2026-01-17T03:08:36.438000,,user,feedback,run through the warmup flow quickly. use it to get a sense o...
+80.818,2026-01-17T03:09:15.041000,-1.0,app,resume,resume
+85.876,2026-01-17T03:09:20.099000,31.0,app,pause,pause (ts=31)
+114.102,2026-01-17T03:09:48.325000,,llm,flow_create,write: 0-probe-counts.yaml
+123.849,2026-01-17T03:09:58.072000,34.0,app,flow_install,flow_install (ts=34)
+130.826,2026-01-17T03:10:05.049000,34.0,app,resume,resume (ts=34)
+139.781,2026-01-17T03:10:14.004000,83.0,app,pause,pause (ts=83)
+236.702,2026-01-17T03:11:50.925000,,user,feedback,just disable the top 2 and we can move on
+259.832,2026-01-17T03:12:14.055000,84.0,app,disable_probe,disable_probe (ts=84)
+260.791,2026-01-17T03:12:15.014000,84.0,app,disable_probe,disable_probe (ts=84)
+272.613,2026-01-17T03:12:26.836000,,user,feedback,start the final exercise
+301.252,2026-01-17T03:12:55.475000,,llm,flow_create,write: 1-baseline-collectives.yaml
+307.813,2026-01-17T03:13:02.036000,84.0,app,flow_install,flow_install (ts=84)
+325.839,2026-01-17T03:13:20.062000,84.0,app,resume,resume (ts=84)
+356.781,2026-01-17T03:13:51.004000,277.0,app,pause,pause (ts=277)
+466.903,2026-01-17T03:15:41.126000,,llm,flow_create,write: 2-straggler-hunt.yaml
+473.85,2026-01-17T03:15:48.073000,278.0,app,flow_install,flow_install (ts=278)
+480.781,2026-01-17T03:15:55.004000,278.0,app,resume,resume (ts=278)
+510.818,2026-01-17T03:16:25.041000,465.0,app,pause,pause (ts=465)
+660.128,2026-01-17T03:18:54.351000,,llm,code_search,search: BuildAndPost
+682.362,2026-01-17T03:19:16.585000,,llm,code_search,search: boundary_comm_map
+1042.191,2026-01-17T03:25:16.414000,,user,feedback,this is an incomplete explanation. how can a map clear be ex...
+1050.265,2026-01-17T03:25:24.488000,,llm,code_search,search: class CommBuffer
+1053.611,2026-01-17T03:25:27.834000,,llm,code_read,read: communication_buffer.hpp
+1057.32,2026-01-17T03:25:31.543000,,llm,code_read,read: communication_buffer.cpp
+1177.029,2026-01-17T03:27:31.252000,,user,feedback,but can you prove this somehow using ORCA?
+1191.968,2026-01-17T03:27:46.191000,,llm,flow_create,write: 3-mpi-wait-hunt.yaml
+1221.102,2026-01-17T03:28:15.325000,,user,feedback,are you going to capture ALL MPI waits? is that the smartest...
+1235.68,2026-01-17T03:28:29.903000,,llm,flow_create,write: 3-mpi-wait-stats.yaml
+1243.822,2026-01-17T03:28:38.045000,466.0,app,flow_install,flow_install (ts=466)
+1250.825,2026-01-17T03:28:45.048000,466.0,app,resume,resume (ts=466)
+1280.863,2026-01-17T03:29:15.086000,657.0,app,pause,pause (ts=657)
+1407.059,2026-01-17T03:31:21.282000,,user,feedback,This session is being continued from a previous conversation...
+1477.173,2026-01-17T03:32:31.396000,,user,feedback,can you provide a complete control flow leading to the offen...
+1484.975,2026-01-17T03:32:39.198000,,llm,code_search,search: LoadBalancingAndAdaptiveMeshRe
+1485.556,2026-01-17T03:32:39.779000,,llm,code_search,search: RedistributeAndRefineMeshBlock
+1491.89,2026-01-17T03:32:46.113000,,llm,code_search,search: LoadBalancingAndAdaptiveMeshRe
+1493.048,2026-01-17T03:32:47.271000,,llm,code_search,search: LoadBalancingAndAdaptiveMeshRe
+1497.314,2026-01-17T03:32:51.537000,,llm,code_search,search: RedistributeAndRefineMeshBlock
+1502.583,2026-01-17T03:32:56.806000,,llm,code_search,search: Initialize\(
+1506.939,2026-01-17T03:33:01.162000,,llm,code_search,search: BuildAndPost|ClearCommBuffers
+1510.497,2026-01-17T03:33:04.720000,,llm,code_read,read: communication_buffer.cpp
+1559.432,2026-01-17T03:33:53.655000,,user,feedback,can you write this to the analysis doc
+1605.566,2026-01-17T03:34:39.789000,,user,feedback,please add the current time as the time of completion of thi...

@@ -69,16 +69,6 @@ Working directory for all artifacts: `/users/ankushj/llm-thinkspace/<YYYMMDD>-<A
 6. See if you can see the parquet output from the timestep ranges.
 7. Disable unusually high volume probes with `disable-probe <schema name> <probe-name>` and capture counts again. The probes should not appear in the subsequent counts.
 
-## Warm-up 2
-
-We are interested in evaluating the performance of the code. It is an AMR code (Sedov Blast Wave 3D). AMR codes are known to have load imbalance problems. We want to characterize the nature of the problem.
-
-All straggler problems manifest at synchronization points (collectives). Ranks that take less time at collectives are straggler ranks, and delay other ranks.
-
-The first thing we want to do is understand the nature of collective durations. For each collective, if there's a gradual increase in the 0th %-ile, 1st, 10th, 50th %-ile durations: that is probably a load imbalance problem. If the 0th %-ile is 1ms and the 1st %-ile is 100ms, that indicates some tail behavior problem.
-
-Execute a workflow to observe a few timesteps and then analyze their collective durations.
-
 ## Final Exercise
 
 You are given a running AMR code that presents a performance anomaly. The anomaly appears on a few ranks at random and holds up the rest of them. It does not seem to be correlated with any particular rank or node, but appears randomly.
@@ -89,13 +79,19 @@ Your task is to infer as much as you can about the anomaly from the available da
 
 2. Remember that `swid` is a monotonic counter: it is a proxy for logical time. You can only collect more data for future `swids`, the simulation is progressing forward and you can not go back and collect data for past `swids`.
 
-3. You want to collect as little data as possible, but do not use complex aggregations or joins. Use simple filters.
+3. You want to collect as little data as possible, but do not use complex aggregations or joins. Use simple filters. Be wary of inducing anomalies with reckless raw event capture, but 10,000s of events/sec is not a problem.
 
 4. Remember that collective times are inversely proportional to stragglers. If one rank takes an extra 50ms, its collective duration will be zero and the others' collective time will be 50ms+. Lower collective times are the soruces of stragglers. You are not debugging elevated collective times but elevated times for events preceding the collective.
 
 5. Remember that the anomalies you are looking for do not appear reliably. You can not assume that every timestep will have the anomaly or anything like that. Let the simulation run for a few hundred timesteps. Isolate interesting areas from a decent dataset. Then focus on the most unusual patterns.
 
 6. Once you have some data, you can use this codebase to correlate application stats with what you see: `/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src`
+
+7. Run the application for about 30 seconds at a time to collect data.
+
+8. Try to produce a complete explanation of the anomaly.
+
+9. Maintain an audit trail of decisions. Number each flow you write, like '0-<flow-name>' and so on.
 
 To query a stream, you can use this pattern:
 

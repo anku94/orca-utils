@@ -97,6 +97,21 @@ def parse_transcript(path, polars_desc, cutoff):
     tool_idx = 0
     stop = False
 
+    # First pass: collect tool_result timestamps by tool_use_id
+    result_times = {}
+    for line in open(path):
+        obj = json.loads(line)
+        ts_str = obj.get("timestamp")
+        if not ts_str:
+            continue
+        ts = parse_ts(ts_str)
+        content = obj.get("message", {}).get("content", [])
+        if isinstance(content, list):
+            for item in content:
+                if item.get("type") == "tool_result":
+                    result_times[item.get("tool_use_id")] = ts
+
+    # Second pass: extract events
     for line in open(path):
         if stop:
             break
@@ -127,30 +142,39 @@ def parse_transcript(path, polars_desc, cutoff):
 
             name = item.get("name", "")
             inp = item.get("input", {})
+            tool_id = item.get("id")
+            end_ts = result_times.get(tool_id)
 
+            event = None
             # Check if it's a polars event (from descriptions)
             if tool_idx in polars_desc:
-                events.append({"ts": ts, "ts_sim": None, "track": "llm",
-                              "event_type": "polars", "label": polars_desc[tool_idx]})
+                event = {"ts": ts, "ts_sim": None, "track": "llm",
+                         "event_type": "polars", "label": polars_desc[tool_idx]}
             # flow_create
             elif name == "Write":
                 fpath = inp.get("file_path", "")
                 if fpath.endswith(".yaml"):
                     fname = Path(fpath).name
-                    events.append({"ts": ts, "ts_sim": None, "track": "llm",
-                                  "event_type": "flow_create", "label": f"write: {fname}"})
+                    event = {"ts": ts, "ts_sim": None, "track": "llm",
+                             "event_type": "flow_create", "label": f"write: {fname}"}
             # code_search
             elif name in ("Grep", "Glob"):
                 pattern = inp.get("pattern", "")[:30]
-                events.append({"ts": ts, "ts_sim": None, "track": "llm",
-                              "event_type": "code_search", "label": f"search: {pattern}"})
+                event = {"ts": ts, "ts_sim": None, "track": "llm",
+                         "event_type": "code_search", "label": f"search: {pattern}"}
             # code_read
             elif name == "Read":
                 fpath = inp.get("file_path", "")
                 if "/parthenon/" in fpath or "/phoebus/" in fpath:
                     fname = Path(fpath).name
-                    events.append({"ts": ts, "ts_sim": None, "track": "llm",
-                                  "event_type": "code_read", "label": f"read: {fname}"})
+                    event = {"ts": ts, "ts_sim": None, "track": "llm",
+                             "event_type": "code_read", "label": f"read: {fname}"}
+
+            if event:
+                events.append(event)
+                if end_ts:
+                    events.append({"ts": end_ts, "ts_sim": None, "track": "llm",
+                                   "event_type": "completion", "label": ""})
 
             tool_idx += 1
 

@@ -1,0 +1,31 @@
+     1→nodes:
+     2→  kokkos_filtered:
+     3→    from: [kokkos_events]
+     4→    sql: |
+     5→      SELECT rank, SUM(dura_ns) as total_ns
+     6→      FROM kokkos_events
+     7→      WHERE probe_name IN ('region::Task_FillDerived', 'region::CalculateFluxes', 'region::TmunuSourceTerms')
+     8→      GROUP BY rank
+     9→
+    10→  kokkos_ptiles:
+    11→    from: [kokkos_filtered]
+    12→    sql: |
+    13→      SELECT
+    14→        approx_percentile_cont(0.50) WITHIN GROUP (ORDER BY total_ns) as p50,
+    15→        approx_percentile_cont(0.90) WITHIN GROUP (ORDER BY total_ns) as p90,
+    16→        approx_percentile_cont(0.99) WITHIN GROUP (ORDER BY total_ns) as p99,
+    17→        MIN(total_ns) as min_ns,
+    18→        MAX(total_ns) as max_ns
+    19→      FROM kokkos_filtered
+    20→
+    21→sinks:
+    22→  kokkos_gf:
+    23→    from: kokkos_ptiles
+    24→    type: grafana
+    25→  kokkos_pq:
+    26→    from: kokkos_ptiles
+    27→    type: parquet
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

@@ -1,0 +1,18 @@
+The file /users/ankushj/llm-thinkspace/20260115-claude/anomaly_hunt.yaml has been updated. Here's the result of running `cat -n` on a snippet of the edited file:
+     1→nodes:
+     2→  # Filter kokkos to only slow events (potential straggler causes)
+     3→  kokkos_slow:
+     4→    from: [kokkos_events]
+     5→    sql: |
+     6→      SELECT timestep, swid, rank, probe_name, dura_ns
+     7→      FROM kokkos_events
+     8→      WHERE dura_ns > 10000000
+     9→
+    10→sinks:
+    11→  mpisync_pq:
+    12→    from: mpi_collectives
+    13→    type: parquet
+    14→  kokkos_slow_pq:
+    15→    from: kokkos_slow
+    16→    type: parquet
+    17→

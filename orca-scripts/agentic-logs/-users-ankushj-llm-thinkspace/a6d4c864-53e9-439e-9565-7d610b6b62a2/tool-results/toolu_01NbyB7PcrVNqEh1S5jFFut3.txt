@@ -1,0 +1,204 @@
+     1→//========================================================================================
+     2→// Parthenon performance portable AMR framework
+     3→// Copyright(C) 2020-2022 The Parthenon collaboration
+     4→// Licensed under the 3-clause BSD License, see LICENSE file for details
+     5→//========================================================================================
+     6→// Athena++ astrophysical MHD code
+     7→// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+     8→// Licensed under the 3-clause BSD License, see LICENSE file for details
+     9→//========================================================================================
+    10→// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+    11→//
+    12→// This program was produced under U.S. Government contract 89233218CNA000001 for Los
+    13→// Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+    14→// for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+    15→// in the program are reserved by Triad National Security, LLC, and the U.S. Department
+    16→// of Energy/National Nuclear Security Administration. The Government is granted for
+    17→// itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+    18→// license in this material to reproduce, prepare derivative works, distribute copies to
+    19→// the public, perform publicly and display publicly, and to permit others to do so.
+    20→//========================================================================================
+    21→//! \file mesh_amr.cpp
+    22→//  \brief implementation of Mesh::AdaptiveMeshRefinement() and related utilities
+    23→
+    24→#include <algorithm>
+    25→#include <cstdint>
+    26→#include <iostream>
+    27→#include <numeric>
+    28→#include <sstream>
+    29→#include <string>
+    30→#include <tuple>
+    31→
+    32→#include <amr_lb.h>
+    33→
+    34→#include "parthenon_mpi.hpp"
+    35→
+    36→#include "bvals/boundary_conditions.hpp"
+    37→#include "defs.hpp"
+    38→#include "globals.hpp"
+    39→#include "interface/update.hpp"
+    40→#include "mesh/mesh.hpp"
+    41→#include "mesh/mesh_refinement.hpp"
+    42→#include "mesh/meshblock.hpp"
+    43→#include "mesh/meshblock_tree.hpp"
+    44→#include "outputs/tau_types.hpp"
+    45→#include "parthenon_arrays.hpp"
+    46→#include "utils/buffer_utils.hpp"
+    47→#include "utils/error_checking.hpp"
+    48→
+    49→// #include "perfsignal.h"
+    50→
+    51→// PerfManager perf;
+    52→
+    53→namespace parthenon {
+    54→
+    55→//----------------------------------------------------------------------------------------
+    56→// \!fn void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin)
+    57→// \brief Main function for adaptive mesh refinement
+    58→
+    59→void Mesh::LoadBalancingAndAdaptiveMeshRefinement(int ncycles_over, ParameterInput *pin,
+    60→                                                  ApplicationInput *app_in) {
+    61→  Kokkos::Profiling::pushRegion("LoadBalancingAndAdaptiveMeshRefinement");
+    62→
+    63→  int bidx = 0;
+    64→  for (auto &pmb : block_list) {
+    65→    tau::LogBlockEvent(pmb->gid, TAU_BLKEVT_RANK_GID, bidx++);
+    66→  }
+    67→
+    68→  int nnew = 0, ndel = 0;
+    69→
+    70→  if (adaptive) {
+    71→    UpdateMeshBlockTree(nnew, ndel);
+    72→    nbnew += nnew;
+    73→    nbdel += ndel;
+    74→  }
+    75→
+    76→  lb_flag_ |= lb_automatic_;
+    77→
+    78→  UpdateCostList();
+    79→
+    80→  modified = false;
+    81→
+    82→  // to force pack size == 1 in athena_pk
+    83→  if (ncycles_over == 1) {
+    84→    if (Globals::my_rank == 0) {
+    85→      std::cout << "[ALERT] Changing pack size to 1. Prev: " << default_pack_size_
+    86→                << std::endl;
+    87→    }
+    88→
+    89→    default_pack_size_ = 1;
+    90→    GatherCostListAndCheckBalance();
+    91→    RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal);
+    92→    modified = true;
+    93→  } else {
+    94→    if (nnew != 0 || ndel != 0) { // at least one (de)refinement happened
+    95→      GatherCostListAndCheckBalance();
+    96→      RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal + nnew - ndel);
+    97→      modified = true;
+    98→    } else if (lb_flag_ && step_since_lb >= lb_interval_) {
+    99→      // if (!GatherCostListAndCheckBalance()) { // load imbalance detected
+   100→      // XXX AJ: R&R completely at the interval
+   101→      GatherCostListAndCheckBalance();
+   102→      RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal);
+   103→      modified = true;
+   104→      // }
+   105→      lb_flag_ = false;
+   106→    }
+   107→  }
+   108→
+   109→  // gid = -1 denotes end of LBandAMR
+   110→  tau::LogBlockEvent(-1, TAU_BLKEVT_FLAG_REF, 0);
+   111→  Kokkos::Profiling::popRegion(); // LoadBalancingAndAdaptiveMeshRefinement
+   112→}
+   113→
+   114→// Private routines
+   115→namespace {
+   116→/**
+   117→ * @brief This routine assigns blocks to ranks by attempting to place index-contiguous
+   118→ * blocks of equal total cost on each rank.
+   119→ *
+   120→ * @param costlist (Input) A map of global block ID to a relative weight.
+   121→ * @param ranklist (Output) A map of global block ID to ranks.
+   122→ */
+   123→void AssignBlocks(std::vector<double> const &costlist, std::vector<int> &ranklist) {
+   124→  ranklist.resize(costlist.size());
+   125→
+   126→  double const total_cost = std::accumulate(costlist.begin(), costlist.end(), 0.0);
+   127→
+   128→  int rank = (Globals::nranks)-1;
+   129→  double target_cost = total_cost / Globals::nranks;
+   130→  double my_cost = 0.0;
+   131→  double remaining_cost = total_cost;
+   132→  // create rank list from the end: the master MPI rank should have less load
+   133→  for (int block_id = costlist.size() - 1; block_id >= 0; block_id--) {
+   134→    if (target_cost == 0.0) {
+   135→      std::stringstream msg;
+   136→      msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
+   137→          << "There is at least one process which has no MeshBlock" << std::endl
+   138→          << "Decrease the number of processes or use smaller MeshBlocks." << std::endl;
+   139→      PARTHENON_FAIL(msg);
+   140→    }
+   141→    my_cost += costlist[block_id];
+   142→    ranklist[block_id] = rank;
+   143→    if (my_cost >= target_cost && rank > 0) {
+   144→      rank--;
+   145→      remaining_cost -= my_cost;
+   146→      my_cost = 0.0;
+   147→      target_cost = remaining_cost / (rank + 1);
+   148→    }
+   149→  }
+   150→}
+   151→
+   152→void UpdateBlockList(std::vector<int> const &ranklist,
+   153→                     std::vector<std::vector<int>> &rblist, std::vector<int> &nblist) {
+   154→  rblist.resize(Globals::nranks);
+   155→  nblist.resize(Globals::nranks);
+   156→
+   157→  for (auto &v : rblist) {
+   158→    v.clear();
+   159→  }
+   160→
+   161→  std::fill(nblist.begin(), nblist.end(), 0);
+   162→
+   163→  for (int block_id = 0; block_id < ranklist.size(); block_id++) {
+   164→    int rank = ranklist[block_id];
+   165→    rblist[rank].push_back(block_id);
+   166→    nblist[rank]++;
+   167→  }
+   168→}
+   169→} // namespace
+   170→
+   171→//----------------------------------------------------------------------------------------
+   172→// \brief Calculate distribution of MeshBlocks based on the cost list
+   173→void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
+   174→                                std::vector<int> &ranklist,
+   175→                                std::vector<std::vector<int>> &rblist,
+   176→                                std::vector<int> &nblist) {
+   177→  Kokkos::Profiling::pushRegion("CalculateLoadBalance");
+   178→  auto const total_blocks = costlist.size();
+   179→
+   180→  using it = std::vector<double>::const_iterator;
+   181→  std::pair<it, it> const min_max = std::minmax_element(costlist.begin(), costlist.end());
+   182→
+   183→  double const mincost = min_max.first == costlist.begin() ? 0.0 : *min_max.first;
+   184→  double const maxcost = min_max.second == costlist.begin() ? 0.0 : *min_max.second;
+   185→
+   186→  if (Globals::my_rank == 0) {
+   187→    std::cout << "[LB] " << Globals::lb_policy << " being invoked!" << std::endl;
+   188→  }
+   189→
+   190→  // Legacy direct calls lived here before the amr::lb wrapper existed. Keeping the
+   191→  // block as documentation of the old behavior.
+   192→  MPI_Comm comm = MPI_COMM_NULL;
+   193→  if (Globals::nranks > 512) {
+   194→    comm = MPI_COMM_WORLD;
+   195→  }
+   196→
+   197→  amr::lb::PlacementArgs placement{Globals::lb_policy, costlist, ranklist,
+   198→                                   Globals::nranks};
+   199→  amr::lb::PlacementArgsMpi mpi_args{placement, Globals::my_rank, Globals::nranks,
+   200→                                     comm};
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

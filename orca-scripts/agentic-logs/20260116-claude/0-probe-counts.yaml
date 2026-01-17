@@ -1,0 +1,47 @@
+nodes:
+  mpi_coll_counts:
+    from: [mpi_collectives]
+    sql: |
+      SELECT
+        MIN(timestep) as ts,
+        MIN(swid) as swid_min,
+        MAX(swid) as swid_max,
+        probe_name,
+        COUNT(*) as cnt
+      FROM mpi_collectives
+      GROUP BY probe_name
+
+  kokkos_counts:
+    from: [kokkos_events]
+    sql: |
+      SELECT
+        MIN(timestep) as ts,
+        MIN(swid) as swid_min,
+        MAX(swid) as swid_max,
+        probe_name,
+        COUNT(*) as cnt
+      FROM kokkos_events
+      GROUP BY probe_name
+
+  mpi_msg_counts:
+    from: [mpi_messages]
+    sql: |
+      SELECT
+        MIN(timestep) as ts,
+        MIN(swid) as swid_min,
+        MAX(swid) as swid_max,
+        probe_name,
+        COUNT(*) as cnt
+      FROM mpi_messages
+      GROUP BY probe_name
+
+sinks:
+  mpi_coll_counts_pq:
+    from: mpi_coll_counts
+    type: parquet
+  kokkos_counts_pq:
+    from: kokkos_counts
+    type: parquet
+  mpi_msg_counts_pq:
+    from: mpi_msg_counts
+    type: parquet

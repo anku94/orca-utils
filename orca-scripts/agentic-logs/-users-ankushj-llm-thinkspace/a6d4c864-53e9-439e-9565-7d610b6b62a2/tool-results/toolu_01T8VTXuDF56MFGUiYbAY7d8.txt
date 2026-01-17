@@ -1,0 +1,15 @@
+     1→nodes:
+     2→  mpi_waitcnts:
+     3→    from: [mpi_messages]
+     4→    sql: |
+     5→          SELECT COUNT(*) FROM mpi_messages 
+     6→          WHERE probe_name = 'MPI_Wait'
+     7→          AND dura_ns > 100000
+     8→sinks:
+     9→  mpi_waitcnts_sink:
+    10→    from: mpi_waitcnts
+    11→    type: grafana
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

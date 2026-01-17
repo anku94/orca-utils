@@ -1,0 +1,17 @@
+=== kokkos_counts (ts >= 93) ===
+Shape: (1184, 4)
+Rows with 'CheckAndUpdate': 0
+
+Top probes:
+shape: (5, 2)
+┌─────────────────────────────────┬───────────┐
+│ probe_name                      ┆ cnt       │
+│ ---                             ┆ ---       │
+│ str                             ┆ i64       │
+╞═════════════════════════════════╪═══════════╡
+│ region::Task_ReceiveBoundBufs   ┆ 108042470 │
+│ region::GetVariablesByFlag      ┆ 2062200   │
+│ region::ProlongateOrRestrictCe… ┆ 1968240   │
+│ par_for::Kokkos::View::initial… ┆ 838696    │
+│ par_for::Kokkos::View::initial… ┆ 819572    │
+└─────────────────────────────────┴───────────┘

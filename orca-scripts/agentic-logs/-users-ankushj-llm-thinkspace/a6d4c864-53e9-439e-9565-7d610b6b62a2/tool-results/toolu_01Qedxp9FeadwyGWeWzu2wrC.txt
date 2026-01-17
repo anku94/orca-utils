@@ -1,0 +1,7 @@
+The file /users/ankushj/llm-thinkspace/20260115-claude/anomaly_hunt.yaml has been updated. Here's the result of running `cat -n` on a snippet of the edited file:
+     1→nodes:
+     2→sinks:
+     3→  mpisync_pq:
+     4→    from: mpi_collectives
+     5→    type: parquet
+     6→

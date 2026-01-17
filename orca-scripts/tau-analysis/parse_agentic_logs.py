@@ -32,6 +32,7 @@ def parse_num(s: str) -> int:
 
 
 def parse_log(log_path: Path):
+    print(f"Parsing log file {log_path}")
     lines = log_path.read_text().splitlines()
     lines = [line for line in lines if "rows_in" in line]
     all_rows: list[Row] = []
@@ -62,15 +63,31 @@ def test_parse_num():
     assert parse_num("100.00 K") == 100_000
 
 
+def run_parse_all(all_files: list[Path], df_path: Path):
+    with mp.Pool(processes=mp.cpu_count()) as pool:
+        results = pool.map(parse_log, all_files)
+    df = pd.concat(results)
+    print(f"Saving to {df_path}")
+    df.to_parquet(df_path)
+
+
+def run_mini_test(one_file: Path):
+    df = parse_log(one_file)
+    print(df)
+
+
 def run():
     test_parse_num()
-    r0_log = Path(TRACE_ROOT) / "orca.r0.log"
-    assert r0_log.exists(), f"Log file {r0_log} does not exist"
-    df = parse_log(r0_log)
-    print(df)
+    trace_root = Path(TRACE_ROOT)
+    assert trace_root.exists(), f"Trace root {trace_root} does not exist"
+    all_files = list(trace_root.glob("*.log"))
+    print(f"Found {len(all_files)} log files")
+
+    run_mini_test(all_files[0])
+
     data_dir = su.get_repo_data_dir()
-    df_out = data_dir / "agentic_rowcounts.parquet"
-    df.to_parquet(df_out)
+    df_path = data_dir / "20260116-agentic-complete-rowcounts.parquet"
+    run_parse_all(all_files, df_path)
 
 
 if __name__ == "__main__":

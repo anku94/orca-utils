@@ -51,23 +51,15 @@ You can also batch commands with 'cmd1; cmd2; cmd3' syntax. Do not do it initial
 
 You can also do `pause; cmd; resume`, or just `cmd` without having to explicitly pause/resume. But do not do it unless user asks.
 
-### Querying the trace
-
-You can either query the trace directly by reading the Parquet files, or use OrcaReader. Do not modify this codebase as part of the agentic workflow. If it can use some features, suggest them to the user.
-
-Orca Utils Root: `/users/ankushj/repos/orca-workspace/orca-utils`
-- OrcaReader: `/orca-scripts/tau-analysis/orcareader`
-- Usage example: `/orca-scripts/tau-analysis/orcareader_main.py`
-
 # Agentic Workflow
 
-## Warm-up 1
+## Warm-up
 
 Note that this is a complex systems research prototype. Not all log messages may be complete or helpful. Some details somewhere may be outdated. Use best judgement.
 
 Execute each step after user confirmation.
 
-Working directory for all artifacts: `/users/ankushj/llm-thinkspace/20260110`
+Working directory for all artifacts: `/users/ankushj/llm-thinkspace/<YYYMMDD>-<AGENT>` (agent: codex/claude/gemini).
 
 1. Run `status` to get info about the current application state
 2. Application starts paused. Run `resume` to start execution, then run `pause`, and observe output.
@@ -89,8 +81,32 @@ Execute a workflow to observe a few timesteps and then analyze their collective 
 
 ## Final Exercise
 
-We want to debug a performance anomaly in an AMR code and locate the root cause of a straggler given the available data streams.
+You are given a running AMR code that presents a performance anomaly. The anomaly appears on a few ranks at random and holds up the rest of them. It does not seem to be correlated with any particular rank or node, but appears randomly.
 
-1. We want to monitor the workload and spot collectives with anomalous p100.
-2. For those collectives, we want to see p0/p1 or some such number. If p1 is high, that means 1% of ranks are holding up 99% of them.
-3. We want to devise a collection strategy to locate the root cause of the elevated times. The collection strategy should formulate reasonable hypotheses, write a flow to test them, and refine the hypothesis. At any given point, you should minimize the amount of data you are collecting.
+Your task is to infer as much as you can about the anomaly from the available data streams. Some points to keep in mind:
+
+1. Collect `mpi_collectives` all the time. No need to use complicated percentiles. These will help you track the bad `swids`.
+
+2. Remember that `swid` is a monotonic counter: it is a proxy for logical time. You can only collect more data for future `swids`, the simulation is progressing forward and you can not go back and collect data for past `swids`.
+
+3. You want to collect as little data as possible, but do not use complex aggregations or joins. Use simple filters.
+
+4. Remember that collective times are inversely proportional to stragglers. If one rank takes an extra 50ms, its collective duration will be zero and the others' collective time will be 50ms+. Lower collective times are the soruces of stragglers. You are not debugging elevated collective times but elevated times for events preceding the collective.
+
+5. Remember that the anomalies you are looking for do not appear reliably. You can not assume that every timestep will have the anomaly or anything like that. Let the simulation run for a few hundred timesteps. Isolate interesting areas from a decent dataset. Then focus on the most unusual patterns.
+
+6. Once you have some data, you can use this codebase to correlate application stats with what you see: `/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src`
+
+To query a stream, you can use this pattern:
+
+```python
+import polars as pl
+
+stream_name = "mpi_collectives"
+glob_patt = f"{parquet_root}/{stream_name}/**/*.parquet"
+df = (
+    pl.scan_parquet(glob_patt, parallel="columns")
+    # more lazy filters here
+    .collect()
+)
+```

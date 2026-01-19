@@ -12,7 +12,8 @@ PROF_AGENTIC = (
     / "amr-agg4-r4096-n2000-run1"
     / "20_or_disable_paused"
 )
-PROF_BASELINE = SUITE_ROOT / "20251229" / "amr-agg4-r4096-n2000-run1" / "07_or_tracetgt"
+PROF_TRACETGT = SUITE_ROOT / "20251229" / "amr-agg4-r4096-n2000-run1" / "07_or_tracetgt"
+PROF_MPISYNC = SUITE_ROOT / "20251229" / "amr-agg4-r4096-n2000-run1" / "05_or_trace_mpisync"
 DF_DIR = su.get_repo_data_dir() / "agentic-data"
 
 
@@ -130,7 +131,8 @@ def run_one(prof_root: Path, df_name: str):
 
 def run():
     # run_one(PROF_AGENTIC, "20260116-agentic-complete")
-    run_one(PROF_BASELINE, "20251229-baseline")
+    run_one(PROF_TRACETGT, "20251229-tracetgt")
+    run_one(PROF_MPISYNC, "20251229-mpisync")
 
 
 if __name__ == "__main__":

@@ -53,7 +53,7 @@ setup_suite_common() {
 # uses: OR_AMR_NSTEPS
 setup_nsteps_psmdef_suite() {
     local suite_type="psmerrchkdef"
-    OR_SUITEDIR="$OR_SUITEDIR-${suite_type}"
+    OR_SUITEDIR="${SUITE_ROOT}-${suite_type}/${OR_SUITENAME}"
 
     OR_SUITE_DESC="
 AMR test suite with 128 ranks per node
@@ -385,9 +385,33 @@ run_idk() {
     done
 }
 
+# run_agentic: cfg for agentic experiment
+# !! WARN !!: this requires manual reconfiguration of the params
+# 1. Comment these out in run_amr.sh
+# - add_common_env_var MV2_ON_DEMAND_THRESHOLD 8192
+# 2. Set this policy:
+# - OR_AMR_POLICY="hybrid50" # policy name
+# 3. Recompile parthenon/phoebus with `CommBuffer_bad`
+# - `phoebus:lb` and `parthenon:lb3bar` were modified
+#    to support `PARTHENON_CLEAR_BAD`. Setting this env var should reintroduce
+#    the anomalous behavior. The env var has not been tested.
+# 4. Use `setup_nsteps_psmdef_suite` instead of `setup_nsteps_psm141_suite`
+run_agentic() {
+    SUITE_ROOT=/mnt/ltio/orcajobs/suites/20260120-tmp
+    OR_NRANKS_MPI=512
+    OR_NNODES_AGG=1
+    export OR_PROFILES=20
+    assign_orca_nodes $OR_NNODES_AGG
+    OR_AMR_NSTEPS=2000
+    echo "nranks: $OR_NRANKS_MPI, nnodes_agg: $OR_NNODES_AGG, step: $OR_AMR_NSTEPS"
+    sweep_all 1 1
+}
+
 # prep_all_hosts 256 5 # 256: max MPI, 5: max ORCA
 # run
 
 # run_ofitcp
 # run_datagen
-run_idk
+# run_idk
+
+run_agentic

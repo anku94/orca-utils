@@ -1,0 +1,4 @@
+root,name,profile,ranks,aggs,steps,run_id,time_secs,time_secs_base,ratio
+/mnt/ltio/orcajobs/suites/20260121,amr-agg1-r512-n2000-run1,12_dftracer_comp,512,1,2000,1,1769.4707,,
+/mnt/ltio/orcajobs/suites/20260121,amr-agg1-r512-n2000-run2,12_dftracer_comp,512,1,2000,2,1765.3784,,
+/mnt/ltio/orcajobs/suites/20260121,amr-agg1-r512-n2000-run3,12_dftracer_comp,512,1,2000,3,1781.9485,,

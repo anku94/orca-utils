@@ -833,14 +833,16 @@ def get_memory_bw_time_series(trace_df: pd.DataFrame, rank: int) -> pd.DataFrame
 def local_trace_analysis(
     trace_file: str,
     analysis_func: str,
-):
+) -> Optional["AnalysisResult"]:
     import time
+    from hta_json import AnalysisResult
 
     trace_file = os.path.abspath(trace_file)
-    st = time.perf_counter()
+
+    t0 = time.perf_counter()
     _, trace_df, _ = load_trace(trace_file)
-    et = time.perf_counter()
-    print(f"Time taken to load trace: {et - st:.2f} seconds")
+    t1 = time.perf_counter()
+
     try:
         current_module = sys.modules[__name__]
         analysis_func = getattr(current_module, analysis_func)
@@ -848,7 +850,14 @@ def local_trace_analysis(
     except AttributeError:
         print(f"Analysis function {analysis_func} not found")
         return None
-    return result
+    t2 = time.perf_counter()
+
+    return AnalysisResult(
+        load_time=t1 - t0,
+        analysis_time=t2 - t1,
+        total_time=t2 - t0,
+        result=result,
+    )
 
 
 if __name__ == "__main__":

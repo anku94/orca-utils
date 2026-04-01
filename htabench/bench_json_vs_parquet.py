@@ -92,34 +92,34 @@ def benchmark_local_trace_analysis(
     print("\nRunning measurements...")
 
     # Measurement runs
-    times: List[float] = []
+    load_times: List[float] = []
+    analysis_times: List[float] = []
+    total_times: List[float] = []
     for i in range(measurement_runs):
-        start_time = time.perf_counter()
         result = analysis_func(trace_file, hta_func)
-        end_time = time.perf_counter()
-
-        elapsed_time = end_time - start_time
-        times.append(elapsed_time)
-        print(f"  Run {i+1}/{measurement_runs}: {elapsed_time:.4f}s")
+        load_times.append(result.load_time)
+        analysis_times.append(result.analysis_time)
+        total_times.append(result.total_time)
+        print(f"  Run {i+1}/{measurement_runs}: load={result.load_time:.4f}s analysis={result.analysis_time:.4f}s total={result.total_time:.4f}s")
 
     # Calculate statistics
     stats = {
-        "mean": statistics.mean(times),
-        "median": statistics.median(times),
-        "stdev": statistics.stdev(times) if len(times) > 1 else 0.0,
-        "min": min(times),
-        "max": max(times),
-        "runs": len(times),
+        "load_mean": statistics.mean(load_times),
+        "analysis_mean": statistics.mean(analysis_times),
+        "total_mean": statistics.mean(total_times),
+        "total_stdev": statistics.stdev(total_times) if len(total_times) > 1 else 0.0,
+        "runs": len(total_times),
         "cores_used": num_cores,
     }
 
     print("\nBenchmark Results:")
-    print(f"  Mean:     {stats['mean']:.4f}s ± {stats['stdev']:.4f}s")
-    print(f"  Median:   {stats['median']:.4f}s")
-    print(f"  Min:      {stats['min']:.4f}s")
-    print(f"  Max:      {stats['max']:.4f}s")
+    print(f"  Load:     {stats['load_mean']:.4f}s")
+    print(f"  Analysis: {stats['analysis_mean']:.4f}s")
+    print(f"  Total:    {stats['total_mean']:.4f}s ± {stats['total_stdev']:.4f}s")
     print(f"  Runs:     {stats['runs']}")
     print(f"  Cores:    {stats['cores_used']}")
+
+    return stats
 
 
 def main():

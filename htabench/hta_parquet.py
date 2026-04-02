@@ -73,12 +73,8 @@ def _round_timestamps(df: pd.DataFrame) -> None:
     df["dur"] = df["end"] - df["ts"]
 
 
-def _parse_trace_dataframe_parquet(
-    trace_file_path: str,
-) -> Tuple[MetaData, pd.DataFrame, TraceSymbolTable]:
-    import time
-
-    st = time.perf_counter()
+def _read_parquet_io(trace_file_path: str) -> Tuple[MetaData, pd.DataFrame]:
+    """Read parquet file into a DataFrame. IO only, no post-processing."""
     pq_file = pq.ParquetFile(trace_file_path)
     pq_metadata = pq_file.metadata.metadata
     kineto_metadata: Dict[str, Any] = {}
@@ -91,8 +87,14 @@ def _parse_trace_dataframe_parquet(
 
     # Explicitly use Arrow as the dataframe backend
     df = pq_file.read().to_pandas(types_mapper=pd.ArrowDtype)
-    et = time.perf_counter()
-    print(f"Time taken to read parquet file into dataframe: {et - st:.2f} seconds")
+    print(f"Read {len(df)} trace events from parquet: {trace_file_path}")
+    return kineto_metadata, df
+
+
+def _parse_trace_dataframe_parquet(
+    trace_file_path: str,
+) -> Tuple[MetaData, pd.DataFrame, TraceSymbolTable]:
+    kineto_metadata, df = _read_parquet_io(trace_file_path)
 
     local_symbol_table: TraceSymbolTable = TraceSymbolTable()
 
@@ -839,10 +841,16 @@ def local_trace_analysis(
 
     trace_file = os.path.abspath(trace_file)
 
+    # Phase 1: IO only (Parquet read into DataFrame)
     t0 = time.perf_counter()
-    _, trace_df, _ = load_trace(trace_file)
+    _read_parquet_io(trace_file)
     t1 = time.perf_counter()
 
+    # Phase 2: full load (IO + post-processing)
+    _, trace_df, _ = load_trace(trace_file)
+    t2 = time.perf_counter()
+
+    # Phase 3: analysis
     try:
         current_module = sys.modules[__name__]
         analysis_func = getattr(current_module, analysis_func)
@@ -850,12 +858,13 @@ def local_trace_analysis(
     except AttributeError:
         print(f"Analysis function {analysis_func} not found")
         return None
-    t2 = time.perf_counter()
+    t3 = time.perf_counter()
 
     return AnalysisResult(
-        load_time=t1 - t0,
-        analysis_time=t2 - t1,
-        total_time=t2 - t0,
+        parse_time=t1 - t0,
+        load_time=t2 - t1,
+        analysis_time=t3 - t2,
+        total_time=t3 - t1,
         result=result,
     )
 

@@ -92,18 +92,21 @@ def benchmark_local_trace_analysis(
     print("\nRunning measurements...")
 
     # Measurement runs
+    parse_times: List[float] = []
     load_times: List[float] = []
     analysis_times: List[float] = []
     total_times: List[float] = []
     for i in range(measurement_runs):
         result = analysis_func(trace_file, hta_func)
+        parse_times.append(result.parse_time)
         load_times.append(result.load_time)
         analysis_times.append(result.analysis_time)
         total_times.append(result.total_time)
-        print(f"  Run {i+1}/{measurement_runs}: load={result.load_time:.4f}s analysis={result.analysis_time:.4f}s total={result.total_time:.4f}s")
+        print(f"  Run {i+1}/{measurement_runs}: parse={result.parse_time:.4f}s load={result.load_time:.4f}s analysis={result.analysis_time:.4f}s total={result.total_time:.4f}s")
 
     # Calculate statistics
     stats = {
+        "parse_mean": statistics.mean(parse_times),
         "load_mean": statistics.mean(load_times),
         "analysis_mean": statistics.mean(analysis_times),
         "total_mean": statistics.mean(total_times),
@@ -113,6 +116,7 @@ def benchmark_local_trace_analysis(
     }
 
     print("\nBenchmark Results:")
+    print(f"  Parse:    {stats['parse_mean']:.4f}s")
     print(f"  Load:     {stats['load_mean']:.4f}s")
     print(f"  Analysis: {stats['analysis_mean']:.4f}s")
     print(f"  Total:    {stats['total_mean']:.4f}s ± {stats['total_stdev']:.4f}s")

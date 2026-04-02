@@ -5,3 +5,5 @@ __pycache__
 *.pyw
 *.pyz
 *.pywz
+htabench/data/h100_trace.parquet
+htabench/logs

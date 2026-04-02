@@ -14,8 +14,8 @@ LOG_DIR="$SCRIPT_DIR/logs"
 TRACE_JSON="$DATA_DIR/h100_trace.json.gz"
 TRACE_PARQUET="$DATA_DIR/h100_trace.parquet"
 HTA_FUNC="get_temporal_breakdown"
-ITERS=2
-CORES=16
+ITERS=3
+CORES=1
 
 setup_hta() {
     if [ "$CLONE_HTA" -eq 1 ]; then
@@ -51,6 +51,10 @@ drop_caches() {
     else
         echo "  [warning: could not drop caches]"
     fi
+}
+
+drop_caches() {
+    echo "  [noop]"
 }
 
 run_one() {

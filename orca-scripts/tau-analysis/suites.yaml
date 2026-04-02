@@ -1,0 +1,73 @@
+root: /mnt/ltio/orcajobs/suites
+suites:
+  - name: nonsensical_example
+    suitedir: 20251120_amr-agg4-r4096-n2000-psmerrchk141
+    overrides:
+      - name: 07_trace_tgt
+        suitedir: abcd
+  # 1024 ranks, 1 aggregator
+  - name: r1024_a1_n20
+    suitedir: 20251108_amr-agg1-r1024-n20-psmerrchk141
+  - name: r1024_a1_n200
+    suitedir: 20251108_amr-agg1-r1024-n200-psmerrchk141
+  - name: r1024_a1_n2000
+    suitedir: 20251108_amr-agg1-r1024-n2000-psmerrchk141
+  # 2048 ranks, 2 aggregators
+  - name: r2048_a2_n20
+    suitedir: 20251117_amr-agg2-r2048-n20-psmerrchk141
+  - name: r2048_a2_n200
+    suitedir: 20251118_amr-agg2-r2048-n200-psmerrchk141
+  - name: r2048_a2_n2000
+    suitedir: 20251118_amr-agg2-r2048-n2000-psmerrchk141
+  # 4096 ranks, 4 aggregators
+  - name: r4096_a4_n20
+    suitedir: 20251119_amr-agg4-r4096-n20-psmerrchk141
+  - name: r4096_a4_n200
+    suitedir: 20251119_amr-agg4-r4096-n200-psmerrchk141
+  - name: r4096_a4_n2000
+    suitedir: 20251121_amr-agg4-r4096-n2000-psmerrchk141
+    # New suites with TAU tracefmt fixed
+  - name: r512_a1_n20_v2
+    suitedir: 20251203_amr-agg1-r512-n20-psmerrchk141
+  - name: r512_a1_n200_v2
+    suitedir: 20251203_amr-agg1-r512-n200-psmerrchk141
+  - name: r512_a1_n2000_v2
+    suitedir: 20251203_amr-agg1-r512-n2000-psmerrchk141
+  - name: r1024_a1_n20_v2
+    suitedir: 20251203_amr-agg1-r1024-n20-psmerrchk141
+  - name: r1024_a1_n200_v2
+    suitedir: 20251203_amr-agg1-r1024-n200-psmerrchk141
+  - name: r1024_a1_n2000_v2
+    suitedir: 20251203_amr-agg1-r1024-n2000-psmerrchk141
+  - name: r2048_a2_n20_v2
+    suitedir: 20251204_amr-agg2-r2048-n20-psmerrchk141
+  - name: r2048_a2_n200_v2
+    suitedir: 20251204_amr-agg2-r2048-n200-psmerrchk141
+  - name: r2048_a2_n2000_v2
+    suitedir: 20251204_amr-agg2-r2048-n2000-psmerrchk141
+    # 4096 ranks, first run
+  - name: r4096_a4_n20_v2
+    suitedir: 20251204_amr-agg4-r4096-n20-psmerrchk141
+  - name: r4096_a4_n200_v2
+    suitedir: 20251204_amr-agg4-r4096-n200-psmerrchk141
+  - name: r4096_a4_n2000_v2
+    suitedir: 20251204_amr-agg4-r4096-n2000-psmerrchk141
+    # 4000 ranks, second run
+  - name: r4096_a4_n20_v3
+    suitedir: 20251204_amr-agg4-r4096-n20-psmerrchk141_v2
+  - name: r4096_a4_n200_v3
+    suitedir: 20251204_amr-agg4-r4096-n200-psmerrchk141_v2
+  - name: r4096_a4_n2000_v3
+    suitedir: 20251204_amr-agg4-r4096-n2000-psmerrchk141_v2
+    # 4000 ranks, third run
+  - name: r4096_a4_n2000_v4
+    suitedir: 20251204_amr-agg4-r4096-n2000-psmerrchk141_r3
+    # 512 ranks, after MPI_Get_count added
+  - name: r512_n20_v1_r1
+    suitedir: 20251211_amr-agg1-r512-n20-psmerrchk141-run1
+  - name: r512_n2000_v1_r1
+    suitedir: 20251211_amr-agg1-r512-n2000-psmerrchk141-run1
+  - name: r512_n2000_v1_r2
+    suitedir: 20251211_amr-agg1-r512-n2000-psmerrchk141-run2
+  - name: r512_n2000_v1_r3
+    suitedir: 20251212_amr-agg1-r512-n2000-psmerrchk141-run3

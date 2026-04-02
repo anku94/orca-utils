@@ -1,0 +1,26 @@
+kokkos_slow rows: 1611494
+Timestep range: 264 - 439
+
+=== Slow kokkos probes ===
+shape: (15, 3)
+┌─────────────────────────────────┬────────┬──────────────┐
+│ probe_name                      ┆ count  ┆ mean_dura_ms │
+│ ---                             ┆ ---    ┆ ---          │
+│ str                             ┆ u32    ┆ f64          │
+╞═════════════════════════════════╪════════╪══════════════╡
+│ region::LoadBalancingAndAdapti… ┆ 587508 ┆ 24.860026    │
+│ region::UpdateMeshBlockTree     ┆ 558828 ┆ 15.170851    │
+│ region::RedistributeAndRefineM… ┆ 131072 ┆ 44.775124    │
+│ region::Mesh::Initialize        ┆ 131069 ┆ 35.548422    │
+│ region::Mesh::Initialize::Send  ┆ 83485  ┆ 17.476263    │
+│ …                               ┆ …      ┆ …            │
+│ region::Task_FillDerived        ┆ 8      ┆ 11.268811    │
+│ region::ConToPrim::Solve        ┆ 8      ┆ 11.075707    │
+│ region::Step 9: Recv data and … ┆ 8      ┆ 10.709329    │
+│ region::Step 7: Pack and send … ┆ 4      ┆ 10.378982    │
+│ region::Step 7b: MPI_Isend      ┆ 2      ┆ 10.466122    │
+└─────────────────────────────────┴────────┴──────────────┘
+
+=== Available parquet dirs ===
+  kokkos_slow
+  mpi_collectives

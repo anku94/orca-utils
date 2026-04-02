@@ -1,0 +1,5 @@
+nodes:
+sinks:
+  mpisync_pq:
+    from: mpi_collectives
+    type: parquet

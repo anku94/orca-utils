@@ -1,0 +1,304 @@
+   700→      int n = nmyrblist[nidx];
+   701→      int on = newtoold[n];
+   702→      LogicalLocation &oloc = loclist[on];
+   703→      LogicalLocation &nloc = newloc[n];
+   704→      if (oloc.level > nloc.level) { // f2c
+   705→        for (int l = 0; l < nleaf; l++) {
+   706→          if (ranklist[on + l] == Globals::my_rank) continue;
+   707→          LogicalLocation &lloc = loclist[on + l];
+   708→          int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
+   709→              ox3 = ((lloc.lx3 & 1LL) == 1LL);
+   710→          recvbuf[rb_idx] =
+   711→              BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsf2c));
+   712→          buf_offset += bsf2c;
+   713→          int tag = CreateAMRMPITag(nidx, ox1, ox2, ox3);
+   714→          PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), bsf2c, MPI_PARTHENON_REAL,
+   715→                                        ranklist[on + l], tag, MPI_COMM_WORLD,
+   716→                                        &(req_recv[rb_idx])));
+   717→          rb_idx++;
+   718→        }
+   719→      } else { // same level or c2f
+   720→        if (ranklist[on] == Globals::my_rank) continue;
+   721→        int size;
+   722→        if (oloc.level == nloc.level) {
+   723→          size = bssame;
+   724→        } else {
+   725→          size = bsc2f;
+   726→        }
+   727→        recvbuf[rb_idx] =
+   728→            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + size));
+   729→        buf_offset += size;
+   730→        int tag = CreateAMRMPITag(nidx, 0, 0, 0);
+   731→        PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), size, MPI_PARTHENON_REAL,
+   732→                                      ranklist[on], tag, MPI_COMM_WORLD,
+   733→                                      &(req_recv[rb_idx])));
+   734→        rb_idx++;
+   735→      }
+   736→    }
+   737→  }
+   738→  Kokkos::Profiling::popRegion(); // Step 6
+   739→
+   740→  // Step 7. allocate, pack and start sending buffers
+   741→  Kokkos::Profiling::pushRegion("Step 7: Pack and send buffers");
+   742→  // if (Globals::timestep > 100) perf.Resume();
+   743→
+   744→  if (nsend != 0) {
+   745→    Kokkos::Profiling::pushRegion("Step 7a: Pack buffers");
+   746→
+   747→    req_send = new MPI_Request[nsend];
+   748→    std::vector<int> tags(nsend);
+   749→    std::vector<int> dest(nsend);
+   750→    std::vector<int> count(nsend);
+   751→    int sb_idx = 0; // send buffer index
+   752→    for (int nidx = 0; nidx < omyrblist.size(); nidx++) {
+   753→      int n = omyrblist[nidx];
+   754→      int nn = oldtonew[n];
+   755→      LogicalLocation &oloc = loclist[n];
+   756→      LogicalLocation &nloc = newloc[nn];
+   757→      auto pb = FindMeshBlock(n);
+   758→      if (nloc.level == oloc.level) { // same level
+   759→        if (newrank[nn] == Globals::my_rank) continue;
+   760→        sendbuf[sb_idx] =
+   761→            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bssame));
+   762→        buf_offset += bssame;
+   763→        PrepareSendSameLevel(pb.get(), sendbuf[sb_idx]);
+   764→        int nn_lid = GetLid(rblist, newrank, nn);
+   765→        tags[sb_idx] = CreateAMRMPITag(nn_lid, 0, 0, 0);
+   766→        dest[sb_idx] = newrank[nn];
+   767→        count[sb_idx] = bssame;
+   768→        sb_idx++;
+   769→      } else if (nloc.level > oloc.level) { // c2f
+   770→        // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
+   771→        for (int l = 0; l < nleaf; l++) {
+   772→          if (newrank[nn + l] == Globals::my_rank) continue;
+   773→          sendbuf[sb_idx] =
+   774→              BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsc2f));
+   775→          buf_offset += bsc2f;
+   776→          PrepareSendCoarseToFineAMR(pb.get(), sendbuf[sb_idx], newloc[nn + l]);
+   777→          int nnl_lid = GetLid(rblist, newrank, nn + l);
+   778→          tags[sb_idx] = CreateAMRMPITag(nnl_lid, 0, 0, 0);
+   779→          dest[sb_idx] = newrank[nn + l];
+   780→          count[sb_idx] = bsc2f;
+   781→          sb_idx++;
+   782→        } // end loop over nleaf (unique to c2f branch in this step 6)
+   783→      } else { // f2c: restrict + pack + send
+   784→        if (newrank[nn] == Globals::my_rank) continue;
+   785→        sendbuf[sb_idx] =
+   786→            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsf2c));
+   787→        buf_offset += bsf2c;
+   788→        PrepareSendFineToCoarseAMR(pb.get(), sendbuf[sb_idx]);
+   789→        int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
+   790→            ox3 = ((oloc.lx3 & 1LL) == 1LL);
+   791→        int nn_lid = GetLid(rblist, newrank, nn);
+   792→        tags[sb_idx] = CreateAMRMPITag(nn_lid, ox1, ox2, ox3);
+   793→        dest[sb_idx] = newrank[nn];
+   794→        count[sb_idx] = bsf2c;
+   795→        sb_idx++;
+   796→      }
+   797→    }
+   798→    // wait until all send buffers are filled
+   799→    Kokkos::fence();
+   800→    Kokkos::Profiling::popRegion(); // Step 7a: Pack buffers
+   801→                                    //
+   802→    Kokkos::Profiling::pushRegion("Step 7b: MPI_Isend");
+   803→    for (auto idx = 0; idx < sb_idx; idx++) {
+   804→      PARTHENON_MPI_CHECK(MPI_Isend(sendbuf[idx].data(), count[idx], MPI_PARTHENON_REAL,
+   805→                                    dest[idx], tags[idx], MPI_COMM_WORLD,
+   806→                                    &(req_send[idx])));
+   807→    }
+   808→    Kokkos::Profiling::popRegion(); // Step 7b: MPI_Isend
+   809→  } // if (nsend !=0)
+   810→  
+   811→  // if (Globals::timestep > 100) perf.Pause();
+   812→
+   813→  Kokkos::Profiling::popRegion(); // Step 7
+   814→#endif                            // MPI_PARALLEL
+   815→
+   816→  // MPI_Barrier(MPI_COMM_WORLD);
+   817→
+   818→  // Step 8. construct a new MeshBlock list (moving the data within the MPI rank)
+   819→  Kokkos::Profiling::pushRegion("Step 8: Construct new MeshBlockList");
+   820→  {
+   821→    RegionSize block_size = GetBlockSize();
+   822→
+   823→    BlockList_t new_block_list(nmyrblist.size());
+   824→    for (int nidx = 0; nidx < nmyrblist.size(); nidx++) {
+   825→      int n = nmyrblist[nidx];
+   826→      int on = newtoold[n];
+   827→      if ((ranklist[on] == Globals::my_rank) && (loclist[on].level == newloc[n].level)) {
+   828→        // on the same MPI rank and same level -> just move it
+   829→        new_block_list[nidx] = FindMeshBlock(on);
+   830→      } else {
+   831→        // on a different refinement level or MPI rank - create a new block
+   832→        BoundaryFlag block_bcs[6];
+   833→        SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs);
+   834→        // append new block to list of MeshBlocks
+   835→        new_block_list[nidx] =
+   836→            MeshBlock::Make(n, nidx, newloc[n], block_size, block_bcs, this, pin, app_in,
+   837→                            packages, resolved_packages, gflag);
+   838→        // fill the conservative variables
+   839→        if ((loclist[on].level > newloc[n].level)) { // fine to coarse (f2c)
+   840→          for (int ll = 0; ll < nleaf; ll++) {
+   841→            if (ranklist[on + ll] != Globals::my_rank) continue;
+   842→            // fine to coarse on the same MPI rank (different AMR level) - restriction
+   843→            auto pob = FindMeshBlock(on + ll);
+   844→
+   845→            // allocate sparse variables that were allocated on old block
+   846→            for (auto var : pob->meshblock_data.Get()->GetVariableVector()) {
+   847→              if (var->IsSparse() && var->IsAllocated()) {
+   848→                new_block_list[nidx]->AllocateSparse(var->label());
+   849→              }
+   850→            }
+   851→            FillSameRankFineToCoarseAMR(pob.get(), new_block_list[nidx].get(),
+   852→                                        loclist[on + ll]);
+   853→          }
+   854→        } else if ((loclist[on].level < newloc[n].level) && // coarse to fine (c2f)
+   855→                   (ranklist[on] == Globals::my_rank)) {
+   856→          // coarse to fine on the same MPI rank (different AMR level) - prolongation
+   857→          auto pob = FindMeshBlock(on);
+   858→
+   859→          // allocate sparse variables that were allocated on old block
+   860→          for (auto var : pob->meshblock_data.Get()->GetVariableVector()) {
+   861→            if (var->IsSparse() && var->IsAllocated()) {
+   862→              new_block_list[nidx]->AllocateSparse(var->label());
+   863→            }
+   864→          }
+   865→          FillSameRankCoarseToFineAMR(pob.get(), new_block_list[nidx].get(), newloc[n]);
+   866→        }
+   867→      }
+   868→    }
+   869→
+   870→    // Replace the MeshBlock list
+   871→    block_list = std::move(new_block_list);
+   872→    gid_lid_map.clear();
+   873→
+   874→    // Ensure local and global ids are correct
+   875→    for (int nidx = 0; nidx < nmyrblist.size(); nidx++) {
+   876→      int n = nmyrblist[nidx];
+   877→      block_list[nidx]->gid = n;
+   878→      block_list[nidx]->lid = nidx;
+   879→      gid_lid_map[n] = nidx;
+   880→    }
+   881→  }
+   882→
+   883→  Kokkos::Profiling::popRegion(); // Step 8: Construct new MeshBlockList
+   884→
+   885→  // MPI_Barrier(MPI_COMM_WORLD);
+   886→
+   887→  // Step 9. Receive the data and load into MeshBlocks
+   888→  Kokkos::Profiling::pushRegion("Step 9: Recv data and unpack");
+   889→  // This is a test: try MPI_Waitall later.
+   890→#ifdef MPI_PARALLEL
+   891→  if (nrecv != 0) {
+   892→    int test;
+   893→    std::vector<bool> received(nrecv, false);
+   894→    int rb_idx;
+   895→    do {
+   896→      rb_idx = 0; // recv buffer index
+   897→      for (int nidx = 0; nidx < nmyrblist.size(); nidx++) {
+   898→        int n = nmyrblist[nidx];
+   899→        int on = newtoold[n];
+   900→        LogicalLocation &oloc = loclist[on];
+   901→        LogicalLocation &nloc = newloc[n];
+   902→        auto pb = FindMeshBlock(n);
+   903→        if (oloc.level == nloc.level) { // same
+   904→          if (ranklist[on] == Globals::my_rank) continue;
+   905→          if (!received[rb_idx]) {
+   906→            PARTHENON_MPI_CHECK(MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
+   907→            if (static_cast<bool>(test)) {
+   908→              FinishRecvSameLevel(pb.get(), recvbuf[rb_idx]);
+   909→              received[rb_idx] = true;
+   910→            }
+   911→          }
+   912→          rb_idx++;
+   913→        } else if (oloc.level > nloc.level) { // f2c
+   914→          for (int l = 0; l < nleaf; l++) {
+   915→            if (ranklist[on + l] == Globals::my_rank) continue;
+   916→            if (!received[rb_idx]) {
+   917→              PARTHENON_MPI_CHECK(
+   918→                  MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
+   919→              if (static_cast<bool>(test)) {
+   920→                FinishRecvFineToCoarseAMR(pb.get(), recvbuf[rb_idx], loclist[on + l]);
+   921→                received[rb_idx] = true;
+   922→              }
+   923→            }
+   924→            rb_idx++;
+   925→          }
+   926→        } else { // c2f
+   927→          if (ranklist[on] == Globals::my_rank) continue;
+   928→          if (!received[rb_idx]) {
+   929→            PARTHENON_MPI_CHECK(MPI_Test(&(req_recv[rb_idx]), &test, MPI_STATUS_IGNORE));
+   930→            if (static_cast<bool>(test)) {
+   931→              FinishRecvCoarseToFineAMR(pb.get(), recvbuf[rb_idx]);
+   932→              received[rb_idx] = true;
+   933→            }
+   934→          }
+   935→          rb_idx++;
+   936→        }
+   937→      }
+   938→      // rb_idx is a running index, so we repeat the loop until all vals are true
+   939→    } while (!std::all_of(received.begin(), received.begin() + rb_idx,
+   940→                          [](bool v) { return v; }));
+   941→    Kokkos::fence();
+   942→  }
+   943→#endif
+   944→
+   945→  // deallocate arrays
+   946→  newtoold.clear();
+   947→  oldtonew.clear();
+   948→#ifdef MPI_PARALLEL
+   949→  if (nsend != 0) {
+   950→    PARTHENON_MPI_CHECK(MPI_Waitall(nsend, req_send, MPI_STATUSES_IGNORE));
+   951→    delete[] sendbuf;
+   952→    delete[] req_send;
+   953→  }
+   954→  if (nrecv != 0) {
+   955→    delete[] recvbuf;
+   956→    delete[] req_recv;
+   957→  }
+   958→#endif
+   959→  Kokkos::Profiling::popRegion(); // Step 9
+   960→
+   961→  // MPI_Barrier(MPI_COMM_WORLD);
+   962→
+   963→  // update the lists
+   964→  loclist = std::move(newloc);
+   965→  ranklist = std::move(newrank);
+   966→  costlist = std::move(newcost);
+   967→
+   968→  // re-initialize the MeshBlocks
+   969→  for (auto &pmb : block_list) {
+   970→    pmb->pbval->SearchAndSetNeighbors(tree, rblist, ranklist);
+   971→  }
+   972→  Initialize(false, pin, app_in);
+   973→
+   974→  ResetLoadBalanceVariables();
+   975→
+   976→  Kokkos::Profiling::popRegion(); // RedistributeAndRefineMeshBlocks
+   977→                                  //
+   978→  auto _rnr_time = tau::GetUsSince(_ts_beg);
+   979→  tau::LogBlockEvent(-1, TAU_BLKEVT_US_COMP3, _rnr_time);
+   980→}
+   981→
+   982→// AMR: step 6, branch 1 (same2same: just pack+send)
+   983→
+   984→void Mesh::PrepareSendSameLevel(MeshBlock *pmb, BufArray1D<Real> &sendbuf) {
+   985→  // inital offset, data starts after allocation flags
+   986→  int p = pmb->vars_cc_.size();
+   987→
+   988→  // subview to set allocation flags
+   989→  auto alloc_subview = Kokkos::subview(sendbuf, std::make_pair(0, p));
+   990→  auto alloc_subview_h = Kokkos::create_mirror_view(HostMemSpace(), alloc_subview);
+   991→
+   992→  const IndexDomain interior = IndexDomain::interior;
+   993→  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+   994→  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+   995→  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
+   996→  // this helper fn is used for AMR and non-refinement load balancing of
+   997→  // MeshBlocks. Therefore, unlike PrepareSendCoarseToFineAMR(), etc., it loops over
+   998→  // MeshBlock::vars_cc/fc_ containers, not MeshRefinement::pvars_cc/fc_ containers
+   999→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

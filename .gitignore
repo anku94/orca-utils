@@ -7,3 +7,6 @@ __pycache__
 *.pywz
 htabench/data/h100_trace.parquet
 htabench/logs
+orca-scripts/tau-analysis/dfanalyzer
+orca-scripts/tau-analysis/outputs/**
+outputs/**

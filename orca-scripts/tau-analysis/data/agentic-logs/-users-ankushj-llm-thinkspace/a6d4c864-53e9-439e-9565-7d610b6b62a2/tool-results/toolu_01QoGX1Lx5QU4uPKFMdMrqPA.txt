@@ -1,0 +1,22 @@
+MPI collectives: 3911680 rows, ts 265-439
+
+Anomalous swids (range > 50ms): 15
+
+Investigating: ts=343, swid=1881, range=90.3ms
+Top straggler ranks: [3057, 3058, 700, 2772, 4064, 2461, 2381, 196, 3059, 1252]
+
+Slow kokkos events on straggler ranks in ts=343:
+shape: (7, 5)
+┌──────┬─────────────────────────────────┬───────┬────────────┬─────────────┐
+│ swid ┆ probe_name                      ┆ count ┆ total_ns   ┆ total_ms    │
+│ ---  ┆ ---                             ┆ ---   ┆ ---        ┆ ---         │
+│ u64  ┆ str                             ┆ u32   ┆ u64        ┆ f64         │
+╞══════╪═════════════════════════════════╪═══════╪════════════╪═════════════╡
+│ 1875 ┆ region::UpdateMeshBlockTree     ┆ 7     ┆ 87968612   ┆ 87.968612   │
+│ 1875 ┆ region::LoadBalancingAndAdapti… ┆ 10    ┆ 1210793457 ┆ 1210.793457 │
+│ 1880 ┆ region::RedistributeAndRefineM… ┆ 10    ┆ 1099359415 ┆ 1099.359415 │
+│ 1881 ┆ region::Mesh::Initialize        ┆ 10    ┆ 981398534  ┆ 981.398534  │
+│ 1881 ┆ region::Task_LoadAndSendBoundB… ┆ 7     ┆ 101017041  ┆ 101.017041  │
+│ 1881 ┆ region::Mesh::Initialize::Send  ┆ 9     ┆ 178070944  ┆ 178.070944  │
+│ 1881 ┆ region::Mesh::Initialize::Buil… ┆ 1     ┆ 71674345   ┆ 71.674345   │
+└──────┴─────────────────────────────────┴───────┴────────────┴─────────────┘

@@ -1,0 +1,18 @@
+The file /users/ankushj/llm-thinkspace/20260115-claude/anomaly_hunt.yaml has been updated. Here's the result of running `cat -n` on a snippet of the edited file:
+     1→nodes:
+     2→  # Filter mpi_collectives to only potential stragglers (low dura_ns = arrived late)
+     3→  mpi_stragglers:
+     4→    from: [mpi_collectives]
+     5→    sql: |
+     6→      SELECT timestep, swid, rank, probe_name, dura_ns
+     7→      FROM mpi_collectives
+     8→      WHERE dura_ns < 1000000
+     9→
+    10→sinks:
+    11→  mpisync_pq:
+    12→    from: mpi_collectives
+    13→    type: parquet
+    14→  stragglers_pq:
+    15→    from: mpi_stragglers
+    16→    type: parquet
+    17→

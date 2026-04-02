@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "sessionId": "5a6c10ff-bb78-4175-bac4-078385608f7d",
+      "fullPath": "/users/ankushj/.claude/projects/-users-ankushj-llm-thinkspace/5a6c10ff-bb78-4175-bac4-078385608f7d.jsonl",
+      "fileMtime": 1767755664477,
+      "firstPrompt": "read home.md",
+      "messageCount": 18,
+      "created": "2026-01-06T21:22:30.285Z",
+      "modified": "2026-01-07T03:14:24.420Z",
+      "gitBranch": "",
+      "projectPath": "/users/ankushj/llm-thinkspace",
+      "isSidechain": false
+    },
+    {
+      "sessionId": "7aa42e51-6ee4-409f-b463-a4a6bfe7aa28",
+      "fullPath": "/users/ankushj/.claude/projects/-users-ankushj-llm-thinkspace/7aa42e51-6ee4-409f-b463-a4a6bfe7aa28.jsonl",
+      "fileMtime": 1766634620824,
+      "firstPrompt": "read home.md",
+      "messageCount": 9,
+      "created": "2025-12-25T03:44:37.698Z",
+      "modified": "2025-12-25T03:50:20.770Z",
+      "gitBranch": "",
+      "projectPath": "/users/ankushj/llm-thinkspace",
+      "isSidechain": false
+    },
+    {
+      "sessionId": "be71f247-5b89-43a2-a92a-156ce2594311",
+      "fullPath": "/users/ankushj/.claude/projects/-users-ankushj-llm-thinkspace/be71f247-5b89-43a2-a92a-156ce2594311.jsonl",
+      "fileMtime": 1766118075750,
+      "firstPrompt": "read home.md",
+      "messageCount": 84,
+      "created": "2025-12-18T22:38:44.761Z",
+      "modified": "2025-12-19T04:21:15.579Z",
+      "gitBranch": "",
+      "projectPath": "/users/ankushj/llm-thinkspace",
+      "isSidechain": false
+    },
+    {
+      "sessionId": "a6d4c864-53e9-439e-9565-7d610b6b62a2",
+      "fullPath": "/users/ankushj/.claude/projects/-users-ankushj-llm-thinkspace/a6d4c864-53e9-439e-9565-7d610b6b62a2.jsonl",
+      "fileMtime": 1768596629131,
+      "firstPrompt": "your problem is that there is no cost to you for making fact-free assertions. I spent 3 months trying to find this bug last year before I built ORCA to find such bugs within a day. you're wrong. mallo…",
+      "messageCount": 46,
+      "created": "2026-01-16T20:22:34.354Z",
+      "modified": "2026-01-16T20:50:29.068Z",
+      "gitBranch": "",
+      "projectPath": "/users/ankushj/llm-thinkspace",
+      "isSidechain": false
+    },
+    {
+      "sessionId": "d51ab244-a3db-4fb4-af7c-2f32f0a4b6b3",
+      "fullPath": "/users/ankushj/.claude/projects/-users-ankushj-llm-thinkspace/d51ab244-a3db-4fb4-af7c-2f32f0a4b6b3.jsonl",
+      "fileMtime": 1768603208822,
+      "firstPrompt": "I think we just got unlucky and did not encounter any slow BuildAndPosts. let's try another 60s",
+      "messageCount": 22,
+      "created": "2026-01-16T22:30:36.541Z",
+      "modified": "2026-01-16T22:40:08.743Z",
+      "gitBranch": "",
+      "projectPath": "/users/ankushj/llm-thinkspace/20260116-claude",
+      "isSidechain": false
+    },
+    {
+      "sessionId": "3b1cd3f8-ac49-46c9-aba1-93276035890f",
+      "fullPath": "/users/ankushj/.claude/projects/-users-ankushj-llm-thinkspace/3b1cd3f8-ac49-46c9-aba1-93276035890f.jsonl",
+      "fileMtime": 1768615428477,
+      "firstPrompt": "Read /users/ankushj/repos/orca-workspace/orca-utils/orca-scripts/flows/agentic_workflow.md",
+      "messageCount": 45,
+      "created": "2026-01-17T01:27:44.299Z",
+      "modified": "2026-01-17T02:03:48.389Z",
+      "gitBranch": "",
+      "projectPath": "/users/ankushj/llm-thinkspace",
+      "isSidechain": false
+    }
+  ]
+}

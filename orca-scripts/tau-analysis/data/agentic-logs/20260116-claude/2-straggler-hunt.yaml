@@ -1,0 +1,39 @@
+nodes:
+  # Raw mpi_collectives - always collect
+  mpi_coll_raw:
+    from: [mpi_collectives]
+    sql: |
+      SELECT * FROM mpi_collectives
+
+  # Kokkos events taking >1ms (filter out fast ones to reduce volume)
+  kokkos_slow:
+    from: [kokkos_events]
+    sql: |
+      SELECT * FROM kokkos_events
+      WHERE dura_ns > 1000000
+
+  # Per-swid stats for quick anomaly detection
+  mpi_coll_swid_stats:
+    from: [mpi_collectives]
+    sql: |
+      SELECT
+        timestep as ts,
+        swid,
+        probe_name,
+        COUNT(*) as cnt,
+        MIN(dura_ns) as min_dura_ns,
+        MAX(dura_ns) as max_dura_ns,
+        MAX(dura_ns) - MIN(dura_ns) as spread_ns
+      FROM mpi_collectives
+      GROUP BY timestep, swid, probe_name
+
+sinks:
+  mpi_coll_raw_pq:
+    from: mpi_coll_raw
+    type: parquet
+  kokkos_slow_pq:
+    from: kokkos_slow
+    type: parquet
+  mpi_coll_swid_stats_pq:
+    from: mpi_coll_swid_stats
+    type: parquet

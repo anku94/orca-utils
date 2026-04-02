@@ -1,0 +1,31 @@
+nodes:
+  # Raw mpi_collectives - always collect
+  mpi_coll_raw:
+    from: [mpi_collectives]
+    sql: |
+      SELECT * FROM mpi_collectives
+
+  # Per-swid stats to identify anomalous sync windows
+  # Low min_dura indicates a straggler (arrived late, short wait)
+  # High max_dura indicates some ranks waited a long time
+  mpi_coll_swid_stats:
+    from: [mpi_collectives]
+    sql: |
+      SELECT
+        timestep as ts,
+        swid,
+        probe_name,
+        COUNT(*) as cnt,
+        MIN(dura_ns) as min_dura_ns,
+        MAX(dura_ns) as max_dura_ns,
+        MAX(dura_ns) - MIN(dura_ns) as spread_ns
+      FROM mpi_collectives
+      GROUP BY timestep, swid, probe_name
+
+sinks:
+  mpi_coll_raw_pq:
+    from: mpi_coll_raw
+    type: parquet
+  mpi_coll_swid_stats_pq:
+    from: mpi_coll_swid_stats
+    type: parquet

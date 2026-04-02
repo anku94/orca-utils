@@ -1,0 +1,39 @@
+Found 39 anomalous swids (range > 50ms)
+
+Total straggler appearances: 195
+Unique ranks that appeared as straggler: 185
+
+=== Most frequent stragglers ===
+  Rank   18 (node   0): 2 times
+  Rank 2623 (node  81): 2 times
+  Rank 3327 (node 103): 2 times
+  Rank 2431 (node  75): 2 times
+  Rank 1060 (node  33): 2 times
+  Rank 3309 (node 103): 2 times
+  Rank 3853 (node 120): 2 times
+  Rank 2936 (node  91): 2 times
+  Rank  560 (node  17): 2 times
+  Rank 3503 (node 109): 2 times
+  Rank  989 (node  30): 1 times
+  Rank 2389 (node  74): 1 times
+  Rank 3836 (node 119): 1 times
+  Rank 2101 (node  65): 1 times
+  Rank 2540 (node  79): 1 times
+  Rank  524 (node  16): 1 times
+  Rank 3008 (node  94): 1 times
+  Rank 3893 (node 121): 1 times
+  Rank 3340 (node 104): 1 times
+  Rank 4040 (node 126): 1 times
+
+=== Node-level analysis ===
+Most frequent straggler nodes:
+  Node 103: 8 times
+  Node 110: 6 times
+  Node 120: 6 times
+  Node  34: 6 times
+  Node  75: 5 times
+  Node  91: 5 times
+  Node 124: 5 times
+  Node  74: 4 times
+  Node   0: 4 times
+  Node 121: 4 times

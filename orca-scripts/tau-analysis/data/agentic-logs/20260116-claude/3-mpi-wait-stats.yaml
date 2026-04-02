@@ -1,0 +1,58 @@
+nodes:
+  # Raw mpi_collectives - always collect
+  mpi_coll_raw:
+    from: [mpi_collectives]
+    sql: |
+      SELECT * FROM mpi_collectives
+
+  # MPI_Wait aggregated stats per rank/swid
+  # This tells us: how many waits and total wait time per rank in each sync window
+  mpi_wait_stats:
+    from: [mpi_messages]
+    sql: |
+      SELECT
+        timestep as ts,
+        swid,
+        rank,
+        COUNT(*) as wait_cnt,
+        SUM(dura_ns) as total_wait_ns,
+        MAX(dura_ns) as max_wait_ns
+      FROM mpi_messages
+      WHERE probe_name = 'MPI_Wait'
+      GROUP BY timestep, swid, rank
+
+  # Kokkos slow events including Clear
+  kokkos_slow:
+    from: [kokkos_events]
+    sql: |
+      SELECT * FROM kokkos_events
+      WHERE dura_ns > 1000000
+
+  # Per-swid collective stats
+  mpi_coll_swid_stats:
+    from: [mpi_collectives]
+    sql: |
+      SELECT
+        timestep as ts,
+        swid,
+        probe_name,
+        COUNT(*) as cnt,
+        MIN(dura_ns) as min_dura_ns,
+        MAX(dura_ns) as max_dura_ns,
+        MAX(dura_ns) - MIN(dura_ns) as spread_ns
+      FROM mpi_collectives
+      GROUP BY timestep, swid, probe_name
+
+sinks:
+  mpi_coll_raw_pq:
+    from: mpi_coll_raw
+    type: parquet
+  mpi_wait_stats_pq:
+    from: mpi_wait_stats
+    type: parquet
+  kokkos_slow_pq:
+    from: kokkos_slow
+    type: parquet
+  mpi_coll_swid_stats_pq:
+    from: mpi_coll_swid_stats
+    type: parquet

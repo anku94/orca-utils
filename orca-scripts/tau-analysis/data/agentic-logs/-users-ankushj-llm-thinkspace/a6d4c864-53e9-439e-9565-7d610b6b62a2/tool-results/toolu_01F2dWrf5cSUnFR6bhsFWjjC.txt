@@ -1,0 +1,48 @@
+=== Ranks that frequently appear in top 10 slowest ===
+Total timesteps: 32
+Unique ranks in top-10 slow: 303
+
+Most frequent slow ranks:
+  Rank 1745 (node  54): 3/32 timesteps
+  Rank 1170 (node  36): 2/32 timesteps
+  Rank 1499 (node  46): 2/32 timesteps
+  Rank 3897 (node 121): 2/32 timesteps
+  Rank  110 (node   3): 2/32 timesteps
+  Rank 3953 (node 123): 2/32 timesteps
+  Rank 3276 (node 102): 2/32 timesteps
+  Rank 3326 (node 103): 2/32 timesteps
+  Rank 2453 (node  76): 2/32 timesteps
+  Rank 1657 (node  51): 2/32 timesteps
+  Rank 3990 (node 124): 2/32 timesteps
+  Rank 2049 (node  64): 2/32 timesteps
+  Rank  975 (node  30): 2/32 timesteps
+  Rank 2540 (node  79): 2/32 timesteps
+  Rank 3994 (node 124): 2/32 timesteps
+  Rank 2086 (node  65): 2/32 timesteps
+  Rank 1199 (node  37): 1/32 timesteps
+  Rank 1175 (node  36): 1/32 timesteps
+  Rank 1629 (node  50): 1/32 timesteps
+  Rank 1183 (node  36): 1/32 timesteps
+  Rank 1200 (node  37): 1/32 timesteps
+  Rank 1192 (node  37): 1/32 timesteps
+  Rank 1203 (node  37): 1/32 timesteps
+  Rank 2487 (node  77): 1/32 timesteps
+  Rank 2478 (node  77): 1/32 timesteps
+  Rank 2488 (node  77): 1/32 timesteps
+  Rank 2952 (node  92): 1/32 timesteps
+  Rank 3877 (node 121): 1/32 timesteps
+  Rank 3894 (node 121): 1/32 timesteps
+  Rank 3574 (node 111): 1/32 timesteps
+
+=== Node clustering of frequently slow ranks ===
+Nodes with multiple slow ranks:
+  Node  37: 4 ranks - [1199, 1200, 1192, 1203]
+  Node  36: 3 ranks - [1170, 1175, 1183]
+  Node 121: 3 ranks - [3897, 3877, 3894]
+  Node 124: 3 ranks - [3990, 3994, 3991]
+  Node  77: 3 ranks - [2487, 2478, 2488]
+  Node  46: 2 ranks - [1499, 1472]
+  Node 103: 2 ranks - [3326, 3324]
+  Node  76: 2 ranks - [2453, 2454]
+  Node  79: 2 ranks - [2540, 2544]
+  Node  32: 2 ranks - [1039, 1047]

@@ -1,0 +1,27 @@
+nodes:
+  kokkos_filtered:
+    from: [kokkos_events]
+    sql: |
+      SELECT rank, SUM(dura_ns) as total_ns
+      FROM kokkos_events
+      WHERE probe_name IN ('region::Task_FillDerived', 'region::CalculateFluxes', 'region::TmunuSourceTerms')
+      GROUP BY rank
+
+  kokkos_ptiles:
+    from: [kokkos_filtered]
+    sql: |
+      SELECT
+        approx_percentile_cont(0.50) WITHIN GROUP (ORDER BY total_ns) as p50,
+        approx_percentile_cont(0.90) WITHIN GROUP (ORDER BY total_ns) as p90,
+        approx_percentile_cont(0.99) WITHIN GROUP (ORDER BY total_ns) as p99,
+        MIN(total_ns) as min_ns,
+        MAX(total_ns) as max_ns
+      FROM kokkos_filtered
+
+sinks:
+  kokkos_gf:
+    from: kokkos_ptiles
+    type: grafana
+  kokkos_pq:
+    from: kokkos_ptiles
+    type: parquet

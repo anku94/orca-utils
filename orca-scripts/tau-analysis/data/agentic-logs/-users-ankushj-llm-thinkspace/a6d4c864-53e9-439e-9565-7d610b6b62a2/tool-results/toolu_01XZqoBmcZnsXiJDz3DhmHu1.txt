@@ -1,0 +1,35 @@
+=== mpi_msg_counts (ts >= 64) ===
+Shape: (142, 4)
+shape: (5, 2)
+┌───────────────┬──────────┐
+│ probe_name    ┆ cnt      │
+│ ---           ┆ ---      │
+│ str           ┆ i64      │
+╞═══════════════╪══════════╡
+│ MPI_Irecv     ┆ 23717430 │
+│ MPI_Isend     ┆ 23717430 │
+│ MPI_Wait      ┆ 23689118 │
+│ MPI_Get_count ┆ 23689110 │
+│ MPI_Waitall   ┆ 28320    │
+└───────────────┴──────────┘
+
+=== kokkos_counts (ts >= 64) ===
+Shape: (1678, 4)
+Rows with 'CheckAndUpdate': 28
+shape: (10, 2)
+┌─────────────────────────────────┬────────────┐
+│ probe_name                      ┆ cnt        │
+│ ---                             ┆ ---        │
+│ str                             ┆ i64        │
+╞═════════════════════════════════╪════════════╡
+│ region::TaskRegion::CheckAndUp… ┆ 1169123892 │
+│ region::Task_ReceiveBoundBufs   ┆ 156274628  │
+│ region::GetVariablesByFlag      ┆ 2777800    │
+│ region::ProlongateOrRestrictCe… ┆ 2648952    │
+│ par_for::Kokkos::View::initial… ┆ 1242984    │
+│ par_for::Kokkos::View::initial… ┆ 1214800    │
+│ par_for::ProlongateOrRestrictC… ┆ 1091200    │
+│ region::Task_ReceiveFluxCorrec… ┆ 876365     │
+│ region::WeightedSumData         ┆ 837648     │
+│ region::Task_WeightedSumData    ┆ 837648     │
+└─────────────────────────────────┴────────────┘

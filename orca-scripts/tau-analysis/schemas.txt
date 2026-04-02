@@ -1,0 +1,40 @@
+Analyzing TAU JSON events from: /mnt/ltio/orcajobs/tau-root/trace-parsed/rank0.json
+
+=== EVENT TYPE COUNTS ===
+counter        : 1621261 events
+entry          : 3798783 events
+exit           : 3798789 events
+receive        : 136980 events
+send           : 128842 events
+trace end      :    1 events
+
+=== FIELD SCHEMAS BY EVENT TYPE ===
+
+counter:
+  Fields: ['event-type', 'name', 'node-id', 'thread-id', 'time', 'value']
+  Example 1: {'event-type': 'counter', 'time': '338655.000000', 'name': 'Message size sent to all nodes', 'node-id': '0', 'thread-id': '0', 'value': '0'}
+  Example 2: {'event-type': 'counter', 'time': '338655.000000', 'name': 'Message size sent to all nodes', 'node-id': '0', 'thread-id': '0', 'value': '4624'}
+
+entry:
+  Fields: ['event-type', 'name', 'node-id', 'thread-id', 'time']
+  Example 1: {'event-type': 'entry', 'name': 'MPI_Irecv()  ', 'time': '337651.000000', 'node-id': '0', 'thread-id': '0'}
+  Example 2: {'event-type': 'entry', 'name': 'MPI_Irecv()  ', 'time': '337658.000000', 'node-id': '0', 'thread-id': '0'}
+
+exit:
+  Fields: ['event-type', 'name', 'node-id', 'thread-id', 'time']
+  Example 1: {'event-type': 'exit', 'name': 'Kokkos::parallel_for Kokkos::View::initialization [pool buffer] via memset [type = Serial, device = 0] ', 'time': '337635.000000', 'node-id': '0', 'thread-id': '0'}
+  Example 2: {'event-type': 'exit', 'name': 'MPI_Irecv()  ', 'time': '337653.000000', 'node-id': '0', 'thread-id': '0'}
+
+receive:
+  Fields: ['destination-node-id', 'destination-thread-id', 'event-type', 'message-size', 'message-tag', 'source-node-id', 'source-thread-id', 'timestamp']
+  Example 1: {'event-type': 'receive', 'timestamp': '339445.000000', 'source-node-id': '23', 'source-thread-id': '0', 'destination-node-id': '0', 'destination-thread-id': '0', 'message-size': '64', 'message-tag': '0'}
+  Example 2: {'event-type': 'receive', 'timestamp': '339549.000000', 'source-node-id': '9', 'source-thread-id': '0', 'destination-node-id': '0', 'destination-thread-id': '0', 'message-size': '4624', 'message-tag': '3'}
+
+send:
+  Fields: ['destination-node-id', 'destination-thread-id', 'event-type', 'message-size', 'message-tag', 'source-node-id', 'source-thread-id', 'timestamp']
+  Example 1: {'event-type': 'send', 'timestamp': '338660.000000', 'source-node-id': '0', 'source-thread-id': '0', 'destination-node-id': '2', 'destination-thread-id': '0', 'message-size': '4624', 'message-tag': '3'}
+  Example 2: {'event-type': 'send', 'timestamp': '338679.000000', 'source-node-id': '0', 'source-thread-id': '0', 'destination-node-id': '22', 'destination-thread-id': '0', 'message-size': '544', 'message-tag': '1'}
+
+trace end:
+  Fields: ['event-type']
+  Example 1: {'event-type': 'trace end'}

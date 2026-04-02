@@ -1,0 +1,474 @@
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-115-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-116-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-117-  // inherited functions (interface shared with BoundaryVariable objects):
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-118-  // ------
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-119-  // called before time-stepper:
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp:120:  void SetupPersistentMPI() final; // setup MPI requests
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-121-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-122-  // called before and during time-stepper (currently do nothing for swarms):
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-123-  void StartReceiving(BoundaryCommSubset phase) final {}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-124-  void ClearBoundary(BoundaryCommSubset phase) final {}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-125-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-126- private:
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-127-  // ptr to MeshBlock containing this BoundaryValues
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-128-  std::weak_ptr<MeshBlock> pmy_block_;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-129-  int nface_, nedge_;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-130-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-131-  // if a BoundaryPhysics or user fn should be applied at each MeshBlock boundary
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-132-  // false --> e.g. block, polar, periodic boundaries
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-133-  // bool apply_bndry_fn_[6]{}; // C++11: in-class initializer of non-static member
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-134-  // C++11: direct-list-initialization -> value init of array -> zero init of each scalar
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-135-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-136-  /// Returns shared pointer to a block
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-137-  std::shared_ptr<MeshBlock> GetBlockPointer() {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-138-    if (pmy_block_.expired()) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-139-      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-140-    }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-141-    return pmy_block_.lock();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-142-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-143-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-144-  friend class Mesh;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-145-  // currently, this class friendship is required for copying send/recv buffers between
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-146-  // BoundarySwarm objects within different MeshBlocks on the same MPI rank:
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-147-  friend class BoundarySwarm;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-148-};
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-149-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-150-//----------------------------------------------------------------------------------------
+--
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-167-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-168-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-169-  // inherited functions (interface shared with BoundaryVariable objects):
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-170-  // ------
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-171-  // called before time-stepper:
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp:172:  void SetupPersistentMPI() final; // setup MPI requests
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-173-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-174-  // called before and during time-stepper:
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-175-  void StartReceiving(BoundaryCommSubset phase) final;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-176-  void ClearBoundary(BoundaryCommSubset phase) final;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-177-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-178- private:
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-179-  // ptr to MeshBlock containing this BoundaryValues
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-180-  std::weak_ptr<MeshBlock> pmy_block_;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-181-  int nface_, nedge_; // used only in fc/flux_correction_fc.cpp calculations
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-182-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-183-  // if a BoundaryPhysics or user fn should be applied at each MeshBlock boundary
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-184-  // false --> e.g. block, polar, periodic boundaries
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-185-  bool apply_bndry_fn_[6]{}; // C++11: in-class initializer of non-static member
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-186-  // C++11: direct-list-initialization -> value init of array -> zero init of each scalar
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-187-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-188-  /// Returns shared pointer to a block
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-189-  std::shared_ptr<MeshBlock> GetBlockPointer() {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-190-    if (pmy_block_.expired()) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-191-      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-192-    }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-193-    return pmy_block_.lock();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-194-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-195-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-196-  // temporary--- Added by @tomidakn on 2015-11-27 in f0f989f85f
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-197-  // TODO(KGF): consider removing this friendship designation
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-198-  friend class Mesh;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-199-  // currently, this class friendship is required for copying send/recv buffers between
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-200-  // BoundaryVariable objects within different MeshBlocks on the same MPI rank:
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-201-  friend class BoundaryVariable;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.hpp-202-  friend class FaceCenteredBoundaryVariable; // needs nface_, nedge_, num_north/south_...
+--
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-59-    bd.req_recv[n] = MPI_REQUEST_NULL;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-60-#endif
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-61-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-62-}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-63-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp:64:void BoundarySwarm::SetupPersistentMPI() {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-65-#ifdef MPI_PARALLEL
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-66-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-67-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-68-  // Initialize neighbor communications to other ranks
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-69-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-70-    NeighborBlock &nb = pmb->pbval->neighbor[n];
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-71-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-72-    // Neighbor on different MPI process
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-73-    if (nb.snb.rank != Globals::my_rank) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-74-      send_tag[nb.bufid] = pmb->pbswarm->CreateBvalsMPITag(nb.snb.lid, nb.targetid);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-75-      recv_tag[nb.bufid] = pmb->pbswarm->CreateBvalsMPITag(pmb->lid, nb.bufid);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-76-      if (bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-77-        MPI_Request_free(&bd_var_.req_send[nb.bufid]);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-78-      }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-79-      if (bd_var_.req_recv[nb.bufid] != MPI_REQUEST_NULL) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-80-        MPI_Request_free(&bd_var_.req_recv[nb.bufid]);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-81-      }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-82-    }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-83-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-84-#endif
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-85-}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-86-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-87-// Send particle buffers across meshblocks. If different MPI ranks, use MPI, if same rank,
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-88-// do a deep copy on device.
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-89-void BoundarySwarm::Send(BoundaryCommSubset phase) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-90-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-91-  // Fence to make sure buffers are loaded before sending
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-92-  pmb->exec_space.fence();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-93-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_swarm.cpp-94-    NeighborBlock &nb = pmb->pbval->neighbor[n];
+--
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-189-class BoundaryCommunication {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-190- public:
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-191-  BoundaryCommunication() {}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-192-  virtual ~BoundaryCommunication() {}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-193-  // create unique tags for each MeshBlock/buffer/quantity and initialize MPI requests:
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp:194:  virtual void SetupPersistentMPI() = 0;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-195-  // call MPI_Start() on req_recv[]
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-196-  virtual void StartReceiving(BoundaryCommSubset phase) = 0;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-197-  // call MPI_Wait() on req_send[] and set flag[] to BoundaryStatus::waiting
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-198-  virtual void ClearBoundary(BoundaryCommSubset phase) = 0;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-199-};
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-200-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-201-//----------------------------------------------------------------------------------------
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-202-//! \class BoundaryBuffer
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-203-//  \brief contains methods for managing MPI send/recvs and associated loads/stores from
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-204-//  communication buffers.
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-205-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-206-// TODO(KGF): Merge with above BoundaryCommunication interface?
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-207-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-208-class BoundaryBuffer {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-209- public:
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-210-  BoundaryBuffer() {}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-211-  virtual ~BoundaryBuffer() {}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-212-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-213-  // universal buffer management methods for Cartesian grids (unrefined and SMR/AMR)
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-214-  virtual bool ReceiveBoundaryBuffers(bool is_allocated) = 0;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-215-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-216-  virtual void SendFluxCorrection(bool is_allocated) = 0;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-217-  virtual bool ReceiveFluxCorrection(bool is_allocated) = 0;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-218-};
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-219-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-220-//----------------------------------------------------------------------------------------
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-221-// Abstract classes containing mix of pure virtual, virtual, and concrete functions
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-222-//----------------------------------------------------------------------------------------
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-223-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-224-//----------------------------------------------------------------------------------------
+--
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-297-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-298-  // (usuallly the std::size_t unsigned integer type)
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-299-  std::vector<BoundaryVariable *>::size_type bswarm_index;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-300-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-301-  // BoundaryCommunication
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp:302:  void SetupPersistentMPI() final;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-303-  void StartReceiving(BoundaryCommSubset phase) final{};
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-304-  void ClearBoundary(BoundaryCommSubset phase) final{};
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-305-  void Receive(BoundaryCommSubset phase);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-306-  void Send(BoundaryCommSubset phase);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-307-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-308-  BoundaryData<> bd_var_;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-309-  std::weak_ptr<MeshBlock> pmy_block;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-310-  Mesh *pmy_mesh_;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-311-  int send_tag[NMAX_NEIGHBORS], recv_tag[NMAX_NEIGHBORS];
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-312-  int particle_size, send_size[NMAX_NEIGHBORS], recv_size[NMAX_NEIGHBORS];
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-313-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-314- protected:
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-315-  int nl_, nu_;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-316-  void InitBoundaryData(BoundaryData<> &bd);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-317-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-318- private:
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-319-  std::shared_ptr<MeshBlock> GetBlockPointer() {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-320-    if (pmy_block.expired()) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-321-      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-322-    }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-323-    return pmy_block.lock();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-324-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-325-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-326-#ifdef MPI_PARALLEL
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-327-  // Unique communicator for this swarm.
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-328-  MPI_Comm swarm_comm;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-329-#endif
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-330-};
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-331-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals_interfaces.hpp-332-} // namespace parthenon
+--
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-91-}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-92-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-93-// destructor
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-94-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-95-//----------------------------------------------------------------------------------------
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp:96://! \fn void BoundaryValues::SetupPersistentMPI()
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-97-//  \brief Setup persistent MPI requests to be reused throughout the entire simulation
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-98-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp:99:void BoundaryValues::SetupPersistentMPI() {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-100-  for (auto bvars_it = bvars.begin(); bvars_it != bvars.end(); ++bvars_it) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp:101:    (*bvars_it).second->SetupPersistentMPI();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-102-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-103-}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-104-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-105-//----------------------------------------------------------------------------------------
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-106-//! \fn void BoundaryValues::StartReceiving(BoundaryCommSubset phase)
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-107-//  \brief initiate MPI_Irecv()
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-108-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-109-void BoundaryValues::StartReceiving(BoundaryCommSubset phase) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-110-  for (auto bvars_it = bvars.begin(); bvars_it != bvars.end(); ++bvars_it) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-111-    (*bvars_it).second->StartReceiving(phase);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-112-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-113-}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-114-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-115-//----------------------------------------------------------------------------------------
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-116-//! \fn void BoundaryValues::ClearBoundary(BoundaryCommSubset phase)
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-117-//  \brief clean up the boundary flags after each loop
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-118-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-119-void BoundaryValues::ClearBoundary(BoundaryCommSubset phase) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-120-  // Note BoundaryCommSubset::mesh_init corresponds to initial exchange of conserved fluid
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-121-  // variables and magentic fields
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-122-  for (auto bvars_it = bvars.begin(); bvars_it != bvars.end(); ++bvars_it) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-123-    (*bvars_it).second->ClearBoundary(phase);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-124-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-125-}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-126-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-127-// BoundarySwarms constructor (the first object constructed inside the MeshBlock()
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-128-// constructor): sets functions for the appropriate boundary conditions at each of the 6
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-129-// dirs of a MeshBlock
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-130-BoundarySwarms::BoundarySwarms(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *input_bcs,
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-131-                               ParameterInput *pin)
+--
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-165-    CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x3], CoordinateDirection::X3DIR);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-166-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-167-}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-168-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-169-//----------------------------------------------------------------------------------------
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp:170://! \fn void BoundaryValues::SetupPersistentMPI()
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-171-//  \brief Setup persistent MPI requests to be reused throughout the entire simulation
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-172-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp:173:void BoundarySwarms::SetupPersistentMPI() {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-174-  for (auto bswarms_it = bswarms.begin(); bswarms_it != bswarms.end(); ++bswarms_it) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp:175:    (*bswarms_it)->SetupPersistentMPI();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-176-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-177-}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-178-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/bvals/bvals.cpp-179-} // namespace parthenon
+--
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1091-    Kokkos::Profiling::popRegion(); // Mesh::Initialize::PreComm
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1092-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1093-    // MPI_Barrier(MPI_COMM_WORLD);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1094-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1095-    // Create send/recv MPI_Requests for all BoundaryData objects
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp:1096:    Kokkos::Profiling::pushRegion("Mesh::Initialize::SetupPersistentMPI");
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1097-    for (int i = 0; i < nmb; ++i) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1098-      auto &pmb = block_list[i];
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp:1099:      pmb->swarm_data.Get()->SetupPersistentMPI();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1100-    }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1101-    
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp:1102:    Kokkos::Profiling::popRegion(); // Mesh::Initialize::SetupPersistentMPI
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1103-                                    //
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1104-    Kokkos::Profiling::pushRegion("Mesh::Initialize::BuildAndPost");
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1105-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1106-    ClearCommBuffers_bad(num_partitions);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1107-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1108-    // MPI_Barrier(MPI_COMM_WORLD);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1109-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1110-    // send FillGhost variables
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1111-    for (int i = 0; i < num_partitions; i++) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1112-      auto &md = mesh_data.GetOrAdd("base", i);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1113-      BuildBoundaryBuffers(md);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1114-    }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1115-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1116-    for (int i = 0; i < num_partitions; i++) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1117-      auto &md = mesh_data.GetOrAdd("base", i);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1118-      StartReceiveBoundaryBuffers(md);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1119-    }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1120-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1121-    Kokkos::Profiling::popRegion(); // Mesh::Initialize::BuildAndPost
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1122-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1123-    // MPI_Barrier(MPI_COMM_WORLD);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1124-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1125-    Kokkos::Profiling::pushRegion("Mesh::Initialize::Send");
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1126-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1127-    for (int i = 0; i < num_partitions; i++) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1128-      auto &md = mesh_data.GetOrAdd("base", i);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1129-      SendBoundaryBuffers(md);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1130-    }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1131-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1132-    Kokkos::Profiling::popRegion(); // Mesh::Initialize::Send
+--
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1404-    PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1405-    const auto ret = mpi_comm_map_.insert({pair.first, mpi_comm});
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1406-    PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1407-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1408-  // TODO(everying during a sync) we should discuss what to do with face vars as they
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp:1409:  // are currently not handled in pmb->meshblock_data.Get()->SetupPersistentMPI(); nor
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1410-  // inserted into pmb->pbval->bvars.
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1411-#endif
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1412-}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1413-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1414-int Mesh::GetLid(std::vector<std::vector<int>> const &rblist,
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1415-                 std::vector<int> const &gid2rank, int gid) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1416-  if (gid >= gid2rank.size()) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1417-    std::stringstream msg;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1418-    msg << "### FATAL ERROR in GetLID" << std::endl
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1419-        << "GID > gid2rank.size() ( " << gid << ", " << gid2rank.size() << ")"
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1420-        << std::endl;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1421-    PARTHENON_FAIL(msg);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1422-    return -1;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1423-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1424-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1425-  int rank = gid2rank[gid];
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1426-  if (rank >= rblist.size()) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1427-    std::stringstream msg;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1428-    msg << "### FATAL ERROR in GetLID" << std::endl
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1429-        << "rank >= rblist.size() ( " << rank << ", " << rblist.size() << ")"
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1430-        << std::endl;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1431-    PARTHENON_FAIL(msg);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1432-    return -1;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1433-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1434-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1435-  const std::vector<int> &v = rblist[rank];
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1436-  auto it = std::find(v.begin(), v.end(), gid);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1437-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1438-  if (it == v.end()) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/mesh/mesh.cpp-1439-    std::stringstream msg;
+--
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-129-  return TaskStatus::complete;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-130-}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-131-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-132-void SwarmContainer::SendBoundaryBuffers() {}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-133-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp:134:void SwarmContainer::SetupPersistentMPI() {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-135-  for (auto &s : swarmVector_) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp:136:    s->SetupPersistentMPI();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-137-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-138-}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-139-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-140-bool SwarmContainer::ReceiveBoundaryBuffers() { return true; }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-141-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-142-void SwarmContainer::ReceiveAndSetBoundariesWithWait() {}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-143-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-144-void SwarmContainer::SetBoundaries() {}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-145-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-146-void SwarmContainer::AllocateBoundaries() {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-147-  for (auto &s : swarmVector_) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-148-    s->AllocateBoundaries();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-149-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-150-}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-151-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-152-TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-153-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Send");
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-154-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-155-  for (auto &s : swarmVector_) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-156-    s->Send(phase);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-157-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-158-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-159-  Kokkos::Profiling::popRegion(); // Task_SwarmContainer_Send
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-160-  return TaskStatus::complete;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-161-}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-162-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-163-TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-164-  Kokkos::Profiling::pushRegion("Task_SwarmContainer_Receive");
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-165-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.cpp-166-  int success = 0, total = 0;
+--
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-826-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-827-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-828-  neighborIndices_.DeepCopy(neighborIndices_h);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-829-}
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-830-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp:831:void Swarm::SetupPersistentMPI() {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-832-  auto pmb = GetBlockPointer();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp:833:  vbswarm->SetupPersistentMPI();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-834-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-835-  const int ndim = pmb->pmy_mesh->ndim;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-836-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-837-  const int nbmax = vbswarm->bd_var_.nbmax;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-838-  num_particles_to_send_ = ParArrayND<int>("npts", nbmax);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-839-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-840-  // Build up convenience array of neighbor indices
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-841-  if (ndim == 1) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-842-    SetNeighborIndices1D_();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-843-  } else if (ndim == 2) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-844-    SetNeighborIndices2D_();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-845-  } else if (ndim == 3) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-846-    SetNeighborIndices3D_();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-847-  } else {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-848-    PARTHENON_FAIL("ndim must be 1, 2, or 3 for particles!");
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-849-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-850-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-851-  neighbor_received_particles_.resize(nbmax);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-852-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-853-  // Build device array mapping neighbor index to neighbor bufid
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-854-  if (pmb->pbval->nneighbor > 0) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-855-    ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->pbval->nneighbor);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-856-    auto neighbor_buffer_index_h = neighbor_buffer_index.GetHostMirror();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-857-    for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-858-      neighbor_buffer_index_h(n) = pmb->pbval->neighbor[n].bufid;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-859-    }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-860-    neighbor_buffer_index.DeepCopy(neighbor_buffer_index_h);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-861-    neighbor_buffer_index_ = neighbor_buffer_index;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-862-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.cpp-863-}
+--
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-147-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-148-  // Sort-by-cell task
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-149-  TaskStatus SortParticlesByCell();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-150-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-151-  // Communication routines
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp:152:  void SetupPersistentMPI();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-153-  [[deprecated("Not yet implemented")]] void SetBoundaries();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-154-  [[deprecated("Not yet implemented")]] void SendBoundaryBuffers();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-155-  [[deprecated("Not yet implemented")]] void ReceiveAndSetBoundariesWithWait();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-156-  [[deprecated("Not yet implemented")]] bool ReceiveBoundaryBuffers();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-157-  TaskStatus StartCommunication(BoundaryCommSubset phase);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-158-  TaskStatus Send(BoundaryCommSubset phase);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-159-  TaskStatus Receive(BoundaryCommSubset phase);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-160-  TaskStatus ResetCommunication();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-161-  TaskStatus FinalizeCommunicationIterative();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-162-  [[deprecated("Not yet implemented")]] void ClearBoundary(BoundaryCommSubset phase);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-163-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-164-  bool operator==(const SwarmContainer &cmp) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-165-    // Test that labels of swarms are the same
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-166-    std::vector<std::string> my_keys(swarmMap_.size());
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-167-    auto &cmpMap = cmp.GetSwarmMap();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-168-    std::vector<std::string> cmp_keys(cmpMap.size());
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-169-    size_t i = 0;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-170-    for (auto &s : swarmMap_) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-171-      my_keys[i] = s.first;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-172-      i++;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-173-    }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-174-    i = 0;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-175-    for (auto &s : cmpMap) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-176-      cmp_keys[i] = s.first;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-177-      i++;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-178-    }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-179-    return my_keys == cmp_keys;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-180-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-181-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm_container.hpp-182- private:
+--
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-179-  /// Sort particle list by cell each particle belongs to, according to 1D cell
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-180-  /// index (i + nx*(j + ny*k))
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-181-  void SortParticlesByCell();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-182-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-183-  // used in case of swarm boundary communication
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp:184:  void SetupPersistentMPI();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-185-  std::shared_ptr<BoundarySwarm> vbswarm;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-186-  void AllocateComms(std::weak_ptr<MeshBlock> wpmb);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-187-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-188-  // This is the particle data size for indexing boundary data buffers, for which
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-189-  // integers are cast as Reals.
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-190-  int GetParticleDataSize() {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-191-    int size = 0;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-192-    for (auto &v : std::get<0>(Vectors_)) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-193-      size += v->NumComponents();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-194-    }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-195-    for (auto &v : std::get<1>(Vectors_)) {
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-196-      size += v->NumComponents();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-197-    }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-198-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-199-    return size;
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-200-  }
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-201-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-202-  void Send(BoundaryCommSubset phase);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-203-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-204-  bool Receive(BoundaryCommSubset phase);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-205-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-206-  void ResetCommunication();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-207-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-208-  bool FinalizeCommunicationIterative();
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-209-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-210-  template <class T>
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-211-  SwarmVariablePack<T> PackVariables(const std::vector<std::string> &name,
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-212-                                     PackIndexMap &vmap);
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-213-
+/l0/orcaroot/orca-umbrella/build/phoebus-prefix/src/phoebus/external/parthenon/src/interface/swarm.hpp-214-  // Temporarily public

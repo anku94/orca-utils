@@ -1,0 +1,54 @@
+Exit code 137
+[Request interrupted by user for tool use]
+2026/01/15-23:55:52.048 h0 orca-init MLOG WARN [options.cc:165:   Options] Env var ORCA_CFG_YAML unset, no cfgfile. Using defaults.
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.........ctl_disc_host] localhost
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.........ctl_disc_port] 8888
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.........ctl_dash_host] h258.mon8.tablefs
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.........ctl_dash_port] 8889
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.......ctl_flight_host] localhost
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [......ctl_fstream_port] 8815
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.........ctl_fsql_port] 8816
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.............agg_count] 1
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [...........parquet_dir] /tmp/telemetry
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [....parquet_flushintvl] 5
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.......nthreads_decode] 1
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.........nthreads_sink] 1
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.....nthreads_compress] 1
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.......nthreads_parqio] 1
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [..........mpi_topology] allrep
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [...........duckdb_path] /tmp/duck.db
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [..............thpoolsz] 2
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.....affinity_bind_map] 
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [..............hg_proto] na+sm
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.............hg_autosm] 1
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [...........hg_ipsubnet] 
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [...........hg_port_min] 8890
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [...........hg_port_max] 8940
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [...........hg_infltmax] 2
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.............hg_listen] 1
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [......hg_prog_intvl_us] 2000
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.......hg_prog_trigmax] 2
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [..........hg_msgpoolsz] 32
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.........hgblk_poolcfg] 1M:4
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [........hgblk_infltmax] 2
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [...........hg_checksum] none
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [...............na_poll] 0
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [..........mpi_draintgt] 2
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.........bufpool_sizes] 4M,16M,32M
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.....bufpool_maxretain] 1G
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [...........mlog_defpri] INFO
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [........mlog_stderrpri] WARN
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [......mlog_logtostderr] 0
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [............mlog_masks] 
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [...........mlog_logdir] /tmp
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.........mlog_msgbufsz] 0
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [........enable_metrics] 1
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [........metrics_pollms] 5000
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [.............flow_yaml] 
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [..........flow_partcnt] 1
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [...........flow_ntiers] 1
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [......bootstrap_cmdseq] resume
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [options.cc:105: LogOptMsg] [........ctl_exitondone] 1
+2026/01/15-23:55:52.048 h0 orca-init MLOG WARN [    ctx.cc:124:MonContext] Invalid ovid: INVALID (ignore if test/bench/Agg bootstrap)
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO [    ctx.cc:130:MonContext] Reconfiguring logger. Subsequent logs written to: /tmp/cmdrunner
+2026/01/15-23:55:52.048 h0 orca-init MLOG INFO Reconfiguring logger

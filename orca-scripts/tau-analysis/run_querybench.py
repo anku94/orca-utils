@@ -1,3 +1,4 @@
+import copy
 import subprocess
 import datetime
 import suite_utils as su
@@ -28,6 +29,7 @@ class SingleConfig:
 
 def drop_caches():
     """Flush filesystem caches. Requires sudo."""
+    print("-INFO- Dropping caches")
     subprocess.run(
         ["sudo", "sh", "-c", "sync; echo 3 > /proc/sys/vm/drop_caches"],
         check=True,
@@ -214,38 +216,6 @@ def dftracer_count_window(config: SingleConfig, window_s: float = 1.0) -> QueryR
     )
 
 
-@dataclass
-class BenchmarkConfig:
-    calicfg: SingleConfig
-    orcacfg: SingleConfig
-    dftcfg: SingleConfig
-
-
-def run_benchmarks(config: BenchmarkConfig) -> list[QueryResult]:
-    # assert all dirs exist
-    assert config.calicfg.trace_dir.exists()
-    assert config.orcacfg.trace_dir.exists()
-    assert config.dftcfg.trace_dir.exists()
-
-    results = []
-
-    # cali_cfg = config.caliper_config
-    # results.append(caliper_count_sync_maxdur(cali_cfg))
-    # results.append(caliper_count_mpi_wait_dur(cali_cfg))
-    # results.append(caliper_count_window(cali_cfg))
-
-    orca_dir = config.orcacfg.trace_dir
-    results.append(orca_count_sync_maxdur(orca_dir))
-    results.append(orca_count_mpi_wait_dur(orca_dir))
-    results.append(orca_count_window(orca_dir))
-
-    results.append(dftracer_count_sync_maxdur(config.dftcfg, thresh_ms=10.0))
-    results.append(dftracer_count_mpi_wait_dur(config.dftcfg, thresh_ms=1.0))
-    results.append(dftracer_count_window(config.dftcfg, window_s=1.0))
-
-    return results
-
-
 def get_rdf_path() -> Path:
     now_str = datetime.datetime.now().strftime("%Y%m%d-%H%M")
     csv_name = f"query_results_{now_str}.csv"
@@ -254,102 +224,106 @@ def get_rdf_path() -> Path:
     return csv_path
 
 
+def main_dftracer(basecfg: SingleConfig) -> list[QueryResult]:
+    suite_dir = Path("/mnt/ltio/orcajobs/suites/20260102")
+    suites = su.read_v2_suites(suite_dir)
+    suites = sorted(suites, key=lambda s: s.nsteps)
+    suites = [s for s in suites if s.nsteps == 20 and s.ranks == 4096]
+    profs = [s.get_prof_path("11_dftracer") for s in suites]
+
+    print(f"-INFO- Running DfTracer queries for {len(profs)} profiles")
+    results: list[QueryResult] = []
+
+    for prof in profs:
+        print(f"-INFO- Running DfTracer queries for: {prof}")
+        dftracer_cfg = copy.deepcopy(basecfg)
+        dftracer_cfg.trace_dir = prof
+
+        results.append(dftracer_count_sync_maxdur(dftracer_cfg, thresh_ms=10.0))
+        results.append(dftracer_count_mpi_wait_dur(dftracer_cfg, thresh_ms=1.0))
+        results.append(dftracer_count_window(dftracer_cfg, window_s=1.0))
+
+    return results
+
+
+def main_orca() -> list[QueryResult]:
+    suite_dir = Path("/mnt/ltio/orcajobs/suites/20260102")
+    suites = su.read_v2_suites(suite_dir)
+    suites = sorted(suites, key=lambda s: s.nsteps)
+    suites = [s for s in suites if s.nsteps == 20]
+    profs = [s.get_prof_path("07_or_tracetgt") for s in suites]
+
+    print(f"-INFO- Running ORCA queries for {len(profs)} profiles")
+    results: list[QueryResult] = []
+
+    for prof in profs:
+        # Since ORCA queries are fast, we sneak in a warmup run to reduce variance
+        # Unfortunately drop_caches() does not factor in some lustre server-side warmup
+        print(f"-INFO- Warming up ORCA for: {prof}")
+        prof_pqdir = prof / "parquet"
+        assert prof_pqdir.exists()
+
+        _ = orca_count_sync_maxdur(prof_pqdir)
+        _ = orca_count_mpi_wait_dur(prof_pqdir)
+        _ = orca_count_window(prof_pqdir)
+
+        print(f"-INFO- Running ORCA queries for: {prof}")
+        results.append(orca_count_sync_maxdur(prof_pqdir))
+        results.append(orca_count_mpi_wait_dur(prof_pqdir))
+        results.append(orca_count_window(prof_pqdir))
+
+    return results
+
+
+def main_caliper(basecfg: SingleConfig) -> list[QueryResult]:
+    suite_dir = Path("/mnt/ltio/orcajobs/suites/20260106")
+    suites = su.read_v2_suites(suite_dir)
+    suites = sorted(suites, key=lambda s: s.nsteps)
+    suites = [s for s in suites if s.nsteps == 20]
+    profs = [s.get_prof_path("17_caliper_tracetgt") for s in suites]
+
+    print(f"-INFO- Running Caliper queries for {len(profs)} profiles")
+    results: list[QueryResult] = []
+
+    for prof in profs:
+        print(f"-INFO- Running Caliper queries for: {prof}")
+        caliper_cfg = copy.deepcopy(basecfg)
+        caliper_cfg.trace_dir = prof
+
+        results.append(caliper_count_sync_maxdur(caliper_cfg))
+        results.append(caliper_count_mpi_wait_dur(caliper_cfg))
+        results.append(caliper_count_window(caliper_cfg))
+
+    return results
+
+
 def main():
-    suite_root = Path("/mnt/ltio/orcajobs/suites")
     rdf_path = get_rdf_path()
-    tmp_dir = Path("/tmp/dftracer")
 
-    caliper_profdir = suite_root / "20251230/amr-agg1-r512-n20-run1"
-    caliper_tracedir = caliper_profdir / "18_caliper_tracetgt/trace"
-    cali_cfg = SingleConfig(
-        trace_dir=caliper_tracedir, tmp_dir=tmp_dir, nranks=2, nworkers=2
+    basecfg = SingleConfig(
+        trace_dir=Path("/mnt/ltio/orca-tmp"),
+        tmp_dir=Path("/mnt/ltio/orca-tmp"),
+        nranks=-1,
+        nworkers=16,
     )
 
-    orca_profdir = suite_root / "20251229/amr-agg1-r512-n20-run1"
-    orca_tracedir = orca_profdir / "07_or_tracetgt/parquet"
-    orca_cfg = SingleConfig(
-        trace_dir=orca_tracedir, tmp_dir=tmp_dir, nranks=-1, nworkers=16
-    )
+    num_iters = 3
 
-    dftracer_profdir = suite_root / "20251212/amr-agg1-r512-n20-run1"
-    dftracer_tracedir = dftracer_profdir / "11_dftracer/trace-small"
-    dftracer_cfg = SingleConfig(
-        trace_dir=dftracer_tracedir, tmp_dir=tmp_dir, nranks=-1, nworkers=16
-    )
+    results: list[QueryResult] = []
+    for _ in range(num_iters):
+        results.extend(main_dftracer(basecfg))
+        # results.extend(main_orca())
+        # results.extend(main_caliper(basecfg))
+        pass
 
-    config = BenchmarkConfig(
-        calicfg=cali_cfg,
-        orcacfg=orca_cfg,
-        dftcfg=dftracer_cfg,
-    )
-
-    results = run_benchmarks(config)
     rdf = pd.DataFrame(results)
     print(rdf)
+
+    print(f"-INFO- Writing results to {rdf_path}")
     rdf.to_csv(rdf_path, index=False)
 
 
-def run_suite(suite: su.Suite, tmp_dir: Path, ntries: int = 1):
-    suite_root = suite.suitedir.parent.name
-    print(f"Running suite: {suite_root}/{suite.name}")
-    rdf_path = su.get_repo_data_dir() / f"20260105_query_results_{suite_root}_{suite.name}.csv"
-    print(f"Writing results to {rdf_path}")
-
-    orca_tracedir = suite.get_prof_path("07_or_tracetgt") / "parquet"
-    print(f"ORCA tracedir: {orca_tracedir}")
-    assert orca_tracedir.exists()
-    orca_cfg = SingleConfig(
-        trace_dir=orca_tracedir, tmp_dir=tmp_dir, nranks=-1, nworkers=16
-    )
-
-    caliper_tracedir = suite.get_prof_path("17_caliper_tracetgt") / "trace"
-    assert caliper_tracedir.exists()
-    print(f"Caliper tracedir: {caliper_tracedir}")
-    cali_cfg = SingleConfig(
-        trace_dir=caliper_tracedir, tmp_dir=tmp_dir, nranks=-1, nworkers=16
-    )
-
-    dftracer_tracedir = suite.get_prof_path("11_dftracer") / "trace"
-    print(f"DfTracer tracedir: {dftracer_tracedir}")
-    assert dftracer_tracedir.exists()
-    dftracer_cfg = SingleConfig(
-        trace_dir=dftracer_tracedir, tmp_dir=tmp_dir, nranks=-1, nworkers=16
-    )
-
-    config = BenchmarkConfig(
-        calicfg=cali_cfg,
-        orcacfg=orca_cfg,
-        dftcfg=dftracer_cfg,
-    )
-
-    for _ in range(ntries):
-        results = run_benchmarks(config)
-        if rdf_path.exists():
-            rdf_cur = pd.DataFrame(results)
-            rdf_prev = pd.read_csv(rdf_path)
-            rdf = pd.concat([rdf_prev, rdf_cur], ignore_index=True)
-        else:
-            rdf = pd.DataFrame(results)
-
-        print(f"Writing {len(rdf)} rows to {rdf_path}")
-        rdf.to_csv(rdf_path, index=False)
-
-
-def main_new():
-    tmp_dir = Path("/mnt/ltio/orca-tmp")
-    suite_dir = Path("/mnt/ltio/orcajobs/suites/20260102")
-
-    suites = su.read_v2_suites(suite_dir)
-    suites = sorted(suites, key=lambda s: s.nsteps)
-    # ranks = [2048, 4096]
-    suites = [s for s in suites if s.nsteps == 20]
-
-    print(f"Running {len(suites)} suites")
-    for suite in suites:
-        print(f"Running suite: {suite.name}")
-        run_suite(suite, tmp_dir, ntries=3)
-
-
 if __name__ == "__main__":
-    disable_dask_spillover()
-    main_new()
+    # disable_dask_spillover()
+    # main_new()
+    main()

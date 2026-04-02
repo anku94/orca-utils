@@ -19,6 +19,29 @@ import pandas as pd
 SUITE_ROOT = Path("/mnt/ltio/orcajobs/suites")
 
 
+def _load_orca_umbrella() -> Path:
+    """Load ORCA_UMBRELLA env var, validate it exists, and add caliper to sys.path."""
+    import sys
+
+    env_val = os.environ.get("ORCA_UMBRELLA")
+    if env_val is None:
+        raise RuntimeError("ORCA_UMBRELLA env var is not set")
+
+    umb_path = Path(env_val)
+    if not umb_path.exists():
+        raise RuntimeError(f"ORCA_UMBRELLA path does not exist: {umb_path}")
+
+    # Add caliperreader to Python path
+    caliper_pypath = umb_path / "lib" / "caliper"
+    if caliper_pypath.exists() and str(caliper_pypath) not in sys.path:
+        sys.path.insert(0, str(caliper_pypath))
+
+    return umb_path
+
+
+ORCA_UMBRELLA = _load_orca_umbrella()
+
+
 logger = logging.getLogger(__name__)
 
 

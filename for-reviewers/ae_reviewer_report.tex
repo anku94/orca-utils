@@ -1,0 +1,146 @@
+% Default style of report is standalone report with reviewer name
+%
+% If reviewer does not want to disclose identity to paper authors,
+% the report instead will be anonymously appended to AD/AE appendix.
+% In this case, add "nonacm' as option to documentclass, and
+% uncomment "\setboolean{standalone}{false}" below
+\documentclass[sigconf]{acmart}
+%\documentclass[nonacm,sigconf]{acmart}
+
+\usepackage{cite}
+\usepackage{amsmath,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+
+\usepackage{ae_review}
+\pagenumbering{gobble} % no page numbers
+
+\usepackage{ifthen}
+\newboolean{standalone}
+% TODO: set dependent on whether this is a standalone report
+\setboolean{standalone}{true}
+%\setboolean{standalone}{false}
+
+% provide conference information for standalone report
+% DOI
+\acmDOI{10.475/123_4} % TODO: Update
+% ISBN
+\acmISBN{123-4567-24-567/08/06} % TODO: Update
+%Conference
+\acmConference[SC'25]{The International Conference for High Performance
+Computing, Networking, Storage, and Analysis 2025}{November 2025}{St. Louis, MO, US} 
+\acmYear{2025}
+\copyrightyear{2025}
+\setcopyright{rightsretained}
+
+
+\begin{document}
+
+\ifthenelse{\boolean{standalone}}{
+% title for standalone report
+% TODO: replace XXX with paper title
+\title{Reproducibility Report for SC25 Paper\\XXX}
+}{
+\title{Reproducibility Report}
+}
+
+\ifthenelse{\boolean{standalone}}{
+% TODO: if standalone: Name of SC25 Reproducibility Committee member
+\author{Firstname Lastname}
+%\authornote{Note}
+\orcid{1234-5678-9012}
+\affiliation{%
+  \institution{Affiliation}
+  \streetaddress{Address}
+  \city{City} 
+  \state{State} 
+  \postcode{Zipcode}
+  \country{Country}
+}
+\email{email@domain.com}
+}{}
+
+\ifthenelse{\boolean{standalone}}{
+\begin{abstract}
+% TODO: replace XXX with paper title
+% TODO: replace YYY with first author name (+ "et al." if multiple) 
+This reproducibility report provides details about the artifact evaluation done with regards to the Artifact Description and Evaluation appendix of SC25 paper XXX by YYY.
+The work was done as part of the Reproducibility Initiative of SC25.
+The author is a member of the SC25 Reproducibilty Committee.
+\end{abstract}
+
+\keywords{Artifact Evaluation, Reproducibility}
+}{}
+
+
+\maketitle
+
+\aeroverview
+
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+Artifact ID & Available & Functional & Reproduced \\
+\midrule
+$A_1$ &  \aerstatus{1} & \aerstatus{1} & \aerstatus{1} \\
+$A_2$ &  \aerstatus{1} & \aerstatus{1} & \aerstatus{1} \\
+$A_3$ &  \aerstatus{1} & \aerstatus{0} & \aerstatus{0} \\
+$\ldots$ &  \\
+\midrule
+Badge awarded &  yes & no & no \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\aerrepoduction
+
+\aerwhen
+
+\begin{aerhint}
+\begin{itemize}
+    \item State when the experiments were done.
+    \item e.g., "The artifact evaluation was conducted from July 24, 2025, to July 31, 2025."
+    \item e.g., "Artifact evaluation was carried out on July 24, 2025."
+\end{itemize}
+\end{aerhint}
+
+\aerwhere
+
+\begin{aerhint}
+\begin{itemize}
+    \item Specify the computational resources utilized for experiments.
+    \item e.g., "The experiments conducted for artifact evaluation were performed on Chameleon Cloud."
+    \item Provide more details if different computational resources were used for analyzing different computational artifacts.
+\end{itemize}
+\end{aerhint}
+
+\aerwhat
+
+
+\begin{aerhint}
+\begin{itemize}
+    \item Describe the procedures undertaken to reproduce the computational artifacts detailed in the AD/AE Appendices.
+    \item The detail level in this section can differ. If the procedures work as outlined in the AD/AE Appendices, a reference to these appendices suffices, confirming successful execution of the steps.
+    In such instances, a brief statement for each computational artifact is sufficient.
+    \item Generally, writing a brief paragraph about either the successful reproduction or the absence thereof of each computational artifact created by the authors is preferable.
+    \item When facing issues in reproducing the computational artifacts, offer a high-level overview of the encountered problems. Omitting specific details is acceptable. For instance, it is sufficient to state that code compilation failed on machine X with compiler Y, without including the exact error messages.
+    \item In the AE Report, potential shortcomings in the provided AD/AE Appendices that should be reported could include:
+    \begin{itemize}
+        \item \textbf{Unanticipated environmental variables:} Differences in computational environments that were not accounted for in the AD/AE Appendices.
+        \item \textbf{Implicit assumptions:} Assumptions made by the original authors that are not explicitly documented.
+        \item \textbf{Versioning issues:} Discrepancies arising from different versions of software or dependencies that were not detailed in the appendices.
+        \item \textbf{Undocumented steps or procedures:} Any critical steps or procedures that the authors may have inadvertently left out of the appendix.
+        \item \textbf{Data accessibility:} Challenges in accessing or using the data required for reproduction, which might not be covered in the appendices.
+        \item \textbf{User-defined parameters:} Lack of clarity about user-defined parameters or settings required for running the experiments.
+        \item \textbf{Hardware-specific issues:} Certain computational artifacts may behave differently on varying hardware configurations, which might not be addressed in the appendices.
+        \item \textbf{Network dependencies:} Any network-related dependencies or configurations that were not explicitly mentioned.
+    \end{itemize}
+\end{itemize}
+\end{aerhint}
+
+\aerdisclaimer
+
+\end{document}

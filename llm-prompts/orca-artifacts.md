@@ -20,3 +20,6 @@ This workflow will span multiple copies of this repo: local (my macbook) and rem
 
 - CLAUDE: `ext/sc25-repro/` is the official SC26 artifact submission instructions/template (cloned from https://github.com/weidendo/sc25-repro, maintained as a git subtree on `main`).
 - CLAUDE: `ext/carp-sc24ad/` is the user's own SC24 CARP AD/AE appendix — reference for personal style/structure when drafting the SC26 ORCA appendix (not authoritative instructions).
+- CLAUDE: LaTeX Makefile convention: `make` = build, `make draft` = build + copy to `drafts/YYYYMMDD_HH00.pdf`, `make rebuild` = clean + build, `make clean` = `latexmk -C`. (Reference Makefile lives at `~/Repos/thesis/thesis` on local mbp only — not present on cluster.)
+- CLAUDE: `ext/` layout convention: third-party tracked upstream → git subtree (`ext/sc25-repro`); personal-reference snapshot → vendored copy (`ext/carp-sc24ad`); active work → plain dir (`ext/sc26ad`).
+- CLAUDE: Do not create tech debt or exhibit short-term thinking. Be disciplined. Pause and ask user if something is uncertain.

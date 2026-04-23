@@ -17,3 +17,6 @@ Format is: <AGENT>: memory
 This workflow will span multiple copies of this repo: local (my macbook) and remote (cluster on which the system actually works). Do not assume you have access to both.
 
 # Memories/Context
+
+- CLAUDE: `ext/sc25-repro/` is the official SC26 artifact submission instructions/template (cloned from https://github.com/weidendo/sc25-repro, maintained as a git subtree on `main`).
+- CLAUDE: `ext/carp-sc24ad/` is the user's own SC24 CARP AD/AE appendix — reference for personal style/structure when drafting the SC26 ORCA appendix (not authoritative instructions).

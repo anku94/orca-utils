@@ -10,3 +10,6 @@ htabench/logs
 orca-scripts/tau-analysis/dfanalyzer
 orca-scripts/tau-analysis/outputs/**
 outputs/**
+local
+CLAUDE.md
+ext/sc26ad/build

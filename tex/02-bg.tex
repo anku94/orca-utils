@@ -1,0 +1,177 @@
+% ! TeX root = ../main.tex
+
+\section{Background and Motivation}\label{sec:orca:bg}
+
+\emph{Bulk synchronous parallel} (BSP)~\cite{Valia1990:BSP} workloads in both scientific computing and machine learning
+training pose unique efficiency challenges.
+These jobs, increasingly spanning tens of thousands of nodes, execute in lockstep and synchronize
+frequently via collective communication.
+At these scales, BSP is uniquely fragile: a single straggler can block cluster-wide progress at
+synchronization points.
+Their root causes are highly context-dependent, ranging from load imbalance and suboptimal overlap
+to tuning-induced variability, and have been documented
+extensively~\cite{\citeGroupVarHpc,\citeGroupVarAmr,\citeGroupVarRdma,\citeGroupVarMisc,\citeGroupML}.
+Despite extensive case studies, performance pathologies persist and remain costly to diagnose and
+fix.
+
+We argue this reflects a structural limitation in how BSP observability is practiced.
+While monitoring infrastructure is widely deployed~\cite{:Prometheus,Schwa2021:LDMS}, it targets
+\emph{known unknowns} via a fixed set of metrics such as CPU utilization.
+Performance pathologies are dominated by \emph{unknown
+  unknowns}~\cite{Major2017:o11y,:OtelO11y,Sridh:DistributedSystemsObservability} ---
+they cannot be anticipated by predefined metrics, and resolving them requires iterative
+investigation at varying resolutions: from high-level aggregates to fine-grained detail when
+needed.
+Current approaches to capturing fine-grained telemetry --- large event traces followed by
+post-mortem analyses --- incur prohibitive collection and analysis
+costs~\cite{Yildi2023:IOMax,\citeJainAmr}, delaying interventions.
+As a result, operators are forced to choose between expensive investigations and ad-hoc
+workarounds.
+This gap motivates a different model: always-on application observability as a production
+capability, with relevant views constructed on demand in real-time, hypotheses tested live, and
+collection steered accordingly while the job is still running --- a paradigm we call
+\emph{steerable observability}.
+
+We now illustrate this gap with case studies from HPC and ML training (\S\ref{sec:orca:bg:studies}),
+survey existing approaches and their limitations (\S\ref{sec:orca:bg:gaps}), and use our experiences
+with eBPF~\cite{:eBPF} to motivate a programmable substrate for real-time visibility at workload
+scale (\S\ref{sec:orca:bg:missing}).
+
+% This gap motivates a different model: always-on observability as a production capability, with
+% relevant views derived in real-time, hypotheses tested live, and collection steered accordingly
+% while the job is still running --- a paradigm we call \emph{steerable observability}.
+% Performance pathologies are dominated by \emph{unknown
+%   unknowns}~\cite{Major2017:o11y,:OtelO11y,Sridh:DistributedSystemsObservability} ---
+% resolving them requires constructing the right views from telemetry and refining them until causal
+% attribution is possible.
+% Dominant paradigms make this loop slow and rare: diagnosing pathologies requires rerunning
+% applications under progressively heavier diagnostics, from lightweight profiles to fine-grained
+% per-rank traces, followed by expensive \emph{extract-transform-load} (ETL)~\cite{Yildi2023:IOMax}
+% before queries can be served.
+% As a result, operators are forced to choose between expensive investigations and ad-hoc
+% workarounds.
+% This gap motivates a different model: always-on observability as an operational capability, with
+% relevant views derived in real-time, hypotheses tested live, and collection steered accordingly
+% while the job is still running.
+
+
+\subsection{Case Studies from HPC and ML}\label{sec:orca:bg:studies}
+
+\subsubsection{Optimizing Placement in AMR}
+\figBgVolatile{}
+
+% Our study of placement and load-balancing in \emph{adaptive mesh refinement} (AMR)
+% codes~\cite{\citeJainAmr} illustrates this gap concretely.
+A prior study of placement and load-balancing in \emph{adaptive mesh refinement} (AMR)
+codes~\cite{\citeJainAmr} illustrates this gap concretely.
+While widely known for load-imbalance challenges~\cite{Dubey2014:Survey}, the study finds
+load-imbalance indistinguishable from other hardware, software, and tuning artifacts without
+fine-grained telemetry.
+\Cref{fig:orca:bg-volatile} shows one such example: tail latency spikes in \mpiw{}
+that only manifested at scale would get attributed to collectives in aggregate telemetry.
+Diagnosing each artifact required months of iterative investigation, while mitigations typically took days.
+
+The primary diagnostic bottleneck was a slow feedback loop: each iteration required running the
+codes, collecting large event traces, followed by post-mortem trace analyses bottlenecked on
+expensive ETL (\emph{extract-transform-load}) from formats such as CSV.
+Mitigations identified were cluster- and workload-specific.
+Even after these artifacts were fixed, placement demonstrated a fundamental tradeoff
+between compute load balance and communication locality --- the right balance between the two
+varies across workloads, scales, and architectures.
+Translating these optimizations to production environments would require repeating this
+time-consuming exercise --- underscoring the need for infrastructure that makes such investigations
+routine.
+% Translating them to production environments would require repeating the same exercise.
+% Given that optimal configurations are not portable across environments, the need is not for better
+% one-off analyses but for infrastructure that makes such investigations routine.
+
+\subsubsection{Parallels from the Pytorch Ecosystem}
+
+The PyTorch~\cite{Paszk2019:PyTorch} ML training ecosystem exhibits the same offline feedback loop.
+Kineto~\cite{2025:PytorchKineto} captures fine-grained traces on demand as JSON, triggered via a
+node-local control daemon called Dynolog~\cite{2025:MetaDynolog}.
+\emph{Holistic Trace Analysis} (HTA)~\cite{2025:MetaHTA} computes derived views such as activity
+breakdowns and straggler detection.
+Together, these cover capture, actuation, and analysis --- but HTA is a single-node
+Pandas~\cite{:Pandas} script that cannot scale to cluster-wide traces, and Dynolog provides
+best-effort actuation with no workload-level consistency guarantees.
+% , whereas reliable construction of views like
+% \Cref{fig:orca:bg-volatile} requires complete telemetry for each collective instance.
+
+Recent ML training systems have begun addressing specific pathologies online --- straggler
+localization~\cite{Yao2025:Holmes,Wu2025:GREYHOUND,\citeCuiXputimer,Guan2025:PerfTracker,Deng2025:Mycroft},
+fault diagnosis~\cite{Dong2025:Aegis,Deng2025:Minder}, and training
+correctness~\cite{Jiang2025:TrainCheck} --- but each reimplements subsets of collection,
+aggregation, and control from scratch.
+A common programmable substrate would generalize these diagnostics, allowing detection strategies
+to be expressed as analytical queries over system state, composable without
+rebuilding the underlying infrastructure.
+
+\subsection{Existing Approaches and Gaps}\label{sec:orca:bg:gaps}
+
+\parahead{Monitoring}
+Monitoring enables basic cluster visibility via periodically captured metrics, but lacks the
+workload context necessary to construct views like \Cref{fig:orca:bg-volatile}.
+Widely deployed infrastructure for metrics includes Prometheus~\cite{:Prometheus}, a time-series
+database, and LDMS~\cite{Schwa2021:LDMS}, an on-fabric hierarchical metric collection
+infrastructure used in HPC clusters.
+
+\parahead{Profiling and Tracing}
+Tools such as TAU~\cite{Shend2006:TAU}, \scorep{}~\cite{Knupf2012:Score-P}, and
+Kineto~\cite{2025:PytorchKineto} can provide both high-level aggregates via profiles or fine-grained telemetry
+via traces, but are post hoc by design.
+Traces can characterize short runs, but cannot provide always-on visibility over long-running jobs.
+In the absence of any real-time feedback to guide collection, traces simultaneously overcollect
+and undercollect --- despite capturing every \mpiw{}, they can not explain which sub-functions
+within anomalous \mpiw{} caused the latency spikes.
+Formats like OTF2~\cite{Eschw2012:OTF2} and JSON~\cite{:ChromeJsonTEF} 
+require expensive transforms for dataframe-style analytics~\cite{Jain2025:AMR,Yildi2023:IOMax},
+and visual inspection for anomalies is impractical for cluster-scale workloads.
+
+% \cite{Bhate2019:Hatchet} (Hatchet)
+% \cite{Yildi2023:IOMax} -- DFTracer cousin, exists because they do not know Polars + Lazy Parquet exists
+\parahead{Dataframe Analytics}
+Recent tools such as Caliper~\cite{Boehm2016:Caliper}, \dftracer{}~\cite{Devar2024:DFTracer},
+Pipit~\cite{Bhate2024:Pipit}, and Pytorch HTA~\cite{2025:MetaHTA} have adopted
+Pandas~\cite{:Pandas} and Dask-based~\cite{Rockl2015:Dask} dataframe analytics interfaces to
+analyze telemetry, but require expensive ETL~\cite{Yildi2023:IOMax,\citeJainAmr} 
+--- the working set for which scales with \emph{ranks $\times$ timesteps}.
+%formats such as CSV and JSON 
+Columnar formats like Parquet~\cite{:ApacheParquet} offer efficient post-hoc analytics, but do not
+by themselves address overcollection, working set scaling, or real-time feedback, and remain
+largely unadopted in tracing workflows.
+In a simple internal port of HTA analyses from JSON to Parquet, we observed 12$\times$ faster data
+loading and 8$\times$ faster end-to-end analysis.
+
+% \cite{Godoy2020:ADIOS2} (ADIOS)
+% \cite{Eisen2025:ADIOS} -- ADIOS SST
+\parahead{Streaming and In-situ Analytics}
+ADIOS~\cite{Godoy2020:ADIOS2} enables fixed-function in-situ workflows~\cite{Eisen2025:ADIOS} on
+scientific data, typically run as another MPI application.
+%provides transport abstractions for in-situ
+MRNet~\cite{Roth2003:MRNet,Willi2016:MRNetApps} is a tree-based overlay used as a reduction backend
+for commercial debuggers, but provides a compiled packet-based programming model.
+Neither enable runtime-programmable dataframe-style analytics needed for real-time BSP
+observability.
+Cloud streaming systems such as Flink~\cite{Carbo2015:ApacheFlink} and Kafka~\cite{Kreps2011:Kafka}
+are designed for independent event streams over IP networks They lack fabric-aware transport and
+BSP-aligned coordinated collection, precluding views like \Cref{fig:orca:bg-volatile}.
+
+\subsection{The Missing Substrate}\label{sec:orca:bg:missing}
+
+Diagnosing the root cause behind \Cref{fig:orca:bg-volatile} required capabilities beyond what any
+single tool in the taxonomy provides.
+At node scale, eBPF~\cite{:eBPF} provides a template: dynamic probes, programmatic aggregation, low
+overhead in the common case with depth when needed.
+It enabled controlled and targeted access to telemetry within \mpiw{} after alternatives were
+exhausted.
+Hypotheses about interrupts and scheduler effects were tested and discarded in hours.
+But eBPF is node-local, and our workflow involved ad-hoc orchestration, uncoordinated collection,
+and manual post-hoc correlation.
+Extending this to workload scale requires a substrate for real-time \emph{feedback}, treating
+observability not as distributed logging, but as materializing views directly from running
+applications.
+But visibility alone is insufficient for steerability. Interventions --- whether additional views
+or parameter adjustments --- require a \emph{control plane} back to the running application,
+and may be driven by humans, automated agents, or policies.
+The next section states the requirements such a substrate must satisfy.

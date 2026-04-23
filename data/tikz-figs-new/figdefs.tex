@@ -1,0 +1,86 @@
+% ---------------------------------------- Color Definitions
+% ----------------------------------------
+\definecolor{ctlcolor}{HTML}{5E81AC}   % Steel blue
+\definecolor{aggcolor}{HTML}{8FBCBB}   % Teal
+\definecolor{mpicolor}{HTML}{D08770}   % Coral/salmon
+\definecolor{pqcolor}{HTML}{B48EAD}    % Muted purple (for parquet matrix)
+\definecolor{flowcolor}{HTML}{A3BE8C}  % Dusty blue
+
+% ---------------------------------------- Layer Definitions
+% ----------------------------------------
+\pgfdeclarelayer{deepestbackground}
+\pgfdeclarelayer{deepbackground}
+\pgfdeclarelayer{foreground}
+\pgfsetlayers{deepestbackground,deepbackground,background,main,foreground}
+
+% ---------------------------------------- Dataframe Styles ----------------------------------------
+\tikzset{
+  dataframe/.style={
+      draw,
+      minimum width=6pt, minimum height=10pt,
+      outer sep=0pt, inner sep=0pt,
+    },
+  dfheader/.style={ dataframe, fill=gray!30, minimum height=5pt },
+  dfbody/.style={ dataframe, fill=white, },
+  pics/minidfcol/.style={
+      code={
+          \node[dfheader] (-h) at (0,0) {};
+          \node[dfbody, below=0pt of -h] (-b) {};
+        }
+    },
+  pics/minidf/.style args={#1}{
+      code={
+          \pic (p0) at (0,0) {minidfcol};
+          \pic [right=0pt of p0-h] (p1) {minidfcol};
+          \pic [right=0pt of p1-h] (p2) {minidfcol};
+          % \node[above=2pt of p1-h] {#1}; expose anchors
+          \node[inner sep=0pt, fit=(p0-h)(p2-b)] (-bounds) {};
+        }
+    },
+  pics/partitioned/.style={
+      code={
+          \pic (p0) at (-0.5,0) {minidf={}};
+          \pic (p1) at (0.5,0) {minidf={}};
+          % \node {abc} at (1, 1); bounding box or label if needed
+          \node[draw, dashed, fit=(p0-bounds)(p1-bounds), inner sep=2pt] (-box) {};
+        }
+    }
+}
+
+% ---------------------------------------- Document icon with folded corner + clipped Parquet logo
+% ----------------------------------------
+\tikzset{
+  pics/parquetlogo/.style={
+      code={\node[inner sep=0pt, anchor=center] {\includegraphics[width=0.3cm,trim=0cm 0cm 17.5cm 0cm,clip]{ext/Apache_Parquet_logo.pdf}};}
+    },
+  pics/fileicon/.style={
+      code={
+          \def\w{0.4}  % width
+          \def\h{0.5}  % height
+          \def\f{0.12} % fold size
+          % Main shape
+          \fill[white] (0,0) -- (\w,0) -- (\w,\h-\f) -- (\w-\f,\h) -- (0,\h) -- cycle;
+          \draw (0,0) -- (\w,0) -- (\w,\h-\f) -- (\w-\f,\h) -- (0,\h) -- cycle;
+          % Folded corner
+          \fill[gray!30] (\w,\h-\f) -- (\w-\f,\h-\f) -- (\w-\f,\h) -- cycle;
+          \draw (\w,\h-\f) -- (\w-\f,\h-\f) -- (\w-\f,\h);
+          % Clipped Parquet logo inside
+          \begin{scope}
+            \clip (0.05,0.05) rectangle (\w-0.05,\h-\f-0.05);
+            \pic at (0.2,0.2) {parquetlogo};
+          \end{scope}
+          % Expose bounds for fit
+          %\node[inner sep=0pt, fit={(0,0) (\w,\h)}] (-bounds) {};
+          % \draw[black] (0, 0) rectangle (\w, \h);
+          \node[inner sep=0pt, minimum width=\w cm, minimum height=\h cm, anchor=south west] (-bounds) at (0,0) {};
+        }
+    }
+}
+
+% ---------------------------------------- Graph Node Style (for flow diagrams)
+% ----------------------------------------
+\tikzset{
+  graphnode/.style={
+      rectangle, draw=black, thick, rounded corners, minimum height=0.6cm
+    }
+}

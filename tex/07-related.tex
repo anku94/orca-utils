@@ -1,0 +1,323 @@
+% ! TeX root = ./main.tex
+
+% Observability for CORRECTNESS (not just performance) - ORCA as substrate Dynamic instrumentation
+% (eBPF/DynInst) - claim as future work Generality within BSP: Charm++, MPI+X, ML 3D/4D parallelism
+% all covered Out of scope: pure dataflow (Spark/Dask) - different causality model
+
+\section{Discussion and Related Work}\label{sec:orca:related}
+
+% \parahead{Tool Infrastructure and Tracing}
+% MRNet~\cite{Roth2003:MRNet} introduced TBONs for scalable tool infrastructure, but its compiled C++
+% filter model has not evolved with modern analytics.
+% Fay~\cite{Erlin2011:Fay} and Snicket~\cite{Berg2021:Snicket} compile declarative queries into
+% distributed probes that filter and aggregate at source.
+% ORCA combines both: a TBON with Arrow interchange, declarative SQL, and BSP-aligned control.
+% Dynamic instrumentation via eBPF~\cite{:eBPF} and DynInst~\cite{Berna2011:DynInst} extends reach
+% into runtime and kernel layers.
+% Sketch-based telemetry reduction~\cite{Sriva2024:Circa} aligns with ORCA's in-situ aggregation
+% model.
+
+% \parahead{ML Training Observability}
+% Recent ML training systems address pathologies from straggler
+% localization~\cite{Yao2025:Holmes,Wu2025:GREYHOUND,\citeCuiXputimer,Guan2025:PerfTracker,Chen2025:Reveal}
+% to fault diagnosis~\cite{Deng2025:Minder,Dong2025:Aegis} to training
+% correctness~\cite{Jiang2025:TrainCheck}, each building application-specific collection and analysis
+% pipelines.
+% Mycroft~\cite{Deng2025:Mycroft} uses collective structure for real-time root-cause analysis,
+% working backward from stalls to causes.
+% Unlike ORCA's timestep dataframe abstraction, Mycroft analyzes approximate telemetry slices by
+% querying a database, without completeness guarantees or in-situ reduction.
+
+% \parahead{Unified Analytics}
+% Arrow is emerging as common interchange for tabular HPC data ---TileDB~\cite{:TileDB} and
+% arrow-zarr~\cite{2026:arrow-zarr} bridge array stores and SQL engines~\cite{Lamb2024:DataFusion}.
+% SmartNICs are being explored as execution targets for Arrow-based data
+% pipelines~\cite{Ulmer2023:ExtendingComposableDatab,Liu2022:ProcessingParticleData}--- a declarative
+% engine like ORCA's could offload plan fragments to such devices transparently.
+% In-situ indexing systems like DeltaFS~\cite{Zheng2018:DeltaFS} and CARP~\cite{Jain2024:CARP} deploy
+% shufflers for embedded in-situ hash and range-partitioning.
+% ORCA's TBON could accommodate shuffling as an intra-tier operation.
+% As these ecosystems converge, common infrastructure can subsume analytics workflows ranging from
+% observability to checkpoint indexing to scientific queries.
+
+\parahead{ML Training Observability}
+The proliferation of bespoke ML training observability
+systems~\cite{\citeGroupML}---each
+reimplementing subsets of collection, detection, and
+actuation---validates the need for a general substrate.
+Greyhound~\cite{Wu2025:GREYHOUND} is closest to ORCA, implementing a
+complete fixed-function feedback loop. ORCA 
+enables these workflows via composable operators over consistent snapshots of the application state.
+Mycroft~\cite{Deng2025:Mycroft} notes the scalability limits of
+centralized telemetry that ORCA's tree-based overlay avoids by design.
+% A detailed comparison is provided in Appendix~\ref{sec:appdx}.
+
+\parahead{Microservice Observability}
+Fay~\cite{Erlin2011:Fay}, Snicket~\cite{Berg2021:Snicket}, and Pivot Tracing~\cite{Mace2015:Pivottracing} pioneered 
+causality-preserving query-driven tracing.
+ORCA extends this paradigm to BSP, adding consistent control, open columnar formats, and
+an RDMA TBON.
+
+\parahead{Computational Steering}
+Computational steering---interactive control of running simulations---dates to the early
+1990s~\cite{Mille1998:SCIRun,Geist1997:Cumulvs} and continues through modern in-situ visualization
+frameworks~\cite{Ayach2015:Catalyst,Larse2022:Ascent}, but remains realized as fixed-function
+pipelines over domain-specific data models.
+ORCA generalizes this as a workload-agnostic framework using columnar formats and relational
+operators, with asynchronous and timestep-consistent control.
+ORCA's motivation is telemetry analytics, but its applicability to broader steering use cases
+tracks Arrow's adoption in scientific computing.
+Particle data already maps naturally to
+Arrow~\cite{Liu2022:ProcessingParticleData,Ulmer2023:ExtendingComposableDatab}, and bridges to
+array-based formats are emerging~\cite{2026:arrow-zarr,:DLPackProtocolApache}.
+As these ecosystems converge, the same infrastructure subsumes workflows from observability to
+in-situ visualization and indexing.
+Several extensions are natural:
+
+\begin{itemize}[leftmargin=*]
+  \item In-situ shuffling for partitioning~\cite{Zheng2018:DeltaFS,Jain2024:CARP} composes with ORCA's TBON as an
+        intra-tier operation, enabling a model closer to Spark~\cite{Zahar2010:Spark} or Dask~\cite{Rockl2015:Dask}, but in-situ.
+  \item Open table formats~\cite{:Iceberg}---catalog layers over
+        Parquet---fit naturally, as ORCA's output is already partitioned.
+  \item SmartNICs~\cite{Ulmer2023:ExtendingComposableDatab,Liu2022:ProcessingParticleData}
+        as offload targets for plan fragments, automatically scheduled by ORCA's query planner.
+  \item Dynamic instrumentation via eBPF~\cite{:eBPF} and
+        DynInst~\cite{Berna2011:DynInst}, extending visibility
+        into lower runtime layers.
+% \item Sketch-based telemetry reduction~\cite{Sriva2024:Circa} produces
+%       mergeable summaries that compose naturally with operator pushdown.
+\end{itemize}
+
+% Computational steering --- in-situ visualization and interactive parameter adjustment --- dates to
+% the early 1990s~\cite{Mille1998:SCIRun,Geist1997:Cumulvs} and continues through modern in-situ
+% visualization tools~\cite{Ayach2015:Catalyst,Larse2022:Ascent}, but is mostly realized as
+% fixed-function pipelines over domain-specific data models.
+% Ascent supports visualization and steering but via triggers at known points in the
+% simulation~\cite{Sewel2024:BridgingGapsSimulation}.
+% ORCA realizes a workload-agnostic runtime-programmable framework for steerability using columnar
+% formats and relational operators, with an asynchronous and timestep-consistent control plane.
+% While our motivation was analytics over telemetry, its applicability to broader steerability
+% usecases is determined by the applicability of Arrow to broader scientific analytics.
+% Particle data already aligns well to Arrow, and attempts are underway to bridge Arrow to
+% array-based scientific formats~\cite{2026:arrow-zarr}.
+% As these ecosystems converge, common infrastructure can subsume analytics workflows ranging from
+% observability to in-situ visualization and indexing.
+
+% 1. While ORCA does not currently implement shuffling, prior work has used shuffling for in-situ indexing~\cite{Zheng2018:DeltaFS,Jain2024:CARP} of scientific
+% data. Shuffling composes with the TBON as an intra-tier operation, and enables a programming model closer to Dask or Spark.
+
+% 2. Another extension is open table formats like Iceberg --- catalog formats over Parquet-based datasets. Concept is a natural
+% fit for HPC, as problem is already partitioned across simulation ranks. Preserve at output.
+
+% 3. SmartNICs become offload targets.
+
+% Arrays point: abandoned
+% More broadly, scientific computing's array-native ecosystems (xarray~\cite{Hoyer2017:xarray},
+% Zarr~\cite{:Zarr}, HDF5~\cite{Folk2011:HDF5}) and relational analytics (Arrow, Parquet, SQL) are
+% converging---TileDB~\cite{:TileDB} integrates array storage with database semantics,
+% arrow-zarr~\cite{2026:arrow-zarr} bridges Zarr to DataFusion.
+
+
+
+% \parahead{Tree-Based Overlay Networks}
+% MRNet~\cite{Roth2003:MRNet} pioneered TBONs for scalable tool infrastructure, but its programming
+% model—compiled C++ filter kernels over fixed packet formats—has not evolved with the data analytics
+% ecosystem.
+% ORCA revisits the TBON for modern infrastructure: receiver-driven RDMA transport, Arrow dataframes
+% as interchange, declarative SQL, and timestep-consistent control.
+
+% \parahead{Dynamic Instrumentation}
+% ORCA's control plane generalizes naturally to dynamic instrumentation via eBPF~\cite{:eBPF} and
+% DynInst~\cite{Berna2011:DynInst}, extending reach from application-level probes into runtime and
+% kernel layers.
+% eGPU~\cite{Yang2025:eGPU} extends dynamic instrumentation to GPUs.
+% Deployment concerns around eBPF capability and privilege tradeoffs remain under active discussion
+% ~\cite{Corbe2019:eBPFcap}.
+% % in the Linux security community
+
+% \parahead{Tracing and Observability}
+% Fay~\cite{Erlin2011:Fay} and Snicket~\cite{Berg2021:Snicket} pioneered query-driven tracing,
+% compiling declarative queries into distributed probes that filter and aggregate at the source
+% rather than deferring to post-hoc analysis.
+% ORCA adopts this paradigm for BSP workloads, adding BSP-aligned control, causal partitioning, and
+% an Arrow-native on-fabric TBON.
+% Sketch-based approaches to reducing telemetry volume via approximation are aligned with
+% ORCA~\cite{Sriva2024:Circa}.
+% eBPF-based tracing and observability mechanisms are deployed in production at scale~\cite{Benso2024:NetEdita}.
+% otel-arrow~\cite{2026:Otelarrow} is a project to bridge OpenTelemetry and Arrow.
+% \parahead{Trace Analytics}
+% IOMax~\cite{Yildi2023:IOMax} converts I/O traces to Parquet and constructs cached aggregate views
+% for interactive queries.
+% ORCA writes Parquet natively, and our post-hoc evaluation (\S\ref{sec:orca:eval-trace}) demonstrates
+% interactive queries over comparable data volumes using lazy Polars out of the
+% box---dictionary-encoded Parquet, predicate pushdown, no bespoke optimization.
+% For larger datasets, lakehouse formats~\cite{:Iceberg,Armbr2020:Deltalake} paired with distributed
+% SQL engines~\cite{Zahar2010:Spark,Sethi2019:Prestoa,:Daft} scale out naturally.
+
+
+% \parahead{ML Training}
+% \cite{Yao2025:Holmes} (HOLMES: communication irregularity localization)
+% \cite{Wu2025:GREYHOUND} (GREYHOUND: fail-slow detection)
+% \cite{Deng2025:Minder} (Minder: faulty machine detection)
+% \cite{\citeCuiXputimer} (XPUTimer: anomaly diagnostics)
+% \cite{Dong2025:Aegis} (Aegis: failure diagnosis)
+% \cite{Jiang2025:TrainCheck} (TrainCheck: silent erorrs, like numerical stability)
+% \cite{Guan2025:PerfTracker}: Fine-grained profiline and differential observability to summarize Pytorch runtime behavior in prod
+% \cite{Gangi2024:RDMA}: Tuning RDMA for jitter
+% \cite{Chen2025:Reveal}: DLT anomalies using hardware counters + unsupervised learning
+% \cite{Deng2025:Mycroft}: tracks collective-induced dependencies, fixed fault-localization pipeline, need multiple layers to debug "py-spy, Flight Recorder, Mycroft)
+% - Mycroft also cites Dapper, X-Trace, Pivot Tracing, Hindsight for causal analyses
+% \cite{Wang2025:Hawkeye}: PFC causality based diagnosis of RDMA performance anomalies
+% ABCD
+
+% \parahead{Towards Unified Analytics}
+% ADIOS~\cite{Eisen2025:ADIOS} enables in-situ analytics via a coupled MPI application but lacks
+% Arrow-native representation, declarative planning, or BSP-aligned control.
+% DeltaFS~\cite{Zheng2018:DeltaFS} and CARP~\cite{Jain2024:CARP} deploy shufflers for embedded
+% in-situ hash and range-partitioning.
+% ORCA's TBON could accommodate shuffling as an intra-tier operation.
+% More broadly, scientific computing's array-native ecosystems (xarray~\cite{Hoyer2017:xarray},
+% Zarr~\cite{:Zarr}, HDF5~\cite{Folk2011:HDF5}) and relational analytics (Arrow, Parquet, SQL) are
+% converging---TileDB~\cite{:TileDB} integrates array storage with database semantics,
+% arrow-zarr~\cite{2026:arrow-zarr} bridges Zarr to DataFusion.
+% SmartNICs~\cite{Ulmer2023:ExtendingComposableDatab,Liu2022:ProcessingParticleData} offer
+% Arrow-native acceleration for composable pipelines.
+% ORCA's shared foundation positions it to benefit as these interfaces mature.
+
+% \parahead{Streaming Analytics}
+% ADIOS~\cite{Eisen2025:ADIOS} enables in-situ analytics via a coupled analytics plane running as a
+% separate MPI application, whereas ORCA's analytics plane is fully asynchronous.
+% ADIOS also lacks Arrow-native data representation, declarative query planning, operator pushdown,
+% or BSP-aligned control semantics.
+% DeltaFS~\cite{Zheng2018:DeltaFS} and CARP~\cite{Jain2024:CARP} deploy fixed-function pipelines for
+% embedded indexing of checkpoint data using shuffle-based partitioning.
+% ORCA's TBON topology and query planner could accommodate such workflows as intra-tier operations,
+% enabling Dask-~\cite{Rockl2015:Dask} or Spark-style~\cite{Zahar2010:Spark} streaming analytics but
+% in-situ.
+
+% \parahead{Scientific Analytics}
+% Scientific computing has historically centered on array-native ecosystems---libraries such as
+% xarray~\cite{Hoyer2017:xarray} and Dask~\cite{Rockl2015:Dask} for labeled, chunked N-D computation
+% and storage formats such as Zarr~\cite{:Zarr} and HDF5~\cite{Folk2011:HDF5}---while relational
+% analytics evolved separately around SQL and columnar execution.
+% Prior work on declarative interfaces for scientific data includes SciQL~\cite{Kerst2011:SciQL} for
+% arrays, MeshSQL~\cite{Lee2004:MeshSQL} for region-centric mesh queries, and more recent algebras
+% over unstructured meshes~\cite{Rezae2014:UnstructuredMeshAlgebra}.
+% Practical convergence is now emerging: TileDB~\cite{:TileDB} integrates array storage with
+% database-style semantics, while projects like arrow-zarr~\cite{2026:arrow-zarr} bridge Zarr stores
+% to Arrow and DataFusion.
+% ORCA's shared foundation positions it to benefit as these interfaces mature.
+
+% \parahead{Accelerators}
+% There is growing interest in leveraging accelerators such as SmartNICs for composable data
+% pipelines, using Arrow as a shared
+% representation~\cite{Ulmer2023:ExtendingComposableDatab,Liu2022:ProcessingParticleData}.
+% ORCA's Arrow-native TBON can be extended to incorporate such devices as execution targets for plan
+% fragments.
+
+
+% Prototype implementations
+
+
+% ORCA is highly extensible.
+% % Cite sketches and all
+% Right now we only do dynamic aggregation workflows over static telemetry.
+% But we want to enable dynamic instrumentation via eBPF and DynInst to enable truly dynamic
+% workflows.
+
+% Long term, ideal observability remains the guiding principle.
+% Having all telemetry be on tap, but cost is paid only when necessary.
+% Currently, ORCA only gets to have the data after the trace collector such as Kineto has generated
+% it.
+% ORCA can drop/filter/aggregate it as close to the source, and it can mitigate the collection and
+% transport overhead, but it can not undo the overhead Kineto has already incurred by recording the
+% event.
+% We think that control semantics allow deeper integration.
+% Ideal observability is "collect only what the view necessitates, pay proportional cost.
+% "
+
+% Observability beyond performance and correctness.
+% In situ visualization of meshes etc. is a thing.
+% Can Science SQL enable it all via a unified platform?
+
+% We think there is potential for modular interfaces for control and data.
+% Private conversations suggest the challenge of managing IP constraints when cloud vendors are
+% running customer workloads and performance problems occur.
+% Standardized control and data interfaces can provide controlled visibility for services like ORCA
+% to connect to and obtain more meaningful telemetry without sharing source code.
+
+% Accelerators.
+% Growing interest in using smart devices to manage telemetry volume.
+% Also makes data pipelines complex.
+% ORCA's Arrow + distributed query plannign allows these capabilities to be exposed in a portable way
+% via the query planner, with users-side interfaces largely remaining unchanged.
+
+% \section{Related Work}
+
+% Analogy: high-frequency science sensors, like at SLAC/LHC, have a FPGA-based DAQ pipeline.
+% It filters out 99\% of the data at source, while the rest is analyzed in post.
+% ORCA attempts to be a similar software-defined thing.
+
+% \textbf{In-situ}
+
+% \cite{Zheng2018:DeltaFS}
+% \cite{Godoy2020:ADIOS2}
+% \cite{Larse2017:ALPINE}
+
+% \textbf{Monitoring}
+% \cite{Hintz2022:InfiniBandNetworkMonitoring}
+
+% \textbf{Uncategorized}
+% \cite{Wylie2025:15Years}
+% \cite{Kerst2011:DataDeluge}
+% \cite{Yokel2023:SOMA} -- "observability monitoring and in situ analytics in HPC"
+% \cite{Eisen2025:ADIOS} -- streaming in HPC using ADIOS with SST "Sustainable Staging Transport"
+% \cite{Knupf2012:Score-P} -- Score-P
+% \cite{Schwa2021:LDMS} -- LDMS/Sandia?
+% Idk \cite{Clasc:NSYS2PRVDetailedQuantitative} -- CLUSTER25, nsight to paraver, sqlite
+% \cite{Bhate2019:Hatchet} -- callgraph index on pandas traces \cite{Bhate2024:Pipit} -- pandas based
+% analytics on top of otf2, hpctoolkit etc \cite{Erlin2011:Fay} -- Theo recommended, distributed
+% tracing, SOSP 11 \cite{Berg2021:Snicket} -- query driven distributed tracing
+% \cite{Devar2024:DFTracer} -- DFTracer, Hari et al \cite{Natar2010:TAUMRNet}
+
+% \cite{Jiang2025:TrainCheck} \cite{\citeCuiXputimer} \cite{Deng2025:Minder} \cite{Dong2025:Aegis}
+% \cite{Yao2025:Holmes} \cite{Wu2025:GREYHOUND} \cite{Xiong2024:SuperBench} \cite{Liang2025:Lumos}
+% \cite{Yang2025:eGPU} -- extending eBPF to GPUs \cite{Jiang2024:MegaScale} -- scaling LLM training
+% to 10k GPUS.
+% has example of bootstrap problem (NCCL took 1047 seconds, they optimized it to 5s)
+
+% \cite{Chen2025:Anomalies} -- "hardware-centric approach to
+
+% \cite{Kerst2011:SciQL} -- SciQL
+% \cite{Rezae2014:UnstructuredMeshAlgebra} -- SIGMOD
+% \cite{Lee2004:MeshSQL} -- Mesh SQL
+% \cite{:TileDB} -- TileDB
+
+% Use Arrow: \cite{Liu2022:ProcessingParticleData} --- arrow for particle data and smartnics
+
+% Do you really need to store all that telemetry?
+% % X + MRNet ML Science SQL
+% Blog post.
+% \cite{Klein2024:YouReallyNeed}
+
+% \cite{Kong2022:Collie}
+% Benchmarks only validate performance for benchmark conditions.
+% Real workloads generate unique conditions.
+% They are very hard to recapture offline or in post.
+
+% ADIOS \cite{Godoy2020:ADIOS2,Eisen2025:ADIOS} interesting architectural comparison wrt ORCA.
+% Many higher-level differences: array-based formats vs Arrow-based dataframes.
+% Analytics plane executes analytics baked into application, vs the whole TBON becomes a unified
+% substrate where declarative analytics can be pushed down to point of origin.
+% Also ORCA optimizes collection pipeline for TBON incast.
+% More fundamentally, ORCA offers a completely asynchronous analytics plane, closer to a conventional
+% distributed service.
+% ADIOS analytics plane is another MPI application.
+% ORCA aggregators are multi-threaded asynchronous loosely coupled.
+
+% IOMax interesting.
+% Manual ETL + optimizations + materialize entire dataframes in memory.
+% ORCA shows that you can directly write partitioned Parquet, use dictionary-based columns, leverage
+% engines with lazy execution to get great out of box performance.
+% Recent versions of datafusion enable caching Parquet metadata to speed up subsequent queries
+% without custom solutions.

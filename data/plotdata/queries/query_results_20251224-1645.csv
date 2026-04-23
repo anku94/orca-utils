@@ -1,0 +1,7 @@
+query_name,trace_dir,run_type,data,total_us
+count_window,/mnt/ltio/orcajobs/suites/20251212/amr-agg1-r512-n20-run1/11_dftracer/trace,11_dftracer,"time_range=(0, 1000000.0),evtcnt=19005300",237948515
+count_window,/mnt/ltio/orcajobs/suites/20251212/amr-agg1-r512-n20-run1/07_trace_tgt/parquet,07_trace_tgt,"time_range=(1765657713917704960, 1.765657714917705e+18),evtcnt=4724317",242308
+count_sync_maxdur,/mnt/ltio/orcajobs/suites/20251212/amr-agg1-r512-n20-run1/07_trace_tgt/parquet,07_trace_tgt,"thresh_ms=10,count=23",14660
+count_sync_maxdur,/mnt/ltio/orcajobs/suites/20251212/amr-agg1-r512-n20-run1/11_dftracer/trace,11_dftracer,"thresh_ms=10,count=116",241306149
+count_mpi_wait_dur,/mnt/ltio/orcajobs/suites/20251212/amr-agg1-r512-n20-run1/11_dftracer/trace,11_dftracer,"thresh_ms=1,count=0",257334247
+count_mpi_wait_dur,/mnt/ltio/orcajobs/suites/20251212/amr-agg1-r512-n20-run1/07_trace_tgt/parquet,07_trace_tgt,"thresh_ms=1,count=0",316023

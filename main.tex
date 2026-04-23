@@ -1,0 +1,109 @@
+% -- ACM --
+% \documentclass[sigconf,anonymous,review=true,natbib=false]{acm-template/acmart}
+% \documentclass[sigconf,anonymous,review]{acm-template/acmart}
+
+% -- IEEE --
+\documentclass[conference]{ieee-template/IEEEtran}
+\IEEEoverridecommandlockouts
+
+% -- we use biblatex instead of bibtex --
+\usepackage[
+  % datamodel=acm-template/acmdatamodel,  % ACM-specific
+  style=numeric-comp,
+  backend=biber,
+  sorting=none % produces compressed ranges
+]{biblatex}
+
+% bib customizations
+\DeclareSourcemap{
+  \maps[datatype=bibtex]{
+    \map{ % suppress "(visited on ...)"
+      \step[fieldset=urldate, null]
+    }
+  }
+}
+
+\usepackage{listings} % -- for code blocks --
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocodex}
+\usepackage{inconsolata} % change texttt font from ugly IEEE defaults
+\usepackage{sourcesanspro} % change textsf font from ugly IEEE defaults
+\usepackage{tabularx}
+\usepackage{float} % for [H] non-floating placement
+% \usepackage{balance} % balance columns on last page
+% \usepackage{flushend} % balance columns on last page
+\usepackage{pbalance} % balance columns on last page, works
+
+% -- cleveref + config --
+\usepackage{amsmath} % for \text{}, must be loaded before cleveref
+\usepackage{cleveref}
+\crefname{figure}{fig.}{figs.}
+\Crefname{figure}{Fig.}{Figs.}
+
+% -- caption spacing ---
+\usepackage[skip=4pt, font={small,bf}]{caption} % skip=4pt above caption
+\setlength{\textfloatsep}{6pt plus 2pt minus 2pt} % skip = 6 +- 2pt below caption
+\setlength{\floatsep}{6pt plus 2pt minus 2pt} % skip = 6 +- 2pt below caption
+
+\usepackage{subcaption}
+\usepackage{enumitem} % for wide lists
+\usepackage{booktabs} % for \toprule, \midrule, \bottomrule
+\usepackage{multirow} % for \multirow in tables
+\usepackage[switch]{lineno} % draft line numbers; switch puts numbers on outer margins
+
+
+% -- local resources --
+\graphicspath{{./data/figs/}{./data/tikz-figs-new/pdf/}{./data/thesis-figs/}}
+\addbibresource{bib/NetSketch-Mon.bib}
+\addbibresource{bib/claude.bib}
+\addbibresource{bib/General-Thesis.bib}
+
+% -- Macros --
+\input{tex/99-macros}
+\input{tex/99-figs}
+
+\begin{document}
+\renewcommand\linenumberfont{\normalfont\tiny\color{red}}
+\linenumbers
+
+% \title{ORCA: Real-time Observability and Control for Bulk-Synchronous~Parallel Applications}
+\title{ORCA: Steerable Observability for Bulk-Synchronous~Parallel~Applications}
+
+% -- ACM author --
+% \author{CMU}
+
+% -- IEEE author --
+\author{\IEEEauthorblockN{Anonymous authors}}
+% \IEEEauthorblockA{CMU}}
+
+% -- IEEE: maketitle before abstract --
+\maketitle
+
+\input{tex/00-abstract}
+
+
+% -- ACM-specific --
+% \setcopyright{none}
+% \settopmatter{printacmref=false}
+% \renewcommand\footnotetextcopyrightpermission[1]{}
+% \keywords{TODO}
+
+% -- ACM: maketitle after abstract --
+% \maketitle
+
+\input{tex/01-intro}
+\input{tex/02-bg}
+\input{tex/03-chal}
+\input{tex/04-design}
+\input{tex/05-impl}
+\input{tex/06-eval}
+\input{tex/07-related}
+\input{tex/08-concl}
+% \section{References}
+% \clearpage
+\renewcommand*{\bibfont}{\small}
+\printbibliography{}
+
+% \input{tex/99-appendix}
+\end{document}

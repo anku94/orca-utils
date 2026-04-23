@@ -1,0 +1,19 @@
+\documentclass{article}
+\usepackage[mode=build]{standalone} % Allows inclusion of standalone files
+\usepackage{graphicx} % For graphics inclusion
+\usepackage{tikz}
+\usetikzlibrary{external}
+
+
+\begin{document}
+
+\begin{figure}[ht]
+    \centering
+    \includestandalone[width=0.8\linewidth]{./main} % Embeds the standalone file
+    \caption{A standalone TikZ diagram included in the parent document.}
+    % \label{fig:standalone_example}
+\end{figure}
+
+% This is a reference to Figure~\ref{fig:standalone_example}.
+
+\end{document}

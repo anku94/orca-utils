@@ -1,0 +1,51 @@
+% ! TeX root = ./main.tex
+
+\section{Conclusions}
+
+% A supercomputer is more than a bunch of FLOPs packed into a building.
+% It is pretending to be a single machine.
+
+% It has a homogenous architecture.
+% All workers of an application are running the same workload, connected by a high-speed PCI-esque
+% bus.
+
+% We compute on it as if it were a single machine.
+% We should observe it the same way, and control it the same way too.
+
+% BSP is different: a single workload on a tightly-coupled fabric where any jitter stalls everyone.
+% A system this unified should be observable as one.
+% The mistake of prior approaches was writing supercomputer telemetry to storage, deferring
+% supercomputer-scale analytics to later.
+% ORCA inverts this---pushing computation to the source so only the stories, not the raw data, hit
+% disk.
+% The hero run need not be followed by a hero analysis.
+
+% \section{Conclusions}
+
+BSP workloads require always-on observability as a production capability, capable of materializing
+actionable views and enabling rapid intervention.
+Traditional tracing works against this: the post-hoc paradigm incentivizes overcollection, requires
+large analytics clusters, and delays feedback.
+ORCA inverts this by pushing analytics to the source.
+Timestep dataframes and columnar representation enable multi-tier SQL analytics with operator
+pushdown---sub-2\% overhead, up to 99.999\% data reduction at source, agentic anomaly localization
+in minutes rather than months---all while contending for cluster resources with a live CPU
+code.
+GPU workloads and modern fabric QoS capabilities only increase the headroom available for such
+pushed-down workflows.
+Views materialize on demand, so only the stories---not the raw data---exit the fabric.
+The hero run need not be followed by a hero analysis.
+
+% BSP workloads are unified systems: identical code across all ranks, coordinated over fabrics
+% designed for collective communication, where any straggler stalls cluster-wide progress.
+% Prior observability fragmented this unity---per-rank logs, post-hoc pipelines, separate clusters to
+% parse what the supercomputer emitted.
+% ORCA inverts this by pushing computation to the source.
+% Timestep dataframes and columnar representation enable multi-tier SQL analytics with operator
+% pushdown: sub-2\% runtime overhead, continuous predicate evaluation without sampling, up to
+% 99.999\% data reduction at source, and agentic anomaly localization in minutes rather than
+% months---all while contending for fabric bandwidth with a live CPU simulation.
+% GPU workloads, where host-side collection runs asynchronously with device execution, only make this
+% easier.
+% Views materialize on demand, so only the stories---not the raw data---hit disk.
+% The hero run need not be followed by a hero analysis.

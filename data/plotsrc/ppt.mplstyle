@@ -1,0 +1,36 @@
+font.size: 15
+axes.titlesize: 22
+axes.labelsize: 20
+
+xtick.labelsize: 18
+ytick.labelsize: 18
+legend.fontsize: 15
+
+figure.titlesize: 22
+figure.labelsize: medium
+figure.labelweight: bold
+
+lines.linewidth: 3
+lines.markersize: 12
+
+axes.grid: True
+axes.grid.axis: both
+axes.grid.which: major
+axes.labelcolor: "#444"
+
+grid.color: "#bbb"
+grid.linewidth: 0.5
+axes.axisbelow: True
+axes.labelpad: 1.0
+
+image.cmap: Dark2
+
+legend.columnspacing: 0.9
+legend.handletextpad: 0.4
+legend.handlelength: 2.0
+
+text.usetex: True
+text.latex.preamble : \usepackage{lmodern}
+
+hatch.color: "#ddd"
+hatch.linewidth: 0.5

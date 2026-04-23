@@ -1,0 +1,168 @@
+\documentclass[tikz,border=10pt]{standalone}
+\usetikzlibrary{trees}
+\usetikzlibrary{fit}
+\usetikzlibrary{backgrounds}
+\usetikzlibrary{positioning}
+\usetikzlibrary{matrix}
+\usetikzlibrary{calc}
+\usepackage{fontawesome5}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{upquote} % to fix single quotes in the flow yaml
+
+% High-contrast syntax highlighting colors
+\definecolor{keyword}{HTML}{0550AE}    % Strong blue
+\definecolor{string}{HTML}{0A6640}     % Deep forest green
+\definecolor{comment}{HTML}{57606A}    % Dark gray
+\usepackage{lmodern}
+
+% Define orcaflow language (SQL + YAML hybrid)
+\lstdefinelanguage{orcaflow}{
+    % SQL keywords
+    keywords={SELECT, FROM, WHERE, AND},
+    % YAML structure keywords
+    morekeywords=[2]{nodes, sinks, sources, type, from, to, config, name, enabled, true, false},
+    keywordstyle=\color{keyword}\bfseries,
+    keywordstyle=[2]\color{keyword}\bfseries,
+    sensitive=false,
+    morecomment=[l]{\#},
+    commentstyle=\color{comment}\itshape,
+    morestring=[b]',
+    morestring=[b]",
+    stringstyle=\color{string},
+}
+
+\lstset{
+    basicstyle=\ttfamily,
+    columns=fullflexible,
+    language=orcaflow,
+    keywordstyle=\color{keyword}\bfseries,
+    stringstyle=\color{string},
+    commentstyle=\color{comment}\itshape,
+    xleftmargin=0pt,
+    xrightmargin=0pt,
+    aboveskip=0pt,
+    belowskip=0pt,
+    framesep=0pt,
+    framerule=1pt,
+}
+
+\input{figdefs.tex}
+
+\tikzset{
+    dottedbox/.style={draw=black!70, densely dashed, dash pattern=on 0.75pt off 0.75pt, rounded corners},
+    plannode/.style={rectangle, thin, fill=flowcolor!15, draw=black},
+    plannodemeta/.style={font=\scriptsize\ttfamily, inner sep=1pt, text=comment},
+    sinknode/.style={rectangle, draw=black, rounded corners, fill=pqcolor!15},
+    tierbox/.style={dottedbox, minimum width=6cm, minimum height=0.5cm},
+    % make text style texttt
+    flowyaml/.style={dottedbox, fill=flowcolor!15, font=\ttfamily},
+    sinkyaml/.style={dottedbox, fill=pqcolor!15, font=\ttfamily},
+    yamlbox/.style={draw=black, fill=gray!5},
+    tierline/.style={->, -latex, thick},
+    planline/.style={->, -stealth, densely dashed, dash pattern=on 1pt off 1pt },
+    flowbox/.style={draw=black, fill=gray!5},
+    boxlabel/.style={anchor=south west, font=\footnotesize\sffamily, inner xsep=0pt},
+}
+
+\begin{document}
+
+\tikzset{
+   pics/pqsinknode/.style={
+    code={
+      \node[sinknode, minimum height=0.7cm] (pqsink-node) { 
+        \includegraphics[width=1.3cm]{ext/Apache_Parquet_logo.pdf} 
+      };
+      \node[fit=(pqsink-node), inner sep=0pt] (-bounds) {};
+    }
+   }
+}
+
+
+\newsavebox{\flowbox}
+\begin{lrbox}{\flowbox}
+  \begin{minipage}[t]{5.9cm}
+    % \vspace*{-0.1\baselineskip} % suppress some extra space
+    \begin{lstlisting}[language=orcaflow]
+nodes:
+  mpi_tail:
+    SELECT * FROM mpi_msgtrace
+    WHERE probe_name = 'MPI_Wait'
+    AND dur_ms > 1000
+    \end{lstlisting}
+    \vspace*{-0.2\baselineskip}  % suppress some extra space
+  \end{minipage}
+\end{lrbox}
+
+\newsavebox{\sinksbox}
+\begin{lrbox}{\sinksbox}
+  \begin{minipage}[t]{5.9cm}
+    % \vspace*{-0.1\baselineskip} % suppress some extra space
+    \begin{lstlisting}[language=orcaflow]
+sinks:
+  mpi_tails:
+    type: parquet
+    \end{lstlisting}
+    \vspace*{-0.2\baselineskip}  % suppress some extra space
+  \end{minipage}
+\end{lrbox}
+
+\begin{tikzpicture}
+  % \node [querynode, right=of query-1] (query-2) { \begin{lstlisting}[language=SQL] SELECT * FROM
+  % mpi_msgtrace WHERE probe_name = 'MPI_Wait' AND dur_ms > 1000 \end{lstlisting}; };
+  \node [flowyaml] (flow-0) {\usebox{\flowbox}};
+  \node [sinkyaml, below=0.1cm of flow-0] (sinks-0) {\usebox{\sinksbox}};
+
+  \begin{pgfonlayer}{background}
+  \node[tierbox, below=1.5cm of sinks-0, fill=ctlcolor!10] (tier0-box) {};
+  \node[tierbox, below=0.7cm of tier0-box, minimum height=1.5cm, fill=aggcolor!10] (tier1-box) {};
+  \node[tierbox, below=0.72cm of tier1-box, minimum height=1.5cm, fill=mpicolor!10] (tier2-box) {};
+  \end{pgfonlayer}
+
+  % plan nodes: CoalesceExec, FilterExec, ScanExec
+  \node[plannode] (root-1-1) at ($(tier1-box.center) + (-1.5, 0)$) {CoalesceExec};
+  % \node[sinknode] (root-1-2) at ($(tier1-box.center) + (1.5, 0)$) {\texttt{parquet}};
+  % \pic[right=13pt of root-1-1-bounds.south east] (root-1-2) {pqsinknode};
+  \pic (root-1-2) at ($(tier1-box.center) + (1.5, 0)$) {pqsinknode};
+  \draw[planline] (root-1-1) -- (root-1-2-bounds);
+
+  \begin{scope}[local bounding box=root-2-1-bbox, shift={($(tier2-box.center) + (1.5, 0.08)$)}]
+    \node[inner sep=2pt, anchor=south] (root-2-1-name) {FilterExec};
+    \node[plannodemeta, below=0cm of root-2-1-name] (root-2-1-m1) {probe\_name = \ldots};
+    \node[plannodemeta, below=0cm of root-2-1-m1] (root-2-1-m2) {AND dur\_ms $>$ \ldots};
+  \end{scope}
+  \begin{scope}[local bounding box=root-2-2-bbox, shift={($(tier2-box.center) + (-1.5, 0.08)$)}]
+    \node[inner sep=2pt, anchor=south] (root-2-2-name) {ScanExec};
+    \node[plannodemeta, below=0cm of root-2-2-name] (root-2-2-m1) {mpi\_tail};
+    \node[plannodemeta, below=0cm of root-2-2-m1] (root-2-2-m2) {cols=*};
+  \end{scope}
+
+  \scoped[on background layer] \node[fit=(root-2-1-bbox), plannode] (root-2-1) {};
+  \scoped[on background layer] \node[fit=(root-2-2-bbox), plannode] (root-2-2) {};
+  \draw[planline] (root-2-2.east) -- (root-2-2.east -| root-2-1.west);
+
+
+  % box label
+  \node[boxlabel] at (tier0-box.north west) (tier0-box-label) {TierPlan \texttt{CTL} (noop)};
+  \node[boxlabel] at (tier1-box.north west) {TierPlan \texttt{AGG}};
+  \node[boxlabel] at (tier2-box.north west) {TierPlan \texttt{MPI}};
+
+  % background layer for plan nodes
+  \begin{pgfonlayer}{deepbackground}
+    % Add elements here that should appear behind everything
+    \node[flowbox, fit=(tier0-box)(tier0-box-label)(tier2-box)] (flow-box) {};
+    \node[boxlabel, font=\small\sffamily] at (flow-box.north west) {Flow Plan};
+
+    \node [yamlbox,fit=(flow-0)(sinks-0)] (yaml-box) {};
+    \node[boxlabel, font=\small\sffamily] at (yaml-box.north west) {Flow YAML};
+  \end{pgfonlayer}
+
+  % lines between tier boxes
+  \draw[tierline](tier2-box) -- (tier1-box);
+  \draw[tierline](tier1-box) -- (tier0-box);
+
+
+
+\end{tikzpicture}
+\end{document}

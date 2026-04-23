@@ -1,0 +1,67 @@
+% ! TeX root = ../main.tex
+
+% \section{Requirements for Closed-Loop Observability}
+\section{Requirements}
+\label{sec:orca:req}
+
+Our goal is to accelerate the full spectrum of observability workflows, from offline trace analysis
+to real-time diagnosis.
+This requires analytics to transform fine-grained telemetry in situ, terminating in aggregated
+views or detailed traces but reorganized for efficient offline analyses.
+Additionally, control semantics are needed for interventions ranging from steering application views to steering the
+application itself.
+We model BSP as consisting of timesteps punctuated by synchronous collectives~\cite{:MPI,:NCCL},
+with timesteps containing one or more collectives.
+Steerable observability for this model must support three key requirements.
+
+
+\pplushead{BSP-Aware Semantic Guarantees}
+Both the data and control paths must be synchronization-aware.
+On the data path, both transport and analytics must offer consistency guarantees, as all telemetry
+for a timestep must be collected and analyzed as a single unit.
+Control inputs must similarly be applied consistently and atomically at timestep boundaries
+across all ranks.
+While uncoordinated updates may be tolerable in some cases, they break correctness for
+interventions such as hyperparameter changes --- a timestep-consistent control plane generalizes
+across use cases.
+
+\pplushead{Low-Cost, Low-Latency Feedback}
+For always-on view-driven observability to be viable, overhead must be low and proportional to view
+complexity.
+Induced jitter must be minimized, so that continuously monitored aggregates incur minimal cost,
+while detailed traces remain available on demand.
+Analytics must execute in real-time, as feedback latency bounds intervention latency.
+
+
+\pplushead{Declarative and Flexible Analytics}
+No predefined set of analyses can anticipate every pathology.
+Operators must be able to specify views and collection policies via a programmable interface at
+runtime, without recompilation or restart.
+Collection and analytics must be schema-agnostic, enabling visibility into any layer of the runtime
+stack --- from MPI and fabric libraries to the application itself.
+\vspace{0.2em}
+
+% Supporting these requirements at scale requires balancing competing constraints ---
+% distributed execution for scalability, asynchronous operation for low overhead, and coordinated semantics for correctness ---
+% all the while keeping analytics expressive enough for ad-hoc queries.
+% At scale, distributed execution becomes necessary, creating competing constraints between asynchrony for low overhead
+% and coordination for correctness.
+At scale, both data and control paths necessitate distributed execution, requiring a careful balance of consistency guarantees
+with asynchrony for low overhead.
+Our design leverages modern columnar primitives (Arrow~\cite{:ApacheArrow}, Parquet~\cite{:ApacheParquet}),
+an extensible query engine called DataFusion~\cite{Lamb2024:DataFusion}, and RDMA for low-overhead transport,
+with a tree-based topology for reductions and broadcast.
+% At scale, these requirements pose competing constraints over distributed execution --- correctness necessitates
+% coordination across a large analytics tier, while
+% aligning analytics and control with a tree-based reductions and broadcasts respectively.
+% DataFusion~\cite{Lamb2024:DataFusion}) with RDMA for low-overhead transport, aligning data
+% partitioning with timestep boundaries and analytics with a reduction topology.
+
+% work interspersed by global synchronization via collectives~\cite{:MPI,:NCCL}.
+% On the data path, this implies coordinated collection and analytics.
+% BSP observability requires guarantees on both data and control paths.
+% On the data path, this means coordinated collection: detecting the straggler at a barrier requires
+% telemetry from all ranks for that barrier instance.
+% Sampling yields uncoordinated subsets insufficient for root cause attribution.
+% Control path semantics must similarly align with workload structure.
+

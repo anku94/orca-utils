@@ -1,0 +1,354 @@
+% ! TeX root = ./main.tex
+
+\section{Design}\label{sec:orca:design}
+
+\figDesignArch{}
+
+ORCA (\Cref{fig:orca:des-arch}) is a programmable \emph{tree-based overlay network} (TBON) with a
+controller (\tierctl{}) at the root and aggregators (\tieragg{}) as the intermediate scale-out
+tier, attached to application ranks (\tiermpi{}) as the leaf tier.
+\tierctl{} and \tieragg{} run on dedicated nodes outside the MPI domain and communicate with the application via
+on-fabric RPCs.
+The TBON provides asynchronous data and control planes.
+Data originates as columnar Arrow~\cite{:ApacheArrow} streams at leaf ranks, flows through the
+TBON, and is persisted via sinks.
+Two sinks are currently implemented: Parquet~\cite{:ApacheParquet} for high-volume telemetry, and
+DuckDB~\cite{Raasv2019:DuckDB} for real-time metrics streamed to dashboards.
+We present ORCA as a progression of capabilities that successively shorten the observability feedback loop:
+
+\begin{itemize}[leftmargin=*]
+  \item Timestep-consistent, low-overhead collection is provided via a timestep-based data model~(\S\ref{sec:orca:des_model}) along with an RDMA-based transport~(\S\ref{sec:orca:des_xport}).
+        By themselves, they write timestep-partitioned traces, enabling a workflow similar to conventional
+        tracers, but more efficient to collect and analyze.
+  \item A SQL-based interface called \emph{OrcaFlow}~(\S\ref{sec:orca:des_insitu})
+        provides declarative in-situ analytics over data en-route to sinks, with automatic operator pushdowns to minimize data movement.
+        %   It enables a spectrum of workflows, from real-time feedback via lightweight metrics to selective tracing.
+        %   enabling a spectrum of analytics workflows.
+        %   These enable workflows ranging from real-time feedback to 
+        %   \item In-situ analytics are enabled via a declarative SQL-based interface called \emph{OrcaFlow}~(\S\ref{sec:orca:des_insitu}),
+        %   with automatic operator pushdowns to minimize data movement.
+        %   (\S\ref{sec:orca:des_insitu}) and the OrcaFlow interface enable real-time
+        %         feedback by transforming telemetry en-route to sinks.
+        %         OrcaFlow chains SQL statements and map operators over multiple streams, routing results to
+        %         configurable sinks.
+  \item Timestep-consistent online interventions are provided via a speculative two-phase commit variant called \twopc{} (\emph{timestep-linked two-phase commit}), ensuring atomic commit across all ranks at the same timestep~(\S\ref{sec:orca:des_ctl}).
+  % The control plane (\S\ref{sec:orca:des_ctl}) enables online interventions via a speculative variant
+  %       of two-phase commit called \twopc{} (\emph{timestep-linked two-phase commit}).
+  %       It ensures commands are atomically applied at all ranks at the same timestep.
+\end{itemize}
+
+
+\subsection{Data Model: Timestep Dataframes}
+\label{sec:orca:des_model}
+
+ORCA workloads emit telemetry via named and \emph{typed} streams generating \emph{timestep
+  dataframes}, which are the logical unit of collection, analysis, and persistence.
+Applications can have any number of streams, each generating events with a fixed schema.
+Streams are flushed at the end of each timestep to form these dataframes, comprising all events
+from that timestep.
+Timestep dataframes are logical constructs consisting of rank-partitioned shards that are
+transported over the TBON asynchronously, but analyzed and persisted as a single unit.
+Timesteps can contain multiple collectives, dividing execution further into causally-independent 
+\emph{synchronization windows}, assigned unique monotonic identifiers called \texttt{swid}s.
+% As timesteps can invoke multiple collectives, execution is further divided into multiple
+% \emph{synchronization windows}, identified by unique monotonic identifiers called \texttt{swid}s.
+
+Timestep dataframes enable efficient analytics by capturing the causal structure of BSP execution.
+At blocking collectives, all ranks wait for stragglers and execution resets.
+Each timestep is therefore, naturally, an independent analysis unit.
+Pathologies are first attributed to a straggler rank that delayed a collective, then to events in
+the dataframe that led to that straggler.
+This mirrors the evolution of distributed tracing in loosely-coupled microservices --- from
+treating traces as bags of events~\cite{Barha2004:Magpie} to capturing causal edges between events
+via \emph{request IDs}~\cite{Fonse2007:X-Trace,Sigel2010:Dapper}.
+For BSP workloads, this timestep-centric dataframe abstraction confers two analytical advantages:
+
+\newcommand{\citeTracers}{Shend2006:TAU,Knupf2012:Score-P,Devar2024:DFTracer,Boehm2016:Caliper,2025:PytorchKineto}
+
+%   \item In transit, data can be represented as Arrow~\cite{:ApacheArrow}, a highly performant columnar
+%         format enabling efficient (de)-serialization, transport, and
+%         in-situ columnar analytics.
+
+\begin{itemize}[leftmargin=*]
+   \item In transit, data can be represented as Arrow~\cite{:ApacheArrow}, 
+   whose contiguous columnar layout enables efficient serialization into RDMA-registered memory, 
+   zero-copy deserialization and in-situ analytics, while types such as dictionary arrays 
+   map naturally to repeated symbols in trace data.
+%    . Arrow types such as dictionary arrays 
+%    naturally enable efficient representations for repeated symbols in trace data.
+
+
+  \item At rest, data is persisted as \emph{timestep-partitioned}
+        Parquet~\cite{:ApacheParquet} (see \Cref{fig:orca:des-arch}),
+        a columnar analytics-oriented format and a natural counterpart to Arrow.
+        It not only enables zero-ETL analytics, but also reduces data read
+        via rowgroup statistics and operator pushdowns.
+      %   Not only does it enable zero-ETL analytics, but reduces the amount of data that needs to be read
+      %   via rowgroup statistics and operator pushdowns.
+
+\end{itemize}
+
+Conventional tracers~\cite{\citeTracers} not only employ ETL-heavy
+formats~\cite{Eschw2012:OTF2,:ChromeJsonTEF}, but create rank-major layouts that fragment a single
+timestep across thousands of per-rank logs.
+ORCA's partitioning aligns the primary key of the storage layout with the causal structure of BSP telemetry.
+Among prior work, Hatchet~\cite{Bhate2019:Hatchet} postprocesses traces to build callflow graph
+indexes.
+Callflow graphs are a secondary index for BSP telemetry, complementary but optional when the
+primary key (\texttt{timestep, rank}) is effective.
+
+      % Aligns the primary key along the causally-independent dimension
+      %   ORCA elevates \texttt{timestep, rank} as the primary key, pre-partitioning telemetry for analytics.
+
+% We take the position that callflow graphs are a secondary index for BSP telemetry, both
+% complementary and optional when an effective primary key exists.
+% --- a secondary index that is redundant when the primary key is effective.
+% ORCA simply preserves the primary key for both in-situ and post-hoc analyses.
+% As opposed to traces written as per-rank logs, this transposition from a rank-major to a timestep
+% layout enables efficient post mortems, as data for any timestep only requires reading a fraction of
+% the trace regardless of the workload duration (see \Cref{fig:orca:des-arch}).
+
+% Applications emit named and \emph{typed} streams with predefined Arrow schemas.
+% Multiple streams may exist with different schemas, but tuples within a single stream must conform
+% to a fixed schema.
+% Each collective creates a new \emph{synchronization window}, identified by a unique monotonic
+% identifier (\texttt{swid}) that is assigned to all events within that window.
+% A timestep is an application-level construct that may span multiple \texttt{swid}s, as applications
+% typically invoke multiple collectives within a timestep.
+% Timestep dataframes comprise all tuples from all ranks within that timestep.
+% These dataframes are logical constructs formed from rank-partitioned shards --- they arrive at
+% different tiers at different times via an asynchronous pipeline, but are analyzed and persisted as
+% a single unit.
+% because the ORCA% data plane is asynchronous, shards may arrive at different tiers at different times, 
+% (similar to Spark/Dask dataframes?)
+
+
+\subsection{TBON-Optimized RDMA Transport}
+\label{sec:orca:des_xport}
+
+
+ORCA's transport layer is designed to move Arrow dataframes asynchronously over an RDMA fabric across
+TBON tiers.
+Application overhead is minimized via an incast-optimized, receiver-driven mechanism that avoids synchronized
+pushes and overlaps data movement with application execution.
+As the \tierctl{} and \tieragg{} nodes are fully asynchronous and throughput-optimized, fabric QoS
+features~\cite{DeSe2020:Slingshot} can be used to relegate ORCA traffic to a lower priority class,
+relying on idle fabric capacity for low-perturbation transfer.
+% For telemetry persisted as Parquet, dedicated cores on \tieragg{} are used to compress and persist
+% the data once collected.
+
+The transport layer is agnostic to how telemetry is generated.
+Different profiling mechanisms may accumulate telemetry into per-stream \emph{collectors} --- local
+buffers that emit Arrow dataframes when flushed.
+After each timestep, all collectors on each rank are flushed to generate per-stream Arrow
+dataframes, which are then serialized into RDMA-registered memory.
+Ranks then send an RPC to their aggregators containing RDMA descriptors for the serialized
+data.
+% Synchronous end-of-timestep serialization into local buffers avoids jitter from mid-timestep
+% flushes.
+Ranks then resume execution, while aggregators collect these dataframes via asynchronous RDMA GETs.
+% As data is already prepartitioned by timestep and rank, the collection pipeline simply preserves
+% this partitioning.
+% While shuffling can create partitioning along arbitrary dimensions, ORCA does not currently
+% implement it so as to maintain predictable ingestion throughput.
+After multiple iterations, we developed three key mechanisms for stable TBON operation:
+
+\begin{itemize}[leftmargin=*]
+  \item Aggregators must issue RDMA GETs at controlled concurrency to prevent catastrophic
+        throughput collapse, as NICs have limited resources to track active RDMA operations (1--2 on older fabrics).
+        The pull-based model, which resembles receiver-driven flow control, lets aggregators stay in
+        control of data volume and is essential for stable incast operation.
+
+  \item Because the collection pipeline yields dataframes in timestep order, it is vulnerable to
+        head-of-line blocking from missing shards, risking \emph{out-of-memory} errors.
+        %   One missing shard for a timestep can result in completed timesteps being buffered behind
+        %from a rank can prevent completion of timestep t and cause data to buffer behind
+        %   the missing shard, risking OOM.
+        We address this with a priority queue at aggregators that prioritizes lower timesteps.
+
+  \item While the system must be provisioned with adequate bandwidth to ensure
+        minimal backpressure, flow control is essential for stability.
+        Aggregators communicate backpressure by withholding RPC ACKs, and ranks block if outstanding RPC
+        count exceeds a configured limit.
+\end{itemize}
+
+For offline analyses, aggregators compress and persist data at preconfigured timestep intervals.
+As the incoming data is already partitioned by timestep and rank, the TBON simply preserves this
+partitioning.
+% While shuffling can create partitioning along arbitrary dimensions, ORCA does not currently
+% implement it so as to maintain predictable ingestion throughput.
+
+
+
+\subsection{In-Situ Analytics for Real-time Feedback}
+\label{sec:orca:des_insitu}
+
+\figDesignPlan{}
+
+The timestep dataframe abstraction also enables zero-copy in-situ SQL analytics at every TBON tier,
+enabling low-latency materialization of views and drastically reducing persisted data volume.
+OrcaFlow (\Cref{fig:orca:des-plan}) is a SQL-based programming interface that turns the TBON into a
+programmable reduction tree, transforming dataframes en route to sinks --- currently partitioned
+Parquet for offline analysis and DuckDB for real-time metrics accessed by
+dashboards~\cite{:GrafanaDashboard}.
+For analyses difficult to express in SQL, \emph{map} operators allow invoking arbitrary precompiled
+kernels.
+
+OrcaFlow is backed by a TBON-aware distributed planner and query engine built on Apache
+DataFusion~\cite{Lamb2024:DataFusion}.
+Each flow compiles into \emph{tier plans} describing transforms to apply, data to forward, and
+sinks to execute locally.
+The planner automatically places both transforms and sinks, pushing operators that reduce data
+volume as close to the source as possible.
+\tiermpi{} and \tieragg{} operate on rank-partitioned shards and execute per-partition operators:
+selection, projection, partial aggregation.
+Cross-partition operations like joins must run on \tierctl{}, the root aggregator.
+Sinks are placed on the lowest tier that produces their stream (no sinks on \tiermpi{}, DuckDB only
+on \tierctl{}).
+\Cref{fig:orca:des-plan} illustrates with two flows:
+
+\begin{itemize}[leftmargin=*]
+  \item \emph{(Left)}
+        A selective tracing flow for \mpiw{}s $> 10\,\text{ms}$ pushes filters all the way to the
+        \tiermpi{} tier.
+        Results are coalesced at \tieragg{} and written as Parquet.
+        Most telemetry for pathologies like \Cref{fig:orca:bg-volatile} gets discarded at source.
+  \item \emph{(Right)}
+        An aggregation computing per-collective statistics splits into a partial aggregation at \tiermpi{}
+        and a final merge at \tierctl{}.
+        Each leaf emits one row per group regardless of input volume --- sketches and quantile digests fit
+        the same model, producing fixed-size intermediates.
+\end{itemize}
+
+The programming model resembles batch analytics frameworks like Spark~\cite{Zahar2010:Spark}, but
+targets a multi-tier TBON, remains in-memory until sink ingestion, and avoids distributed shuffling
+to maintain predictable throughput.
+All tiers collect dataframes asynchronously but analyze them in timestep order.
+Per-partition compute budget scales with \tiermpi{} and \tieragg{}, while cross-partition work is
+limited to a single node (\tierctl{}).
+This suffices for residual work after filtering and pre-aggregation.
+Post-mortems remain the preferred workflow for expensive cross-partition analyses, but still
+benefit from ORCA's in-situ filtering, preaggregation, and timestep-partitioned Parquet.
+% OrcaFlow still accelerates those workflows by discarding redundant data and persisting the rest as
+% partitioned Parquet.
+
+
+\subsection{Control Plane for Steerable Observability}
+\label{sec:orca:des_ctl}
+
+\figDesignTwopc{}
+
+
+The control plane enables users to intervene in response to feedback, closing the loop between
+observation and action.
+Interventions range from steering collection to steering the application itself in response to
+observed behavior.
+Prior work has explored auto-tuning for specific use cases~\cite{Bened2010:PERISCOPE}.
+ORCA instead provides general mechanisms for timestep-consistent feedback and control, on which
+such policies can be built.
+
+\pplushead{Requirements}
+The control plane must be asynchronous, as the controller is not part of the collective domain.
+It must also be atomic and timestep-consistent --- commands must be acknowledged by all ranks
+before being executed, and they must execute on all ranks at the same timestep for correctness.
+
+\pplushead{The \twopc{} Protocol}
+ORCA implements the control plane as a replicated state machine~\cite{Schne1990:SMR} using
+\emph{timestep-linked two-phase commit} (\twopc{}).
+Commands are opaque payloads --- the protocol only decides when to commit and apply them.
+As the controller is asynchronous, it maintains a lagging view of the application's current
+timestep $(= T_{app})$.
+\twopc{} proposes commands for a future timestep $T_{cmd} = T_{app} + \Delta$, where $\Delta$ is an
+automatically learned speculative margin.
+The TBON assists the protocol by broadcasting requests and reducing responses --- any \texttt{NAK}
+in the subtree results in a single \texttt{NAK} at the controller.
+\Cref{fig:orca:des-twopc} illustrates the protocol via three cases.
+
+\begin{itemize}[leftmargin=*]
+  \item \emph{Case~A (Commit):}
+        Ranks agree to commit if they have not yet reached $T_{cmd}$, and apply the command just before
+        $T_{cmd}$.
+  \item \emph{Case~B (Abort):}
+        If ranks are past $T_{cmd}$, they vote to abort.
+        The controller processes the abort, increments $\Delta$, and automatically retries the transaction.
+        %   $\Delta$ is incremented and the transaction is automatically retried.
+        As a result, $\Delta$ quickly converges to the natural latency of the TBON.
+        % TODO: ambiguous, "when ranks have prepared a txn for Tcmd, but not yet received a commit/abort. Postpone to camera ready"
+  \item \emph{Case~C (Stall):}
+        A subtlety arises when ranks have prepared but not yet received commit/abort by $T_{cmd}$.
+        Correctness requires stalling execution until commit/abort is received, so the prepared command can
+        be applied before $T_{cmd}$.
+\end{itemize}
+
+% As a result, \twopc{} enables a control plane that is atomic, timestep-consistent, and asynchronous in
+% the common case. 
+\noindent More implementation-specific details are discussed in \S\ref{sec:orca:impl-ctl}.
+% As a result, \twopc{} provides timestep-consistent control semantics that are efficient in the common
+% case and correct in the worst case.
+
+% A complete observability system must enable users to intervene in response to feedback, closing the
+% loop between observation and action.
+% In BSP workloads, this means toggling probes and analyses at runtime, navigating a spectrum of
+% workflows from lightweight common-case metrics to detailed post-mortems, and tuning application
+% parameters such as placement knobs or AMR refinement thresholds in response to observed
+% pathologies.
+% While prior work has explored auto-tuning for specific use cases, ORCA takes a different approach:
+% provide a unified substrate for feedback and control, enabling both manual and automated
+% interventions as agentic workflows on top.
+
+% \subsubsection{Requirements}
+% The control plane must be asynchronous, atomic, and timestep-consistent.
+% The controller is not part of the collective domain, so control must be asynchronous and must not
+% stall application progress.
+% Commands must be acknowledged by all ranks before being executed, and they must execute on all
+% ranks at the same timestep to preserve BSP semantics.
+% While these requirements may be relaxed for some workflows, they map naturally to BSP execution
+% structure and ensure completeness of scope.
+% % The control plane must be asynchronous, atomic, and timestep-consistent --- the controller is not a
+% % part of the collective domain, commands must be acknowledged by all ranks before being executed,
+% % and they must executed by all ranks at the same tiemstep.
+% % While these requirements may be relaxed for some workflows, they map naturally to BSP execution
+% % structure and ensure completeness of scope.
+% % Fundamentally, the control plane is an adapter between a synchronous application executing in
+% % lockstep and an asynchronous controller. (BSP ranks in lock-step) and an asynchronous controller
+% % (human operator, dashboard, or automation).
+
+% \subsubsection{The \twopc{} Protocol}
+% ORCA implements control plane as a replicated state machine using a custom variant of the two-phase
+% commit called \emph{timestep-linked two-phase commit} (\twopc{}).
+% As the controller is not a part of the MPI domain, it maintains a lagging view of the application's
+% current timestep $(=T_{app})$ via asynchronous notifications from Rank~0.
+% \twopc{} proposes commands for a future timestep $T_{cmd} = T_{app} + \Delta$, where $\Delta$ is an
+% automatically learned speculative margin.
+% % Timestep-consistent control requires proposing commands for \emph{future} timesteps --- \twopc{} does
+% % this by proposing commands for timestep 
+% % $T_{cmd} = T_{app} + \Delta$, where $\Delta$ is an
+% % automatically learned speculative margin.
+% The TBON assists the protocol by broadcasting requests and reducing responses --- any \texttt{NAK}
+% results in a \texttt{NAK} being sent to the controller.
+
+% \Cref{fig:orca:des-twopc} illustrates the protocol via three cases.
+% Ranks agree to commit commands if they are not yet at $T_{cmd}$ and committed commands are applied
+% before the execute $T_{cmd}$ (Case A).
+% If ranks are past $T_{cmd}$, they vote to abort (Case B).
+% In case of aborts, $\Delta$ is incremented and transactions are automatically retried, resulting it
+% in quickly converging to the natural latency of the TBON.
+% An interesting case arises when ranks are about to execute a timestep for which they have prepared
+% commands but have not yet received a commit/abort.
+% (Case C).
+% In such cases, correctness dictates that the application be stalled until commit/abort to be able
+% to execute the prepared command before $T_{cmd}$.
+% As a result, \twopc{} provides completely asynchronous control semantics that are efficient in the
+% common case and correct in the worst case.
+
+% When a command is issued, the controller initiates a transaction for timestep $T_{cmd} = T_{app} +
+%   \Delta$, where $\Delta$ is an automatically learned speculative margin.
+% Ranks agree to commit the command if they are not yet at $T_{cmd}$, otherwise they vote to abort.
+% If the transaction commits, the command is enqueued for execution at $T_{cmd}$.
+% In case of aborts, $\Delta$ is incremented and the transaction is retried.
+% As a result, $\Delta$ quickly converges to the natural latency of the TBON across setups.
+
+% The protocol is agnostic to command semantics, treating commands as opaque blobs. The same
+% mechanism extends to addressing aggregators and the controller itself, making the entire TBON
+% controllable via \twopc{}. Implementation details, including handling of special commands like pause
+% and resume, are discussed in Section~\ref{sec:orca:impl}.

@@ -1,0 +1,205 @@
+\documentclass[tikz,border=10pt]{standalone}
+\usetikzlibrary{trees}
+\usetikzlibrary{fit}
+\usetikzlibrary{backgrounds}
+\usetikzlibrary{positioning}
+\usetikzlibrary{matrix}
+\usetikzlibrary{calc}
+\usepackage{fontawesome5}
+\usepackage{xcolor}
+\usepackage{booktabs}
+
+\begin{document}
+
+\input{figdefs.tex}
+
+% Helper to use pic in matrix cells (with spacing)
+\newcommand{\mpic}{\tikz[baseline=-0.1cm]\pic{fileicon};\hspace{2pt}}
+\tikzset{
+  mnode/.style={font=\footnotesize, align=center},
+  userline/.style={black!70, densely dashed, ->, -latex, dash pattern=on 1pt off 1pt },
+  sinkline/.style={pqcolor!50!black, densely dotted, ->, -latex, thick },
+  zoomline/.style={black!50, densely dashed, dash pattern=on 1.5pt off 1pt }
+}
+
+\begin{tikzpicture}[
+    level 1/.style={sibling distance=2.8cm, level distance=1.99cm},
+    level 2/.style={sibling distance=1.4cm, level distance=1.99cm},
+    edge from parent/.style={draw,latex-,solid}
+  ]
+
+  % -- TBON --
+  \node [treenode, ctl] (ctl) {$Controller$}
+  child {
+      node [treenode, agg] (agg0) {$Aggregator_0$}
+      child { node [treenode, mpi] (r0) {$R_0$} }
+      child { node [treenode, mpi] (r1) {$R_3$} }
+    }
+  child {
+      node [treenode, agg] (agg1) {$Aggregator_3$}
+      child { node [treenode, mpi] (r2) {$R_{12}$} }
+      child { node [treenode, mpi] (r3) {$R_{15}$} }
+    };
+
+  \node at ($(agg0.south)!0.5!(agg1.north)$) (agg01) {$\cdots$};
+  \node at ($(r0.south)!0.5!(r1.north)$) (r01) {$\cdots$};
+  \node at ($(r2.south)!0.5!(r3.north)$) (r23) {$\cdots$};
+
+  % -- Timestep Dataframe --
+  \node[below=4pt of r0] (df0) {\tikz\pic{minidf={}};};
+  % at the intersection of df0 and r1
+  \node at (df0.east -| r1.north) (df1) {\tikz\pic{minidf={}};};
+  \node at (df1.east -| r2.north) (df2) {\tikz\pic{minidf={}};};
+  \node at (df2.east -| r3.north) (df3) {\tikz\pic{minidf={}};};
+
+  % -- dfbox (needs to exist before tier2, but drawn on top) --
+  \begin{scope}[on background layer]
+    \node[
+      fit=(df0)(df3), inner sep=0pt,
+      densely dashed, draw=black!40, dash pattern=on 1pt off 1pt,
+      fill=mpicolor!15,
+      rounded corners
+    ] (dfbox) {};
+    \node[below=2pt of dfbox, align=center,font=\footnotesize] (dftext)
+    {Timestep Dataframe (\emph{Rank-Partitioned})};
+  \end{scope}
+
+  % -- Tier boxes (drawn behind dfbox) --
+  \begin{pgfonlayer}{deepbackground}
+    \node[
+      fit=(r0) (r3) (dftext), rounded corners, fill=mpicolor!8, draw=black
+    ] (tier2) {};
+
+    \node[
+      fit=(tier2.west |- agg0.north) (tier2.east |- agg1.south),
+      inner xsep=0pt, inner ysep=0.15cm,
+      rounded corners, fill=aggcolor!8, draw=black
+    ] (tier1) {};
+
+    \node[
+      fit=(tier2.west |- ctl.north) (tier2.east |- ctl.south),
+      inner xsep=0pt, inner ysep=0.15cm,
+      rounded corners, fill=ctlcolor!8, draw=black
+    ] (tier0) {};
+
+  \end{pgfonlayer}
+  \node[left=0.2cm of tier0.north west, anchor=south west] {Tier \texttt{CTL}};
+  \node[left=0.2cm of tier1.north west, anchor=south west] {Tier \texttt{AGG}};
+  \node[left=0.2cm of tier2.north west, anchor=south west,
+    fill=white, fill opacity=0.8, text opacity=1] {Tier \texttt{MPI}};
+
+  % node to the right of ctl called DuckDB \node [miscnode, right=0.5cm of tier1] (parquet) {
+  % \includegraphics[width=2cm]{ext/Apache_Parquet_logo.pdf} };
+  \node [ctl, draw=black, fill=pqcolor!15, right=0.4cm of ctl] (duckdb) {
+    \includegraphics[width=0.7cm]{ext/DuckDB_logo.pdf}
+  };
+  % node that fits duckdb and parquet \node [miscnode, fit=(duckdb)] (sinks) {}; \node [miscnode,
+  % right=1cm of duckdb] (grafana) {Grafana}; node called user right of grafana \node [miscnode,
+  % right=1cm of grafana] (user) {User};
+
+  % -- dashboard nodes --
+  \node[right=2.5cm of tier0] (dashboard-gf) {
+    \includegraphics[width=0.7cm]{ext/Grafana_logo.pdf}
+  };
+  \node[inner sep=0pt, right=0pt of dashboard-gf, align=center]
+  (dashboard-icon) { \faChartArea{} \faChartBar{} \\ \faChartLine{} \faChartPie{} };
+  % fit 
+  \node[miscnode, fit=(dashboard-gf)(dashboard-icon)] (dashboard) {};
+  \node[right=2pt of dashboard] (user) {\faUser};
+
+  % \node[miscnode, right=2pt of tier1] (parquet) { %\tikz{\parquetmatrix} };
+  \begin{scope}[shift={(6, -2.6)}]
+    \matrix[column sep=0pt, row sep=0pt, nodes={anchor=north},
+    ] (m) {
+      \node[mnode](m-1-1){Timesteps}; & \node[mnode](m-1-2){Parquet \\ \emph{(Rank-Partitioned)}}; \\
+      \node[mnode]{$0-3$};            & \node[anchor=north]{\mpic\mpic\mpic\mpic};              \\
+      \node[mnode]{$4-7$};            & \node[anchor=north]{\mpic\mpic\mpic\mpic};              \\
+      \node[mnode](m-3-1){...};       & \node[anchor=north](m-3-2){...};                        \\
+    };
+
+    % Background fills 
+    \begin{scope}[on background layer]
+      \node[draw=black, fill=pqcolor!15, rounded corners, fit=(m-1-1)(m-1-2)(m-3-2), inner sep=1pt] {};
+      \node[fill=pqcolor!35, rounded corners, fit=(m-1-1)(m-1-2), inner sep=0pt] {};
+    \end{scope}
+  \end{scope}
+
+  % line between duckdb and dashboard \draw[dashed, ->] (ctl) -- (duckdb);
+  \draw[userline] (duckdb) -- (dashboard)
+  node[pos=0.6, above, font=\footnotesize] {\texttt{FlightSQL}}
+  node[pos=1, below, font=\footnotesize, anchor=north east] {\emph{realtime feedback}};
+
+  % line between parquet and dashboard
+  \draw[userline] (m) -- (dashboard.south -| m.north)
+  node[midway, right, font=\footnotesize] {\emph{offline analytics}};
+
+  % line between ctl and duckdb
+  \draw[sinkline] (ctl) -- (duckdb);
+  % line between tier1 and parquet
+  \draw[sinkline] (tier1.east) -- ++(0.2, 0) |- (m.west);
+  % terminate at m.west (y offset 0.1)
+  \draw[sinkline] (tier0.south east) -- ++(0.4, 0.0) |- ([yshift=0.2cm] m.west);
+
+  \begin{scope}[shift={(3.2, -4.3)},font=\footnotesize]
+    \node[anchor=north west, draw=black, rounded corners, fill=mpicolor!5] (tbl) at (0, 0) {
+      {\tabcolsep=2pt
+          \renewcommand{\arraystretch}{0.8}
+          % \aboverulesep=1pt \belowrulesep=1pt
+          \begin{tabular}
+            {@{}ccccc@{}}
+            \toprule
+            \textbf{\texttt{timestep}} & \textbf{\texttt{swid}} & \textbf{\texttt{rank}} & \textbf{\texttt{func}} & \textbf{\texttt{$\cdots$}}   \\
+            \midrule
+            0                          & 0                      & 0                      & \texttt{MPI\_Barrier}                           & \\
+            0                          & 0                      & 1                      & \texttt{MPI\_Barrier}                           & \\[-4pt]
+            \multicolumn{4}{c}{\vdots} & \\[-8pt]                                                                                                     \\
+          \end{tabular}}
+    };
+  \end{scope}
+
+  % -- Zoom callout from df3 to table --
+  \begin{scope}[on background layer]
+    \fill[mpicolor!15, opacity=0.5] 
+      (df3.north east) -- (tbl.north west) -- 
+      (tbl.south west) -- (df3.south east) -- cycle;
+  \end{scope}
+  \draw[zoomline] (df3.north east) -- (tbl.north west);
+  \draw[zoomline] (df3.south east) -- (tbl.south west);
+
+\end{tikzpicture}
+
+% ---------------------------------------- Experimental tikzpicture to test things
+% ----------------------------------------
+
+% \begin{tikzpicture} % stream_in -> flow -> stream_out \node [graphnode] (streamin) {streamin};
+% \node [graphnode, right=1cm of streamin] (flow) {flow}; \node [graphnode, right=1cm of flow]
+% (streamout) {streamo2ut}; \node[graphnode, right=1cm of streamout] (pqsink) {parquet sink};
+
+% \draw[->, -latex, thick] (streamin) -- (flow); \draw[->, -latex, thick] (flow) -- (streamout);
+% \draw[->, -latex, thick] (streamin) -- ++(0, -1) -| (pqsink);
+
+% \node[inner sep=0pt, right=2pt of streamin.east, anchor=west] (ts105) { \tikz\pic{partitioned}; };
+
+% \node[graphnode, right=1cm of pqsink] (duckdb) { \includegraphics[width=1cm]{ext/DuckDB_logo.pdf}
+% };
+
+% \node[graphnode, right=1cm of duckdb] (parquet) {
+% \includegraphics[width=1cm]{ext/Apache_Parquet_logo.pdf} };
+
+% \node[graphnode, right=1cm of parquet] (grafana) {
+% \includegraphics[width=1cm]{ext/Grafana_logo.pdf} };
+
+% \node[graphnode, right=1cm of grafana] (user) { \faUser };
+
+% \node[graphnode, right=1cm of user, align=center] (problems) { \faChartArea{} \faChartBar{} \\
+% \faChartLine{} \faChartPie{} };
+
+% \end{tikzpicture}
+
+% % table with columns timestep, swid, rank, func \begin{tikzpicture} \node[anchor=north west] at
+% (0, 0) { \begin{tabular}{cccc} \toprule \textbf{\texttt{timestep}} & \textbf{\texttt{swid}} &
+% \textbf{\texttt{rank}} & \textbf{\texttt{func}} \\ \midrule 0 & 0 & 0 & \texttt{MPI\_Barrier} \\ 0
+% & 0 & 1 & \texttt{MPI\_Barrier} \\ % one merged row with cdots \multicolumn{4}{c}{\vdots} \\
+% \bottomrule \end{tabular} }; \end{tikzpicture}
+
+\end{document}

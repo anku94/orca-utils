@@ -1,0 +1,176 @@
+
+\documentclass[tikz,border=11pt]{standalone}
+\usetikzlibrary{arrows.meta, positioning, calc, math, matrix}
+
+\usepackage[
+	dvipsnames,table,svgnames
+]{xcolor}
+
+% #59943b
+% #845ac4
+% #9f7832
+% #b94b84
+% #399283
+% #c74f3b
+
+\definecolor{c0}{HTML}{59943b}
+\definecolor{c1}{HTML}{845ac4}
+\definecolor{c2}{HTML}{9f7832}
+\definecolor{c3}{HTML}{b94b84}
+\definecolor{c4}{HTML}{399283}
+\definecolor{c5}{HTML}{c74f3b}
+
+\def\rthick{0.2} % rectangle thickness
+
+\tikzset{
+  poststyle/.style={thick, fill=blue!20},
+  compstyle/.style={thick, fill=green!20},
+  sendstyle/.style={thick, fill=red!20},
+  recvstyle/.style={thick, fill=orange!20}
+}
+\newcommand{\rankcontroller}{
+  \foreach \x in {0, 1, 2, 3, 4} {
+    \pgfmathsetmacro{\xx}{\x + 1}
+    \node at (\xx, 0.5) {$R\x$};
+    \draw[dotted] (\xx, 0) -- (\xx, -7);
+  }
+
+  \foreach \y in {1, 2, 3, 4, 5, 6} {
+    \draw[dotted,thick] (-1,-\y) -- (6,-\y);
+    \node[anchor=south east,text=black!40] at (-1, -\y) {T\y};
+  }
+
+  \begin{scope}[shift={(-0.0, 0)}]
+    \draw[->,thick,-stealth] (0, 0) -- (0, -7)
+    node[midway,sloped,above,rotate=180,fill=white,fill opacity=0.7] {Time};
+  \end{scope}
+}
+
+\begin{document}
+\begin{tikzpicture}[
+		rankbox/.style={rectangle, draw, minimum width=1.5cm, minimum height=0.8cm, fill=gray!20},
+		thread/.style={dotted, thick},
+		font=\Large
+	] % temporary, to visualize grid
+	%\draw[step=1cm, gray!10, very thin] (-4, -10) grid (10, 4);
+
+	% Define the dash shape as a pic
+	\tikzset{
+		dash0/.pic={ \draw[line width=4pt, c0] (0.2,0.1) -- (0.8,0.1); },
+		dash1/.pic={ \draw[line width=4pt, c1] (0.2,0.1) -- (0.8,0.1); },
+		dash2/.pic={ \draw[line width=4pt, c2] (0.2,0.1) -- (0.8,0.1); },
+		dash3/.pic={ \draw[line width=4pt, c3] (0.2,0.1) -- (0.8,0.1); },
+		dash4/.pic={ \draw[line width=4pt, c4] (0.2,0.1) -- (0.8,0.1); },
+		dash5/.pic={ \draw[line width=4pt, c5] (0.2,0.1) -- (0.8,0.1); },
+		dash/.pic={ \draw[line width=4pt, red] (0.2,0.1) -- (0.8,0.1); },
+		sigma/.pic={ \node[font=\Large] {$\Sigma$}; },
+		func/.pic={ \node[font=\Large] {$\mathsf{f()}$}; }
+	}
+
+	% -- Tracing --
+	\begin{scope}[shift={(-20, 0)}]
+		\node[font={\LARGE\bfseries}] at (3, 1.5) {Tracing};
+		\rankcontroller
+		\foreach \y in {-1,...,-6} {
+				\foreach \x in {0,...,5} {
+						\pic at (\x, \y) {dash\x};
+					}
+			}
+	\end{scope}
+
+	%% -- Profiling --
+	\begin{scope}[shift={(-10, 0)}]
+		\node[font={\LARGE\bfseries}] at (3, 1.5) {Profiling};
+		\rankcontroller
+		\foreach \y in {-1,...,-6} {
+				\foreach \x in {0,...,5} {
+						\pic at (\x, \y) {dash\x};
+					}
+			}
+
+		\pic at (0.5, -6.6) {sigma};
+		\pic at (1.5, -6.6) {sigma};
+		\pic at (2.5, -6.6) {sigma};
+		\pic at (3.5, -6.6) {sigma};
+		\pic at (4.5, -6.6) {sigma};
+		\pic at (5.5, -6.6) {sigma};
+	\end{scope}
+
+	%% -- Sampling --
+	\begin{scope}[shift={(0, 0)}]
+		\node[font={\LARGE\bfseries}] at (3, 1.5) {Sampling};
+		\rankcontroller
+		% Use it at multiple coordinates
+		\foreach \x/\y in {0/-2, 0/-4, 1/-1, 2/-3, 3/-4, 4/-1, 4/-3, 2/-5} {
+				\pic at (\x, \y) {dash\x};
+			}
+	\end{scope}
+
+	%% -- Coordinated --
+	\begin{scope}[shift={(10, 0)}]
+		% \node[font={\LARGE\bfseries},align=center] at (3, 1.8) {ORCA};
+		\node[font={\LARGE\bfseries},align=center] at (3, 1.5) {ORCA (\emph{This Work})};
+		\rankcontroller
+		% Use it at multiple coordinates
+		\foreach \x in {0,...,5} {
+				\pic at (\x, -1) {dash0};
+			}
+		\foreach \x in {0,...,5} {
+				\pic at (\x, -2) {dash1};
+			}
+		\foreach \x in {0,...,5} {
+				\pic at (\x, -3) {dash2};
+			}
+		\foreach \x in {0,...,5} {
+				\pic at (\x, -4) {dash3};
+			}
+		\foreach \x in {0,...,5} {
+				\pic at (\x, -5) {dash4};
+			}
+		\foreach \x in {0,...,5} {
+				\pic at (\x, -6) {dash5};
+			}
+		% \foreach \x in {0,...,5} {
+		% 		\pic at (\x, -6) {dash0};
+		% 	}
+		\pic at (6.2, -0.9) {func};
+		\pic at (6.2, -1.9) {func};
+		\pic at (6.2, -2.9) {func};
+		\pic at (6.2, -3.9) {func};
+		\pic at (6.2, -4.9) {func};
+		\pic at (6.2, -5.9) {func};
+	\end{scope}
+
+	% annotate (0,0)
+	% \node[anchor=north east] at (0,0) {(0, 0)};
+	\matrix(M)[matrix of nodes,
+			draw=black!40,
+			rounded corners=2pt,
+			nodes={anchor=west, font=\LARGE},
+			column sep=0.1cm,
+			row sep=0.4cm,
+			anchor=north west,
+			inner sep=5pt,
+		] at (-12.3, -8.0)
+	{
+			\begin{tikzpicture}[baseline]
+				\pic at (0.2, 0) {dash0};
+				\pic at (0.2, -0.3) {dash1};
+				\pic at (0.2, -0.6) {dash2};
+				\pic at (1, 0) {dash3};
+				\pic at (1, -0.3) {dash4};
+				\pic at (1, -0.6) {dash5};
+			\end{tikzpicture}
+			& Data Streams
+			& [10mm] \pic{sigma};
+			& Fixed Aggregation
+			& [10mm] \pic {func};
+			& Programmable Aggregation
+			\\
+		};
+
+	% \draw[line width=2pt, red, thick, ->] (M-1-1.east) -- (M-1-2.west);
+
+	%% Common-case 2PC, non-blocking
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,172 @@
+---
+title: "ORCA"
+author: "Ankush Jain"
+format: beamer
+include-in-header:
+  file: "header.tex"
+#include-before-body: 
+  #file: "header.tex"
+#include-after-body: 
+  #file: "header.tex"
+keep-tex: true
+---
+
+## Agenda -- 20250304
+
+- Github Projects
+- Dashboard
+- Ideas on comparing with tracing
+  - Visualization
+  - Performance
+- Sheng wrote a benchmark
+- Timestep-linked Two-Phase Commit (TS2PC)
+
+## Timestep-linked Two-Phase Commit (TS2PC)
+
+- Motivation: negligible-cost control semantics at scale
+  - Fundamental interface between BSP/async worlds
+```{=latex}
+\pause
+```
+- Control messages accumulate at ranks async, applied at `ts+X`
+  - `X` here is a speculative delta: a function of _latency_
+  - Can be learned online. If a 2PC round fails, `X++`
+```{=latex}
+\pause
+```
+- Advantage: allows arbitrary QoS mechanisms
+  - ORCA: can not setup your QoS for you
+  - But can tolerate arbitrary delays
+```{=latex}
+\pause
+```
+- Essentially solves the control path for all steering usecases
+  - Control message broadcast using an on-fabric overlay
+  - Responses coalesced using the same overlay
+  - Consistent and opcode-independent
+
+## TS2PC Figure
+
+![TS2PC](../tikz-exps/pdf/ts2pc.pdf)
+
+## TS2PC Protocol
+
+```
+{
+   txnseq: int # <1>
+   txnts: int  # <2>
+   phase: PREPARE | COMMIT | ABORT
+   cmd: union {
+     op: enum
+     args: struct
+   }
+}
+```
+
+1. `txnseq`: unique transaction identifier
+2. `txnts`: timestamp at which to apply txn
+
+## TS2PC Response
+
+```
+{
+  txnseq: int
+  response: PREPARE_ACK | PREPARE_NACK 
+            | COMMIT_ACK | ABORT_ACK # <1>
+  rank_range: [begin, end) # <2>
+}
+```
+
+1. COMMIT_NACK and ABORT_NACK undefined
+2. `rank_range`: range of ranks this response represents
+
+## TS2PC: Some Code-level Details
+
+- Responses can be coalesced by the overlay using reducers
+  - (Reducers implemented, coalescing TODO)
+```{=latex}
+\pause
+```
+- Core 2PC module has server and client
+  - Agnostic to overlay/XDR etc.
+  - Server just issues `txnseq`s and tracks state
+  - Client implemented within MPI-side hooks
+    `PretimestepAdvance` and `PosttimestepAdvance`
+```{=latex}
+\pause
+```
+- Controller will have two 2PC _domains_
+  - MPI and AGGs form separate domains
+  - MPI: 2PC used for toggling probes, tuning etc.
+  - AGGs: 2PC used to install new queries etc.
+
+## TS2PC: Some More Details
+
+- Designed to block on `TimestepAdvance` at MPI if txns for `ts+1` `PREPARE`d but not `COMMIT`ed or `ABORT`ed
+```{=latex}
+\pause
+```
+- Catch 1: servicing message queues should not block
+  - (Messages needed to unblock may be stuck in a queue)
+  - We have been trying to keep the MPI thread count small
+```{=latex}
+\pause
+```
+- Catch 2: think of `PAUSE` and `RESUME` control messages
+  - Most control messages are for a future timestep (`ts+2`)
+  - A `PAUSE`d simulation will never get to `ts+2` to process `RESUME`
+```{=latex}
+\pause
+```
+- Solution: another state machine
+  - `MPI_BREAK`: keep looping in the hook, do not return control
+  - `MPI_BREAKSYNC`: keep looping but apply all CMDs immediately
+    - Bypass the TS2PC layer
+  - `MPI_RESUME`: return control to the simulation
+
+## TS2PC: Status
+
+- Core 2PC module: done
+- 2PC for MPI domain: done
+- Response coalescing: TODO
+  - Currently all ranks respond directly to CTL
+- 2PC for AGG domain: TODO
+- Opcode implementation: TODO
+- `BREAK` states: TODO
+
+## The Tracing Story
+
+- Original problem: how to implement a streaming tracing view
+  - Implement custom streaming trace visualization?
+  - Rendered element volume grows monotonically
+  - Way beyond our scope
+```{=latex}
+\pause
+```
+- Solution: tracing is not a common-case view
+  - We collect telemetry in nicely partitioned Arrow on-disk
+  - Export slices as traces 
+    - `export-trace timesteps 200-1000 ranks 512-1024`
+  - Generates OTF2 or TraceEvent files
+  - Realtime view is aggregates of telemetry
+  - (This is not an ORCA problem, this is a viz tooling problem)
+```{=latex}
+\pause
+```
+- This also allows comparing with OTF2 as an index
+  - OTF2: MPI telemetry standard
+  - Bulky file format, not indexed for analyses
+  - ORCA telemetry is timestep-partitioned
+  - Compare range query performance
+```{=latex}
+\pause
+```
+- Other export option: Perfetto/TraceEvent
+
+## Next Steps
+
+- Finish basic 2PC
+- Test and validate single-aggregator ORCA with benchmarks
+- Dashboard etc.
+- Trace export tools
+- After: distributed datafusion

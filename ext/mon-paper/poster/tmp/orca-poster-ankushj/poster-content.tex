@@ -1,0 +1,159 @@
+% ! TeX root = ./poster.tex
+
+% ==========================================================================
+% Row 1: Problem and Positioning
+% ==========================================================================
+\begin{columns}
+
+  \column{0.5}
+
+  \block{BSP Workloads Need Real-Time Observability}{
+    \textbf{Problem:} BSP efficiency bottlenecks are primarily a diagnostic challenge
+    \begin{itemize}
+      \item BSP: Bulk-Synchronous Parallel, critical paradigm in HPC/ML
+      \item Large jobs with O(10K) nodes, long-running (weeks), lockstep execution
+            % workloads (HPC simulations, ML training) run in lockstep across O(10K) processors
+      \item Uniquely fragile: single straggler blocks all workers
+      \item Diverse root causes: fail-slow hardware, tuning artifacts, load imbalance
+      \item Our experience: diagnosis takes months, mitigations take days
+    \end{itemize}
+
+    % \centering
+    \raisebox{-0.5\height}{\includegraphics[height=4in, keepaspectratio]{lesson_volfunc_single_narrow.pdf}}%
+    \hspace{1em}%
+    \parbox[c]{8in}{\small Fig 1. A BSP pathology at 4096 ranks, with MPI\_Wait spikes blocking all ranks. Attribution requires joining fine-grained per-timestep telemetry.}
+
+    \raggedright
+    \textbf{Bottleneck:} post-hoc tracing workflows delay intervention
+    \begin{itemize}
+      \item Tracing: fine-grained telemetry emitted as per-rank logs
+      \item Large datasets analyzed offline $\to$ delayed intervention
+      \item Telemetry volume + structure $\to$ analytics bottleneck
+    \end{itemize}
+
+    \vspace{1em}
+    \raisebox{-0.5\height}{\includegraphics[height=4in, keepaspectratio]{broken-loop.pdf}}%
+    \hspace{1em}%
+    \parbox[c]{7in}{\small Fig 2. Post-hoc trace analysis workflows produce large datasets, creating ETL (extract, transform, load) bottlenecks. Moreover, paradigm intrinsically precludes online intervention.}
+  }
+
+  \column{0.5}
+
+  \block{Steerable Observability: Real-time Feedback and Control}{
+    \textbf{Our Goal:} always-on BSP-aware observability --- lightweight metrics by default,
+    with on-demand escalation and runtime intervention.
+    % . Lightweight metrics in the common case,
+    % with the ability to escalate collection, test hypotheses, apply interventions --- while the job runs.
+    % . Lightweight metrics in the common case, depth on demand.
+    % Diagnosis is iterative: need both observation and intervention
+    % \textbf{Need:} always-on, steerable, BSP-aware observability
+    % \begin{itemize}
+    %   \item Lightweight metrics in the common case, depth on demand
+    % \end{itemize}
+    \vspace{1em}
+
+    \textbf{Existing approaches and limitations:}
+    \begin{itemize}
+      \item \textbf{Monitoring} (Prometheus, LDMS): no workload context
+      \item \textbf{Tracing} (TAU, Score-P, Kineto): post-hoc; volume delays feedback
+      \item \textbf{Event Streaming} (Flink, Kafka): no BSP-aligned collection or control
+    \end{itemize}
+
+    \vspace{1em}
+    \textbf{ORCA:} Observability with Realtime Control and Aggregation
+    \begin{itemize}
+      \item Coordinated collection of BSP-aligned telemetry as timestep dataframes
+      \item In-situ reductions to materialize views directly from applications
+      \item Control plane: asynchronous, atomic, timestep-consistent
+    \end{itemize}
+
+    \centering
+    \raisebox{-0.5\height}{\includegraphics[height=5in, keepaspectratio]{bsp.pdf}}%
+    \hspace{1em}%
+    \parbox[c]{6in}{\small Fig 3. A logical view of BSP execution.
+      Global synchronization provides natural points for observations and control.
+    }
+  }
+
+\end{columns}
+
+% ==========================================================================
+% Row 2: Architecture (single full-width block)
+% ==========================================================================
+
+\block{Architecture: Tree-based Overlay, Columnar In-situ Analytics, Timestep-Consistent Control}{
+  \begin{minipage}[t]{0.49\linewidth}
+    \vspace{0pt}
+    \textbf{Transport: Incast-Optimized, On-Fabric, Receiver-Driven}
+    \begin{itemize}
+      \item Timestep dataframes: typed Arrow streams, flushed every timestep
+      \item Aggregators retrieve asynchronously via RDMA GETs
+    \end{itemize}
+
+    \vspace{1em}
+    \textbf{In-Situ Analytics: Columnar, Tiered Query Planning}
+    \begin{itemize}
+      \item OrcaFlow: SQL-based analytics en route to sinks
+      \item DataFusion-based planner compiles to tier plans
+      \item Sinks: DuckDB (real-time), timestep-partitioned Parquet (offline)
+    \end{itemize}
+
+    \vspace{1em}
+    \textbf{Control Plane: BSP-Aligned Two-Phase Commit (TS2PC)}
+    \begin{itemize}
+      \item Controller proposes commands for future timestep $T_{cmd} = T_{app} + \Delta$
+      \item All ranks vote; committed only if no rank has passed $T_{cmd}$
+      \item $\Delta$ auto-learned from TBON latency; retries on abort
+    \end{itemize}
+  \end{minipage}%
+  \hfill
+  \begin{minipage}[t]{0.49\linewidth}
+    \vspace{0pt}
+    \centering
+    \includegraphics[height=7in, keepaspectratio]{plan.pdf}
+    \includegraphics[height=7in, keepaspectratio]{arch.pdf}\\[0.5em]
+    \parbox{0.9\linewidth}{\small Fig 4. (Left) OrcaFlow compiles SQL into tier plans with operator pushdown. (Right) ORCA architecture: three-tier tree-based overlay with dedicated controller and aggregators. Data starts as timestep dataframes, analyzed en route to DuckDB and Parquet sinks.}
+  \end{minipage}
+}
+
+% ==========================================================================
+% Row 3: Results
+% ==========================================================================
+\begin{columns}
+
+  \column{0.5}
+
+  \block{Tracing: Lower Overhead, Smaller Traces, Faster Queries}{
+    % Evaluated on a real AMR code at 512--4096 CPU ranks against
+    % TAU, Score-P, Caliper, and DFTracer.
+    \textbf{Workload:} AMR code at 512--4096 CPU ranks (1 core/rank)
+    \begin{itemize}
+      \item AMR: Adaptive Mesh Refinement, highly dynamic simulations
+      \item \textbf{0.8--2\%} runtime overhead vs.\ 56--81\% for existing tracers
+      \item \textbf{3.6--44$\times$} smaller traces via Parquet columnar layout
+      \item \textbf{3--4 orders of magnitude} faster post-mortem queries (zero-ETL)
+    \end{itemize}
+
+    \centering
+    \includegraphics[width=0.65\linewidth]{runtime_query_combo.pdf}\\[0.5em]
+    \includegraphics[width=0.65\linewidth]{amr_tracesizes_line.pdf}\\[0.5em]
+    \parbox{0.7\linewidth}{\small Fig 5. Runtime overhead (top left), query latency (top right), and trace sizes (bottom) for ORCA vs. HPC tracers.}
+  }
+
+  \column{0.5}
+
+  \block{Closed-Loop Evaluation: LLM-driven Agentic Debugging}{
+    \begin{itemize}
+      \item Workload: AMR code at 4096 ranks, anomaly from Fig. 1 reproduced
+      \item LLM agent (Claude Opus 4.5) asked to localize using ORCA
+      \item Agent progressively localizes: collectives $\to$ Kokkos $\to$ \texttt{MPI\_Wait}
+      \item Completes in 27 minutes (vs.\ months manually) with minimal intervention
+      \item Baseline monitoring collects 144$\times$ less data vs. detailed tracing
+    \end{itemize}
+
+    \centering
+    \includegraphics[height=8in, keepaspectratio]{agentic_timeline.pdf}\\[0.5em]
+    \parbox{0.9\linewidth}{\small Fig 6. Visual transcript of the debugging session. Per-timestep data volume (bottom) shows targeted collection and 144$\times$ reduction on revert to baseline.}
+  }
+
+\end{columns}

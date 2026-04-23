@@ -1,0 +1,44 @@
+build/*
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.run.xml
+*.synctex.gz
+.DS_Store
+.*swp
+main.pdf
+# build dir in any subdir
+**/build/*
+**/__pycache__/
+# any file beginning with ~
+**/~*
+# .latexmkrc files anywhere
+**/.latexmkrc
+beamer-exps/**
+quarto-exps/**
+local
+data/quarto-exps/tmp2_files/libs
+data/quarto-exps/tmp_files/libs
+data/quarto-exps
+data/tikz-exps/svg-inkscape
+data/plotdata/data
+.claude/settings.local.json
+tex/outline.tex
+tex/points.tex
+tex/text.tex
+tex/tmp.txt
+tex/vscs_outline.tex
+data/ppts/data
+_markdown_main
+data/figs/sb
+ieee-template/IEEE-conference-template-062824.pdf
+ieee-template/IEEE-conference-template-062824.tex
+ieee-template/IEEEtran_HOWTO.pdf
+ieee-template/conference-latex-template.zip
+ieee-template/fig1.png
+Makefile

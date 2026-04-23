@@ -1,0 +1,261 @@
+\documentclass[tikz,border=10pt]{standalone}
+\usetikzlibrary{arrows.meta, positioning, calc, math}
+\usetikzlibrary{fadings, decorations.pathmorphing}
+\usetikzlibrary{backgrounds}
+\usetikzlibrary{matrix}
+\usetikzlibrary{fit}
+\usepackage{fontawesome5}
+\usepackage{colortbl}
+
+% ----------------------------------------
+% Two-Phase Commit Color Palette
+% ----------------------------------------
+\definecolor{prepcolor}{HTML}{1F618D}   % Dark blue - prepare/commit messages
+\definecolor{ackcolor}{HTML}{1E8449}    % Dark green - positive responses (ACK)
+\definecolor{abortcolor}{HTML}{9B2226}  % Dark crimson - abort messages
+\definecolor{nakcolor}{HTML}{AE2012}    % Burnt red - negative responses (NAK)
+
+\input{figdefs.tex}
+
+\begin{document}
+
+\def\mylwidth{3.2cm}
+\def\mycshift{3.0cm}
+\def\myrshift{0.0cm}
+
+\tikzset{
+  axisline/.style={->, -latex},
+  % tickline/.style={dashed, dash pattern=on 1.5pt off 1.5pt, black!40},
+  tickline/.style={dashed, dash pattern=on 3pt off 2pt, line width=0.8pt, black!30!blue!30},
+  rankline/.style={thick,dotted},
+  ranklabel/.style={anchor=south, font=\sffamily, draw=black, solid},
+  mpinode/.style={anchor=south, font=\sffamily, draw=black, fill=mpicolor!20, solid, inner sep=4pt},
+  ctlnode/.style={anchor=south, font=\sffamily, draw=black, fill=ctlcolor!20, solid, inner sep=4pt},
+  seqlabel/.style={pos=0.4, above, sloped, font=\ttfamily, fill=prepcolor!2, fill opacity=0.5, text opacity=1, inner sep=2pt},
+  applynode/.style={anchor=north west, align=center, draw=none, fill=ackcolor!10, draw=ackcolor!30, text=ackcolor!80!black, minimum height=0.5cm, minimum width=\mycshift},
+  stallnode/.style={anchor=north west, align=center, draw=none, fill=nakcolor!10, draw=nakcolor!30, text=nakcolor!80!black, minimum height=0.9cm, minimum width=\mycshift},
+  bgbox/.style={fill=prepcolor!2, draw=black!70, densely dotted, rounded corners, inner sep=0pt}
+}
+
+\tikzset{
+  matnode/.style={font=\ttfamily, inner ysep=1pt, inner xsep=0pt, align=left}
+}
+
+% Sync label command: #1 = coordinate, #2 = timestamp value
+% Original version with "Global Sync" text
+% \newcommand{\syncLabel}[2]{%
+%   \node[anchor=east, inner ysep=0pt] (gsync-label-#2) at (#1) {\emph{Global Sync}};%
+%   \node[below=0.1cm of gsync-label-#2, anchor=north east, font=\sffamily] at (#1) {T\textsubscript{mpi} = #2};%
+% }
+% Alternative: T_mpi below the barrier line, barrier extends left
+\newcommand{\syncLabel}[2]{%
+  \node[anchor=north east, font=\sffamily, inner sep=1pt] at ([xshift=-0.1cm, yshift=-0.05cm]#1) {T\textsubscript{mpi} = #2};%
+}
+\def\ticklineExtend{0.3cm}
+
+\begin{tikzpicture}
+  \coordinate (coord0) at (1.3, 7.2);
+  \coordinate (coord1) at (7, 7.2);
+  \coordinate (coord2) at (0, 0.8);
+  \coordinate (coord3) at (7, 0.8);
+
+  \begin{scope}[shift={(coord0)}]
+    \matrix (mctl) [matrix of nodes, nodes={matnode}, row sep=0pt, column sep=0pt,
+      column 1/.style={nodes={text width=2.5cm, align=left}},
+      column 2/.style={nodes={text width=0.5cm, align=right}}]
+    {
+      last\_admit\_id      & 3   \\
+      last\_txnseq         & 7   \\
+      t\textsubscript{mpi} & 100 \\
+      $\Delta$             & 4   \\
+    };
+
+    \node[above=0.1cm of mctl, font=\sffamily] (2pc-ctl) {CTL};
+
+    \scoped[on background layer] \node[fit=(2pc-ctl)(mctl), style={draw=black, fill=ctlcolor!20}] (2pc-ctl-box) {};
+    \scoped[on background layer] \node [fit=(mctl-1-1) (mctl-4-1), fill=black!8]  {};
+    \scoped[on background layer] \node [fit=(mctl-1-2) (mctl-4-2), fill=black!4]  {};
+    \scoped[on background layer] \node [fit=(mctl-1-1) (mctl-4-2), draw=ctlcolor!30] {};
+
+    \node[left=of 2pc-ctl-box, font=\huge] (2pc-usr) {\faUser};
+    \node[below=0.1cm of 2pc-usr, font=\sffamily\large] (2pc-usr-label) {User};
+
+    \matrix (mcmd) [matrix of nodes, below=of mctl, nodes={matnode}, row sep=0pt, column sep=0pt,
+      column 1/.style={nodes={text width=1.7cm, align=left}},
+      column 2/.style={nodes={text width=2.8cm, align=right}},
+      row 5/.style={nodes={minimum height=0.5cm}}]
+    {
+      admit\_id            & 4   \\
+      txnseq               & 8 \\
+      t\textsubscript{cmd} & 104 \\
+      cmdvec               & \faIcon{terminal} \faIcon{terminal} \\
+      domains              & \fcolorbox{black}{ctlcolor!20}{CTL} \fcolorbox{black}{aggcolor!20}{AGG} \fcolorbox{black}{mpicolor!20}{MPI} \\
+    };
+
+    \scoped[on background layer] \node [fit=(mcmd-1-1) (mcmd-5-1), fill=gray!20]  {};
+    \scoped[on background layer] \node [fit=(mcmd-1-2) (mcmd-5-2), fill=gray!10]  {};
+    \scoped[on background layer] \node [fit=(mcmd-1-1) (mcmd-5-2), draw=black] (mcmd-box) {};
+
+    % line between mctl and mcmd
+    \draw[axisline] (2pc-usr) -- (2pc-ctl-box) node[midway, above, font=\scriptsize] {\faIcon{terminal} \faIcon{terminal}};
+    \draw[axisline] (2pc-ctl-box) -- (mcmd) node[midway, right, font=\sffamily] {\emph{to \texttt{MPI}}};
+
+    \node[below=0.1cm of mcmd-box, font=\sffamily] (mcmd-box-label) {TS2PC Payload};
+    %node[midway, left, font=\sffamily] {TS2PC Payload};
+
+
+    % }; \node[right=of 2pc-ctl, text width=3cm, align=left, font=\ttfamily, draw=black, fill=gray!10] {
+    % admit\_id: 1 \\ txnseq: 100 \\ t\textsubscript{cmd}: 100 \\ DEF \\
+
+    % };
+  \end{scope}
+
+  \begin{scope}[shift={(coord1)}, local bounding box=case-a]
+    \def\tickgap{0.9}
+    \def\tsinit{101}
+    % Regular ticks 0-3
+    \foreach \i in {0,...,4} {
+        \pgfmathsetmacro{\y}{-\i * \tickgap}
+        \pgfmathtruncatemacro{\ts}{\tsinit + \i}
+        \coordinate (c\i) at (0, \y);
+        \draw[tickline] ([xshift=-\ticklineExtend]c\i) -- ++(\mylwidth + \ticklineExtend, 0);
+        \syncLabel{c\i}{\ts}
+      }
+    % Tick 4: extra 0.5 gap for apply command area
+    % \pgfmathsetmacro{\yfour}{-3 * \tickgap - \tickgap - 0.5}
+    % \coordinate (c4) at (0, \yfour);
+    % \draw[tickline] ([xshift=-\ticklineExtend]c4) -- ++(\mylwidth + \ticklineExtend, 0);
+    % \syncLabel{c4}{105}
+
+    \coordinate (ybeg) at ($(c0) + (0, 0.5)$);
+    \coordinate (yend) at ($(c4) + (0, -0.5)$);
+    \draw [axisline] (ybeg) -- (yend) node[pos=0, mpinode] {\texttt{MPI}};
+    \draw [dotted] ([xshift=\mycshift]ybeg) -- ([xshift=\mycshift]yend) node[pos=0, ctlnode] {\texttt{CTL}};
+
+    % Two-phase commit begin
+    \draw[->, -latex, prepcolor] ($(c0) + (\mycshift, 0)$) -- ($(c0) + (\myrshift, -\tickgap)$) node[seqlabel,above,pos=0.3] {Prepare} node[seqlabel,below,pos=0.3] {\emph{T\textsubscript{cmd}=104}};
+    \draw[->, -latex, ackcolor] ($(c0) + (\myrshift, -\tickgap)$) -- ($(c0) + (\mycshift, -2*\tickgap)$) node[seqlabel] {ACK};
+    \draw[->, -latex, prepcolor] ($(c0) + (\mycshift, -2*\tickgap)$) -- ($(c0) + (\myrshift, -3*\tickgap)$) node[seqlabel,above,pos=0.33] {Commit} node[seqlabel,below,pos=0.33] {\emph{T\textsubscript{cmd}=104}};
+    \draw[->, -latex, ackcolor] ($(c0) + (\myrshift, -3*\tickgap)$) -- ($(c0) + (\mycshift, -4*\tickgap)$) node[seqlabel, pos=0.55] {ACK};
+    % Two-phase commit end
+
+    %\scoped[on background layer]
+    %\node[applynode](apply-box) at ($(c3) + (\myrshift, 0)$) {};
+    % make line thicker
+    \draw[thick, dashed, ackcolor!80!black, line width=1.5pt] ($(c3) + (\myrshift, 0)$) -- ($(c3) + (\mycshift, 0)$);
+    % \node[anchor=north east, font=\sffamily] at (apply-box.south west) {\emph{Apply command}};
+    %\draw[<->, thick, ackcolor!80!black] (0.1, -3.0) -- (0.1, -3.5) node[pos=1.0, left, anchor=north east] {\emph{Apply command}};
+    \node[text=ackcolor!80!black, anchor=north east] at ($(c3) + (\myrshift, -0.3)$) (apply-label) {\emph{Apply command}};
+    \draw[->, ackcolor!80!black, thick, densely dotted, rounded corners=8pt] (apply-label.east) --  ++(0.5, 0.3) -- ($(c3) + (0.55, 0)$);
+
+
+
+  \end{scope}
+
+  \begin{scope}[shift={(coord2)}, local bounding box=case-b]
+    \def\tickgap{0.9}
+    \def\tsinit{104}
+    \foreach \i in {0,...,4} {
+        \pgfmathsetmacro{\y}{-\i * \tickgap}
+        \pgfmathtruncatemacro{\ts}{\tsinit + \i}
+        \coordinate (c\i) at (0, \y);
+        \draw[tickline] ([xshift=-\ticklineExtend]c\i) -- ++(\mylwidth + \ticklineExtend, 0);
+        \syncLabel{c\i}{\ts}
+      }
+
+    \coordinate (ybeg) at ($(c0) + (0, 0.5)$);
+    \coordinate (yend) at ($(c4) + (0, -0.5)$);
+    \coordinate (ymid) at ($(c0) + (0, 0.20)$);
+    % MPI line: dashed for first unit, then solid
+    \draw [axisline, densely dashed, -, dash pattern=on 1pt off 1pt] (ybeg) -- (ymid) node[pos=0, mpinode] {\texttt{MPI}};
+    \draw [axisline] (ymid) -- (yend);
+    \draw [dotted] ([xshift=\mycshift]ybeg) -- ([xshift=\mycshift]yend) node[pos=0, ctlnode] {\texttt{CTL}};
+
+    % Two-phase commit begin
+    \draw[->, -latex, prepcolor] ($(c0) + (\mycshift, 0)$) -- ($(c0) + (\myrshift, -\tickgap)$) node[seqlabel,above,pos=0.33] {Prepare} node[seqlabel,below,pos=0.33] {\emph{T\textsubscript{cmd}=104}};
+    \draw[->, -latex, nakcolor] ($(c0) + (\myrshift, -\tickgap)$) -- ($(c0) + (\mycshift, -2*\tickgap)$) node[seqlabel] {NACK};
+    \draw[->, -latex, prepcolor] ($(c0) + (\mycshift, -2*\tickgap)$) -- ($(c0) + (\myrshift, -3*\tickgap)$) node[seqlabel,above,pos=0.33] {Abort} node[seqlabel,below,pos=0.33] {\emph{T\textsubscript{cmd}=104}};
+    \draw[->, -latex, ackcolor] ($(c0) + (\myrshift, -3*\tickgap)$) -- ($(c0) + (\mycshift, -4*\tickgap)$) node[seqlabel] {ACK};
+    \node[minimum width=1.9cm, text=ctlcolor!70!black, align=right, anchor=north east] at ($(c4) + (\mycshift, 0)$) {$\Delta$\texttt{++}; \emph{retry}};
+    % Two-phase commit end
+  \end{scope}
+
+  \begin{scope}[shift={(coord3)}, local bounding box=case-c]
+    \def\tickgap{0.9}
+    \def\tsinit{102}
+    \def\stallgap{0.9}
+    % Regular ticks 0-2
+    \foreach \i in {0,...,2} {
+        \pgfmathsetmacro{\y}{-\i * \tickgap}
+        \pgfmathtruncatemacro{\ts}{\tsinit + \i}
+        \coordinate (c\i) at (0, \y);
+        \draw[tickline] ([xshift=-\ticklineExtend]c\i) -- ++(\mylwidth + \ticklineExtend, 0);
+        \syncLabel{c\i}{\ts}
+      }
+    % Tick 3: extra gap for stall
+    \pgfmathsetmacro{\ythree}{-3 * \tickgap - \stallgap}
+    \coordinate (c3) at (0, \ythree);
+    \draw[tickline] ([xshift=-\ticklineExtend]c3) -- ++(\mylwidth + \ticklineExtend, 0);
+    \syncLabel{c3}{105}
+
+    \coordinate (ybeg) at ($(c0) + (0, 0.5)$);
+    \coordinate (yend) at ($(c3) + (0, -0.5)$);
+    \coordinate (ymid) at ($(c0) + (0, 0.20)$);
+    % MPI line: dashed for first unit, then solid
+    \draw [axisline, densely dashed, -, dash pattern=on 1pt off 1pt] (ybeg) -- (ymid) node[pos=0, mpinode] {\texttt{MPI}};
+    \draw [axisline] (ymid) -- ([yshift=-0.05cm]yend);
+    \draw [dotted] ([xshift=\mycshift]ybeg) -- ([xshift=\mycshift,yshift=-0.05cm]yend) node[pos=0, ctlnode] {\texttt{CTL}};
+
+    % Two-phase commit begin
+    \draw[->, -latex, prepcolor] ($(c0) + (\mycshift, 0)$) -- ($(c0) + (\myrshift, -\tickgap)$) node[seqlabel,above,pos=0.33] {Prepare} node[seqlabel,below,pos=0.33] {\emph{T\textsubscript{cmd}=104}};
+    \draw[->, -latex, ackcolor] ($(c0) + (\myrshift, -\tickgap)$) -- ($(c0) + (\mycshift, -2*\tickgap)$) node[seqlabel,pos=0.65] {ACK};
+    \draw[->, -latex, prepcolor] ($(c0) + (\mycshift, -2*\tickgap)$) -- ($(c0) + (\myrshift, -3*\tickgap)$) node[seqlabel,above,pos=0.39,fill=none] {Commit} node[seqlabel,below,pos=0.33,fill=none] {\emph{T\textsubscript{cmd}=104}};
+    \draw[->, -latex, ackcolor] ($(c0) + (\myrshift, -3*\tickgap)$) -- ($(c0) + (\mycshift, -3*\tickgap - \stallgap)$) node[seqlabel,pos=0.65] {ACK};
+    % Two-phase commit end
+
+    \scoped[on background layer] \node[stallnode] at ($(c2) + (0, 0)$) {};
+    %\scoped[on background layer] \node[applynode] at ($(c3) + (0, 1)$) {};
+    \draw[thick, dashed, ackcolor!80!black, line width=1.5pt] ($(c2) + (0, -\tickgap)$) -- ($(c2) + (\mycshift, -\tickgap)$);
+
+    \draw[<->, thick, nakcolor!80!black] (0.30, -2*\tickgap) -- (0.30, -3*\tickgap) node[pos=0.7, left=5pt] {\emph{Stall}};
+    %\draw[<->, thick, ackcolor!80!black] (0.1, -3) -- (0.1, -3.5) node[pos=0.3, left] {\emph{Apply command}};
+    % add a node for ApplyCommand
+    \node[text=ackcolor!80!black, anchor=north east] at ($(c2) + (0, -\tickgap - 0.0)$) (apply-label) {\emph{Apply command}};
+    % arrow from apply-label to ($(c2) + (0, -1)$)
+    \draw[->, ackcolor!80!black, thick, densely dotted, rounded corners=8pt] (apply-label.east) --  ++(0.3, 0.0) -- ($(c2) + (0.55, -\tickgap)$);
+
+  \end{scope}
+
+  %\scoped[on background layer] \draw (7, 7) rectangle (1, 1);
+  % draw a grid from (1, 1) to (7, 7)
+  %\scoped[on background layer] \draw[step=1cm, black, very thin] (-3, -5) grid (11, 8);
+  % draw four quadrants in the grid
+  % \scoped[on background layer] \draw[bgbox] (-2.5, -4.8) rectangle (4, 1.2) node[anchor=south west] {Rank 0};
+  % \scoped[on background layer] \draw[bgbox] (4.3, -4.8) rectangle (10.8, 1.2) node[anchor=south west] {Rank 1};
+  % \scoped[on background layer] \draw[bgbox] (4.3, 1.8) rectangle (10.8, 8.2) node[anchor=south west] {Rank 2};
+  \pgfonlayer{deepbackground}
+  % Case B: auto bounding box
+  \node[bgbox, fit=(case-b), inner sep=5pt] (bgbox-0) {};
+
+  % Case C: auto bounding box
+  \node[bgbox, fit=(case-c), inner sep=5pt] (bgbox-1) {};
+
+  % Case A: auto bounding box
+  \node[bgbox, fit=(case-a), inner sep=5pt] (bgbox-2) {};
+  \node[above=0cm of bgbox-0.north west, anchor=south west, font=\sffamily, inner xsep=0pt, inner ysep=2pt] {\textbf{Case B.} ABORT};
+
+  \node[above=0cm of bgbox-1.north west, anchor=south west, font=\sffamily, inner xsep=0pt, inner ysep=1pt] {\textbf{Case C.} COMMIT (\emph{Slow})};
+  \node[above=0cm of bgbox-2.north west, anchor=south west, font=\sffamily, inner xsep=0pt, inner ysep=1pt] {\textbf{Case A.} COMMIT (\emph{Fast})};
+  \endpgfonlayer
+
+  % Legend at bottom center
+  \coordinate (legend-center) at (3.0, -4.2);
+  \coordinate (legend-line-left) at ([xshift=-0.5cm]legend-center);
+  \coordinate (legend-line-right) at ([xshift=0.5cm]legend-center);
+  \coordinate (legend-box-left) at ([xshift=-0.7cm]legend-center);
+  \draw[tickline] (legend-line-left) -- (legend-line-right);
+  \node[anchor=west, font=\sffamily] (legend-label) at ([xshift=0.6cm]legend-center) {Global Sync};
+  \scoped[on background layer] \node[fit=(legend-box-left)(legend-label), fill=black!1, draw=black!30, rounded corners=3pt, inner sep=4pt] {};
+
+\end{tikzpicture}
+\end{document}

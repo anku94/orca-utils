@@ -1,0 +1,455 @@
+\documentclass[ letterpaper, DIV=11, numbers=noendperiod]{scrartcl}
+
+\usepackage[backend=biber,style=numeric,citestyle=numeric]{biblatex}
+\addbibresource{bib/NetSketch-Mon.bib}
+
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{amsmath,amssymb}
+\usepackage{bookmark}
+\usepackage{tikz}
+\usepackage[letterpaper, margin=1in]{geometry}
+
+\usetikzlibrary{fit,positioning}
+
+% disable hanging indent etc.
+%\usepackage[labelfont={bf,it},textfont=it,singlelinecheck=false,format=plain]{caption}
+\usepackage[labelfont={bf,it},textfont=it,singlelinecheck=false,format=hang,justification=justified,singlelinecheck=on]{caption}
+
+\title{ORCA: Observability via Declarative Dataflows}
+\author{CMU and LANL}
+\date{2025-05-14}
+
+\begin{document}
+\maketitle
+
+\section{ORCA: Overview}\label{orca-overview}
+
+ORCA (\emph{Observability with Realtime Control and Aggregation}) is a programmable, low-overhead observability framework for \emph{bulk-synchronous parallel} (BSP) applications, designed to run asynchronously alongside production MPI workloads with minimal and optional integration effort. It enables continuous, interactive observability by treating telemetry as a structured dataflow, windowed by timestep and processed in real time using a distributed SQL-based engine backed by Apache Arrow~\cite{:ApacheArrow} and Parquet~\cite{:ApacheParquet}.
+ORCA is built to run alongside large scale simulations (O(10k) nodes or more), leveraging high performance userspace fabrics and distributed query planning techniques such as operator pushdown to minimize data movement for a given observability task.
+Unlike tracing or postmortem profiling tools, ORCA is designed to support the full spectrum of observability workflows, from lightweight common-case monitoring to root cause localization via realtime and dynamic telemetry streams.
+A dedicated control path provides correctness guarantees for interactions such as toggling probes or modifying aggregation logic, using a custom asynchronous protocol designed to maintain consistent control semantics.
+ORCA aims to improve large cluster efficiency by rapidly closing the loop between detection, localization, and mitigation of performance artifacts. A logical view of ORCA is provided in Fig. \ref{fig:logical}.
+
+\input{tikz/orca-simple.tex}
+
+% ORCA targets enabling the following workflows:
+%
+% \begin{enumerate}
+% 	\item Describe observability intent (a view of application state) via a set
+% 	      of SQL queries (called a \texttt{flow}). ORCA orchestrates just the
+% 	      necessary data movement needed to materialize this view, using SQL
+% 	      operator placement.
+% 	\item Dynamically update this intent, by installing a new \texttt{flow}. All
+% 	      subsequent telemetry is aggregated using the new flow.
+% \end{enumerate}
+%
+% These two capabilities enable an entire spectrum of observability needs:
+% from common-case monitoring (minimal collection of summary statistics)
+% to root-cause localization if and when a problem is suspected.
+
+\section{Motivation}
+\subsection{Lessons from Optimizing Parallel Codes}
+
+ORCA emerged from two years of experience optimizing parallel applications at
+scale---up to 4,096 cores on an in-house cluster. While load imbalance is
+typically viewed as the primary source of inefficiency in such codes, we
+consistently encountered other performance bottlenecks: fail-slow hardware,
+transient network latency spikes, and suboptimal execution strategies, among
+others (see Fig.~\ref{fig:vol}). These sources of variability are pervasive,
+often transient, and highly application-specific, requiring case-by-case
+mitigation. An example of network-level variability observed on our cluster with a real application is shown in Fig. ~\ref{fig:vol}. While this variability originated on a few ranks and affected the entire application, it was not visible in aggregate telemetry. A localization exercise taking us two months revealed the source to be a network driver tuning issue, which was mitigated in a few days once localized. Because BSP applicaitons are acutely sensitive to such disruptions, effective mitigation requires costant and real-time visibility into live application behavior.
+
+Existing tooling falls short of these visibility requirements along multiple
+axes. Profiling tools~\cite{Shend2006:TAU} offer only fixed, coarse-grained aggregates---often
+averages over long execution windows---which obscure transient outliers and
+fail to capture the structure of BSP synchronization patterns. Tracing~\cite{Shend2006:TAU,Wylie2025:15Years}
+records detailed event streams, but the resulting data is often rigidly
+structured, hard to query, and poorly suited for isolating noisy, emergent
+patterns across time and ranks. Worse, both profiling and tracing are
+inherently postmortem: they require the application to terminate before any
+meaningful analysis can begin. Sampling tools, such as LDMS~\cite{Schwa2021:LDMS}, do support
+real-time telemetry and are adequate for basic cluster-level monitoring, but
+they collect uncoordinated snapshots that discard the spatial and temporal
+structure of the problem. Additionally, all these tools assume fixed telemetry
+schemas and analysis workflows, whereas we found a pressing need for dynamic,
+interactive, and domain-specific observability pipelines that evolve with the
+problem. Our early attempts to bridge these gaps evolved into an ad hoc OLAP pipeline---
+ORCA is a principled generalization of that design.
+
+% Existing tooling falls short of these visibility requirements along one or more of these axis. % continue from here
+% % previous para 2
+% We found that existing HPC performance tools fall short in at least one of
+% three key dimensions: depth of insight, speed of feedback, and coverage of
+% available data sources. Broadly, these tools fall into three
+% categories---sampling, profiling, and tracing. Of these, only sampling offers
+% online feedback, but it does so in an uncoordinated fashion, capturing
+% arbitrary subsets of events while discarding the structured temporal context of
+% execution (see Fig.~\ref{fig:sampling}). Profiling reports coarse-grained
+% averages that obscure transient anomalies, while tracing captures large volumes
+% of data but still yields an incomplete, often unqueryable view. Formats like
+% OTF2 are poorly suited for structured analysis, and traces remain bounded by
+% the abstraction level at which they are recorded. Both tracing and profiling
+% are inherently postmortem approaches---poor fits for simulations that may run
+% continuously for weeks or months. Our early attempts at structured
+% observability evolved into an ad hoc pipeline that ingested relational data
+% from custom instrumentation into OLAP databases. ORCA formalizes and
+% generalizes this workflow.
+
+\subsection{Design Goals for Ideal Observability}
+
+Our experience led us to identify three core requirements for an ideal
+observability framework in HPC:
+
+\begin{itemize}
+	\item \textbf{Programmability.} Users should be able to specify what data
+	      sources to tap, what schemas to expose, and how to aggregate the resulting
+	      telemetry. This enables domain-aware customization of the observability
+	      pipeline while maintaining a common execution substrate. Examples include combining performance telemetry with application-level context (\texttt{rank ID}, \texttt{timestep} etc.), programmable aggregation (averages, approximate quintiles, or all data), and programmable triggers/thresholds for data collection.
+
+	\item \textbf{Efficient real-time analytics.} Insights must be produced as
+	      the application runs, with minimal delay and overhead. The system should
+	      preserve the structured nature of BSP execution---especially timestep
+	      alignment---to make telemetry interpretable in the context of the program’s
+	      control flow.
+
+	\item \textbf{Interactivity.} Effective observability must support a full
+	      spectrum of workflows, from low-overhead common-case monitoring to detailed
+	      root-cause localization. This requires the ability to dynamically insert
+	      probes, reconfigure aggregations, and adapt queries mid-execution, all via a
+	      control path that maintains consistency with application progress.
+\end{itemize}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[
+		width=0.5\linewidth,height=\textheight,keepaspectratio
+	]{images/lesson_volfunc_v2_short_zoom.pdf}
+
+	\caption{Simplified view of telemetry from a real BSP app with a
+		volatile function followed by a global collective. Tail latency in
+		volatile function gets misattributed as elevated collective time in
+		aggregate telemetry (left), but not in fine-grained telemetry (right).
+		Localization revealed an issue in the network stack, mitigating which
+		removed both the spikes and the elevated collective time.}
+	\label{fig:vol}
+
+\end{figure}%%
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.5\linewidth,height=\textheight,keepaspectratio]{images/sampling.pdf}
+	\caption{A visualization of the two dimensions of BSP telemetry:
+		timesteps (epochs), and ranks (workers). Sampling collects an arbitrary
+  subset of telemetry, obscuring problem structure. Coordinated collection is necessary to understand and correlate telemetry.}
+	\label{fig:sampling}
+\end{figure}%
+
+% We found BSP applications to be highly amenable to SQL-based aggregation
+% (\texttt{GROUPBY} timestep or epoch, compute summary statistics). We
+% decided to model telemetry as relational data, and leverage modern OLAP
+% developments: Arrow, Parquet, and Datafusion to build an observability
+% engine using in-situ in-memory aggregation for dynamic dataflows.
+
+\section{ORCA: Design Overview}
+
+ORCA is organized as a modular, declarative telemetry engine built atop a
+high-performance transport overlay. This section describes how data and control
+flow through the system---from instrumentation to aggregation to control---and
+how the system is designed to minimize overhead while maximizing flexibility
+and correctness.
+
+\begin{figure}[H]
+	\centering \includegraphics[width=0.7\linewidth,height=\textheight,keepaspectratio]{images/overlay-agg-new.pdf}
+	\caption{An example showing the aggregation flow between MPI
+		ranks and the ORCA controller, via an overlay routing
+  via intermediate MPI ranks (\texttt{MPIREP}s) and aggregators.}
+\end{figure}%
+
+\paragraph{Overlay and bootstrapping.} ORCA bootstraps a tree-based overlay
+alongside the MPI application. This overlay consists of a controller
+and a tier of aggregators, each of which is assigned a unique overlay identifier
+(\texttt{ovid}) and communicates using Mercury~\cite{Souma2013:MercuryRPC}, a high-performance RPC library
+for HPC fabrics. MPI ranks are mapped to aggregators, forming
+a reduction tree for telemetry and a broadcast tree for control. Bootstrap
+coordination occurs via a lightweight TCP protocol, after which all
+communication proceeds over the high-performance fabric. ORCA is amenable to
+its communication being assigned a lower network priority than the application.
+
+\paragraph{Telemetry collection.} Each MPI rank can instantiate one or more
+data collectors, which emit telemetry conforming to Arrow-compatible schemas.
+Collectors are schema-specific and encapsulate probes for a given API domain
+(e.g., MPI, Kokkos, NCCL). Events are collected as rows in-memory, and collectors
+are drained once every timestep, towards the end, to minimize RPC count and jitter.
+For schemas with the column \texttt{probe\_name}, ORCA automatically announces probe
+names to the controller, and data for that probe is collected only if it is enabled.
+Collection hooks devolve to \emph{noops} for inactive probes.
+% Collectors are flushed exactly once at the end of
+% each timestep, minimizing RPC count and jitter. Probes can be individually
+% toggled via control commands; when inactive, their collection paths devolve to
+% no-ops. 
+Adding new telemetry streams requires no changes to core
+infrastructure---just define a new collector with the desired schema.
+
+\paragraph{Aggregation.} Collected telemetry is grouped by timestep and routed
+through the overlay for in-situ aggregation. ORCA uses Apache Arrow and
+Datafusion~\cite{Lamb2024:DataFusion} to implement in-memory SQL-based aggregation with distributed query
+optimizations such as projection, filtering, and partial aggregation pushdown, as close to source as possible.
+
+% Data is serialized as Arrow
+% RecordBatches and manipulated entirely in memory. Depending on the query,
+% pre-aggregation may occur at intermediate tiers before being forwarded up the
+% tree. This allows complex structured queries (e.g., \texttt{GROUP BY} timestep,
+% rank) to be executed efficiently at scale.
+
+\paragraph{Sinks.} Aggregated results are routed to \emph{sinks} --- our abstraction for handling data exiting our dataflow pipeline. Sinks can capture data either at the controller, or directly at aggregators. Our current sinks include a DuckDB~\cite{Raasv2019:DuckDB} instance at the controller to serve a live dashboard, and a Parquet sink used to persist partitioned high-volume telemetry to a parallel filesystem directly from the aggregation tier. Additional sinks can be configured as storage/indexing requirements evolve.
+
+%sinks, which determine how
+% telemetry is handled post-aggregation. Our current sinks can either persist data
+% to storage as timestep and rank-partitioned Parquet, or stream summaries to the
+% controller for visualization. Additional sinks can be configured as collection requirements evolve.
+% Sinks are pluggable: they can persist
+% timestep-partitioned data to disk using Parquet, stream summaries to the
+% controller for visualization, or trigger control flows based on detected
+% patterns. Multiple sinks can be active concurrently. The sink interface is
+% intentionally decoupled from the rest of the dataflow, allowing new sink types
+% to be added with minimal changes.
+%
+\newcommand{\tstpc}{\texttt{TS2PC}}
+\paragraph{Control path.} ORCA’s control messages are disseminated using a
+custom two-phase commit protocol aligned to application timesteps, called \tstpc.
+\tstpc{} leverages the fact that the controller has a lagging view of the application
+timestep at any given point, and asynchronously launches a control command for a future
+timestep ($t + \delta$). Commands are committed if received by all ranks before $t + \delta$,
+and aborted otherwise --- ranks never block, and correctness is maintained either way. $\delta$ is a function of
+the configured parameters and is learned automatically by the control path.
+
+% This
+% ensures that commands such as probe toggles, flow updates, or even pause/resume
+% instructions are applied consistently across all ranks. The protocol operates
+% asynchronously, issuing control messages for a future timestep (e.g.,
+% $t + 2$) to amortize latency. If quorum is achieved by the deadline, the
+% command commits; otherwise, it is safely aborted. This provides strong
+% correctness guarantees without blocking application progress.
+%
+% \section{ORCA: Aggregation and Control}\label{orca-aggregation-and-control}
+%
+% ORCA leverages an overlay network to mediate between an active BSP
+% application and an asynchronous controller. The overlay augments the
+% controller with a tier of dedicated aggregator nodes (collectively
+% comprising the \emph{asynchronous/monitoring domain}), which monitors a
+% BSP application (Fig. 3). Thus a tree topology is created, with leaf
+% nodes being MPI ranks, which are sharded and assigned to aggregators. An
+% intermediate tier of lead MPI ranks can be used for lightweight
+% pre-aggregation to manage fanout at extreme scales.
+
+% The overlay communicates via Mercury, an RPC library for
+% high-performance fabrics. ORCA is amenable to all its communication
+% being relegated to an asynchronous low-QoS tier, so as to not interfere
+% with application performance. Observability capabilities are built on
+% two key functions:
+%
+% \begin{enumerate}
+% 	\item Bottom-up aggregation in a manner defined by the active \texttt{flow},
+% 	      with operator pushdown to minimize data movement, using the overlay as
+% 	      a reduction tree.
+% 	\item Control semantics, enabled by an asynchronous, timestep-consistent
+% 	      two-phase commit protocol (\texttt{TS2PC}). \texttt{TS2PC} enables
+% 	      replicated state machine semantics on the MPI tier, using the overlay
+% 	      as a broadcast tree. Brief \texttt{TS2PC} description:
+%
+% 	      \begin{itemize}
+% 		      \item \emph{Correctness guarantee}: control commands commit on all ranks
+% 		            or none.
+% 		      \item \emph{Performance guarantee}: Protocol execution is asynchronous and
+% 		            non-blocking. If the controller thinks that the application is at
+% 		            timestep \(T\), a control message is issued to be applied at
+% 		            timestep \(T + \Delta\). \(\Delta\) is a function of overlay latency
+% 		            and is learned automatically.
+% 		      \item \emph{Usage}: \texttt{TS2PC} is used to issue commands such as
+% 		            \texttt{activate/deactivate\ probe}, \texttt{pause/resume}
+% 		            application, \texttt{update\ flow} etc.
+% 	      \end{itemize}
+% \end{enumerate}
+%
+% \section{Design Overview}\label{design-overview}
+%
+% \begin{enumerate}
+% 	\item
+% 	      \emph{Data collectors} represent emittable streams with different
+% 	      schemas. We currently have data collectors for MPI collectives and
+% 	      Kokkos, and more can be added for \texttt{NCCL}, \texttt{Pytorch},
+% 	      eBPF, Infiniband etc. Each data collector may emit different probes,
+% 	      each of which can be individually toggled at runtime. If probes are
+% 	      disabled or stream is not needed, the collection call becomes a no-op.
+% 	\item
+% 	      Data collectors are flushed at the end of each timestep to generate
+% 	      Arrow data, which is collected and aggregated via the tree.
+% 	      Aggregation also sequences collected data by timestep, to ensure that
+% 	      a prior timestep is completed before the next timestep is processed.
+% 	\item
+% 	      Each layer applies assigned partial aggregations, and pushes the
+% 	      results up the tree. Finally, data is collected to different
+% 	      \emph{sinks}: these could be on-disk Parquet files, timeseries
+% 	      databases serving Grafana etc.
+% \end{enumerate}
+%
+% ORCA is written in C++, with query planning/execution in Rust using
+% Apache Datafusion.
+\section{Usability}
+
+\paragraph{FlightSQL and Grafana integration.} ORCA implements a DuckDB~\cite{Raasv2019:DuckDB}-based
+telemetry sink at the controller, wrapped around an inbuilt FlightSQL~\cite{:ArrowFlightSQL}
+interface. This enables users to query live telemetry data via SQL, directly
+from tools such as Grafana~\cite{:GrafanaDashboard}. The integration provides a low-friction way to
+visualize application behavior using conventional dashboards. In addition, an
+experimental Arrow Flight~\cite{:ArrowFlight} server offers lower-latency pub/sub access for lower-latency streaming telemetry.
+
+\paragraph{The OrcaFlow DSL.} ORCA provides a declarative telemetry DSL called
+\texttt{OrcaFlow}, designed to systematize telemetry workflows as structured
+dataflows. Each flow defines a set of SQL transformations and targets, allowing
+users to filter, aggregate, and process telemetry in a reproducible way. Flows
+can be activated or retired dynamically, supporting interactive
+performance debugging, anomaly detection, and long-running telemetry
+collection---all within a unified dataflow model.
+
+\paragraph{Integration requirements.} ORCA can collect basic telemetry and provide
+aggregation and control semantics without application modification, if used via a preloaded
+plugin. Richer observability capabilities, however, require applications to expose their timestep
+by linking with ORCA and invoking a hook. We expect applications linking with ORCA to not
+require the service to be active at runtime for the application to execute correctly.
+
+% \section{ORCA: Use Cases}
+%
+% ORCA has been designed to support a wide range of runtime observability and
+% control workflows in large-scale parallel applications. This section outlines
+% five representative use cases we are currently targeting or exploring.
+%
+% \begin{itemize}
+%
+% 	\item \emph{Online aggregation with variable granularity}: ORCA supports
+% 	      real-time aggregation at multiple resolutions. Users can monitor system
+% 	      summaries in the common case and dynamically switch to fine-grained views for
+% 	      anomaly detection or debugging. Aggregated telemetry can be filtered and
+% 	      conditionally persisted as Parquet files, partitioned by timestep and rank,
+% 	      making it suitable for post hoc analysis or feeding downstream analytics
+% 	      engines.
+%
+% 	\item \emph{Dynamic instrumentation via eBPF and DynInst}: Beyond preload-based
+% 	      wrappers, ORCA control semantics enable runtime insertion of probes into arbitrary application
+% 	      or system functions using tools like eBPF and DynInst. While eBPF offers deep
+% 	      observability, its permissions model in production environments can be
+% 	      restrictive. DynInst is a pure userspace alternative that employs binary rewriting to intercept userspace functions without introducing the deployment complexities of eBPF.
+%
+% 	\item \emph{Operator-in-the-loop tuning}: ORCA enables real-time
+% 	      operator-in-the-loop tuning for runtime parameters exposed via the framework.
+% 	      Operators can observe live telemetry and make informed adjustments to thresholds,
+% 	      rates, or control logic mid-execution. These changes are propagated using the
+% 	      TS2PC protocol, ensuring that updates are applied consistently across all MPI
+% 	      ranks at a well-defined timestep boundary. This allows interactive experimentation
+% 	      without requiring simulation restarts.
+% 	      ORCA also serves as a natural substrate for future automatic tuning approaches
+% 	      driven by programmatic policies or learning-based agents.
+%
+% 	\item \emph{Observing application state}: ORCA allows applications to expose and
+% 	      query arbitrary internal state (e.g., particle energies).
+% 	      These can be aggregated or summarized using lossy aggregation techniques such as sketches.
+% 	      This reduces the need for expensive checkpoints and enables
+% 	      scientists to analyze behavior as the simulation evolves.
+%
+% 	\item \emph{(Future direction) leveraging accelerators}: ORCA’s dataflow model
+% 	      can be extended to incorporate SmartNICs, GPUs, or other specialized hardware
+% 	      as compute nodes in the aggregation pipeline. These devices can implement
+% 	      executor interfaces that allow DataFusion to push down portions of the query
+% 	      plan. This opens the door to end-to-end data path optimization using
+% 	      heterogeneous infrastructure.~\cite{Sharm2015:PerfSmells}.
+%
+% \end{itemize}
+%
+% "These are the workflows we are targeting and know to be useful for
+% HPC/scientific application performance, and should be useful to get a
+% sense of what ORCA can do. We think that it could be useful for ML
+% workloads as well -- both training and inference -- because of their
+% shared bulk-synchronous nature, and we are looking for insights on
+% whether current tooling -- possibly proprietary -- adequately fills
+% this gap, and how ORCA can fit in. In addition to performance
+% telemetry, we think ORCA can also be used to inspect ML training state
+% itself: how updates etc. are affecting different layers. We don't know
+% if there is interest in surfacing such information."
+%
+
+\section{ORCA as a Substrate: Use Cases and Open Directions}
+
+While ORCA initially evolved in response to performance challenges we encountered with
+large-scale scientific codes, we quickly realized that its core abstractions---
+structured telemetry, declarative aggregation, and timestep-aligned control---
+enable a broader class of introspection and control workflows within
+bulk-synchronous systems. Beyond performance monitoring, ORCA allows synthesized
+views of arbitrary system layers to be surfaced at runtime---such as driver queues, asynchronous pipelines, internal application state---without interrupting the
+application.
+
+These views are computed through dataflows optimized using pipelined,
+distributed query execution techniques, and can be adapted on the fly. Coupled
+with a consistent control path, ORCA completes the feedback loop: users can
+observe, analyze, and act on runtime behavior from within the same framework,
+without intrusive instrumentation or coordination barriers. 
+These workflows are built dynamically, updated live, and can evolve over time by accumulating libraries of operators, placement strategies, and dataflow source/sink abstractions.
+
+We describe below several directions we are currently exploring. These are
+intended to convey the range of capabilities ORCA enables, and to help identify
+whether similar questions or gaps arise in other domains.
+
+\begin{itemize}
+
+\item \emph{Programmable aggregation and selective persistence}:
+ORCA supports real-time aggregation at variable resolutions. Users can monitor
+low-resolution summaries by default and selectively enable fine-grained telemetry
+during anomalous behavior or debugging. Telemetry can be filtered and
+conditionally persisted as Parquet, partitioned by timestep and rank, enabling
+efficient post hoc analysis without overwhelming storage.
+
+\item \emph{Dynamic probing via control path}:
+ORCA's control plane allows probes to be activated or deactivated at runtime,
+enabling fine-grained observability to be deployed only when and where needed.
+Beyond preload wrappers, ORCA supports probe insertion via tools like eBPF~\cite{:eBPF} and
+DynInst~\cite{Berna2011:DynInst}. Combined with programmable aggregation, this supports seamless runtime
+transitions from lightweight monitoring to detailed root cause localization,
+without restarting or perturbing the application.
+
+\item \emph{Operator-in-the-loop tuning}:
+ORCA enables interactive tuning as a natural consequence of its unified control
+and aggregation model. For runtime parameters exposed via the framework, ORCA
+can guarantee consistent updates across all ranks and apply them at known
+timestep boundaries. This allows for safe mid-execution adjustments---for
+example, to load-balancing thresholds or sampling rates---driven by real-time
+telemetry.
+
+\item \emph{Live introspection of application state}:
+ORCA allows applications to expose internal state (e.g., particle energies,
+residuals, or mesh quality metrics) as queryable streams. Dataflows can be
+augmented with lossy aggregations such as sketches, enabling high-frequency
+summaries with reduced overhead. This makes it feasible to monitor rich
+scientific state without resorting to large-scale checkpoints.
+
+\item \emph{Future direction---leveraging accelerators}:
+ORCA's dataflow model can be extended to incorporate SmartNICs, GPUs, or
+other specialized hardware as compute nodes within the telemetry pipeline.
+By treating these devices as executor targets for query fragments, ORCA opens
+the door to fine-grained in-network or near-data processing.
+
+\end{itemize}
+
+We believe ORCA is directly relevant to machine learning workloads, both training and inference, because of their shared scale and bulk-synchronous characteristics.
+While performance telemetry is an obvious use case---including
+analysis of collective stragglers, pipeline stalls, or asynchronous data loading---
+ORCA also supports introspection of application state, such as monitoring weight
+distributions or gradient sparsity during training. Given an arbitrary view of
+cluster state defined as a synthesis of telemetry, ORCA can orchestrate the corresponding dataflow to compute and act on it.
+We are interested in whether these capabilities fill a meaningful gap relative to
+your current tooling---both in terms of performance visibility and application-level
+state introspection---and would appreciate your perspective on where ORCA’s
+model could be useful or complementary.
+
+\printbibliography
+
+\end{document}

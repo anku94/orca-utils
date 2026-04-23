@@ -1,0 +1,53 @@
+% -- para headings --
+\newcommand{\parahead}[1]{%
+  \vspace{0.2em}\noindent\emph{#1.}\space
+}
+
+\newcommand{\pplushead}[1]{%
+  \vspace{0.25em plus 0.1em minus 0.1em}\noindent\emph{#1.}\space
+}
+
+% -- TODO macro --
+\newcommand{\todo}[1]{%
+  \textcolor{red}{TODO: #1}%
+}
+
+% -- Citation key macros --
+\newcommand{\citeJainAmr}{Jain2025:AMR}
+% \newcommand{\citeJainAmr}{anon:paper}
+% arXiv, seems to have been accepted as Cui2026:Flare at NSDI 2026, but full text not available
+\newcommand{\citeCuiXputimer}{Cui2025:XPUTimer}
+
+% -- Citation group macros --
+\newcommand{\citeGroupML}{Yao2025:Holmes,Wu2025:GREYHOUND,\citeCuiXputimer,Guan2025:PerfTracker,Deng2025:Mycroft,Chen2025:Reveal,Dong2025:Aegis,Deng2025:Minder,Jiang2025:TrainCheck}
+\newcommand{\citeGroupVarHpc}{Petri2003:Missing,Acun2016:Variation,Gunaw2018:FailSlow,Bhate2020:PerfVar}
+\newcommand{\citeGroupVarAmr}{VanS2009:AMR,\citeJainAmr}
+\newcommand{\citeGroupVarRdma}{Kong2022:Collie,Gangi2024:RDMA}
+\newcommand{\citeGroupVarMisc}{You2024:GVARP,Lu2023:PERSEUS,Yildi2016:IONoise}
+% -- Unused: tool/solution papers for variability --
+\newcommand{\citeGroupVarSolns}{Kocol2018:Varbench,Xuan2025:STAD,Acun2016:Mitigating}
+
+% -- Tilde macro --
+\newcommand{\mytilde}{{\raise.17ex\hbox{$\scriptstyle\sim$}}}
+
+% -- Tool name macros --
+\newcommand{\scorep}{Score-P}
+\newcommand{\dftracer}{DFTracer}
+\newcommand{\qlogic}{QLogic}
+\newcommand{\mpiw}{\texttt{MPI\_Wait}}
+
+% -- Protocol macro --
+\newcommand{\twopc}{\textsf{TS2PC}}
+
+% -- TBON tier macros --
+\newcommand{\tierctl}{\textsf{CTL}}
+\newcommand{\tieragg}{\textsf{AGG}}
+\newcommand{\tiermpi}{\textsf{MPI}}
+
+% -- Flow marker (matches agentic_timeline.py) --
+\definecolor{flowblue}{HTML}{b3cde3}
+\newcommand{\flowmark}[1]{%
+  \tikz[baseline=(char.base)]{
+    \node[fill=flowblue,text=black,circle,inner sep=1pt,font=\small\bfseries,draw=black,line width=0.3pt] (char) {#1};
+  }%
+}

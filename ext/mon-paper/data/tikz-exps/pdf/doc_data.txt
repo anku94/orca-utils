@@ -1,0 +1,28 @@
+InfoBegin
+InfoKey: Creator
+InfoValue: TeX
+InfoBegin
+InfoKey: ModDate
+InfoValue: D:20250923131529-04&apos;00&apos;
+InfoBegin
+InfoKey: CreationDate
+InfoValue: D:20250923131529-04&apos;00&apos;
+InfoBegin
+InfoKey: Producer
+InfoValue: pdfTeX-1.40.28
+InfoBegin
+InfoKey: PTEX.Fullbanner
+InfoValue: This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) kpathsea version 6.4.1
+PdfID0: 6597803f6193307d2745619d79b7c45a
+PdfID1: 6597803f6193307d2745619d79b7c45a
+NumberOfPages: 2
+PageMediaBegin
+PageMediaNumber: 1
+PageMediaRotation: 0
+PageMediaRect: 0 0 441.879 329.689
+PageMediaDimensions: 441.879 329.689
+PageMediaBegin
+PageMediaNumber: 2
+PageMediaRotation: 0
+PageMediaRect: 0 0 441.879 175.768
+PageMediaDimensions: 441.879 175.768

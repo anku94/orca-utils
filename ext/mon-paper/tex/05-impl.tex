@@ -1,0 +1,187 @@
+% ! TeX root = ./main.tex
+
+\section{Implementation}
+\label{sec:orca:impl}
+
+\newcommand{\orcaclient}{\emph{OrcaClient}}
+\newcommand{\ocinit}{\texttt{Init()}}
+\newcommand{\ocdest}{\texttt{Destroy()}}
+\newcommand{\ocpta}{\texttt{PostTimestepAdvance()}}
+\newcommand{\ocadd}{\texttt{AddRow}}
+
+\newcommand{\topodir}{\texttt{DIRECT}}
+\newcommand{\toporep}{\texttt{MPIREP}}
+
+The core ORCA framework consists of 40K lines of code (80\% C++, 20\% Rust).
+ORCA uses the Mercury~\cite{Souma2013:MercuryRPC} RPC library for on-fabric communication via
+libfabric~\cite{Grun2015:libfabrica} and UCX~\cite{Shami2015:UCX} providers.
+The Rust portion consists of OrcaFlow's DataFusion-based query planning and execution on each node,
+while the bulk of the functionality --- bootstrap, transport, and control --- lies on the C++ side.
+
+\subsection{Implementation Overview}
+
+\pplushead{Integration}
+Two integration surfaces exist: the \orcaclient{} shim for applications, and collectors for
+profiling interfaces.
+
+\begin{itemize}[leftmargin=*]
+  \item \emph{OrcaClient:}
+        The \orcaclient{} shim links with the application and exposes a \ocpta{} hook, called after every
+        timestep.
+        ORCA can be activated at runtime by preloading the full library, otherwise these hooks become
+        no-ops.
+        \ocpta{}  captures all data path work, including draining collectors, executing
+        tier plans, dispatching data, and handling control messages.
+
+  \item \emph{Collectors:}
+        Streams are implemented via collectors that accumulate events locally and emit Arrow dataframes
+        when drained.
+        At the end of each timestep, ORCA drains all collectors and enqueues the output for analysis.
+        Our implementation currently packages basic collectors for MPI~\cite{:MPI} and
+        Kokkos~\cite{Trott2022:Kokkos3}.
+        Additional collectors may be defined by clients.
+        Collectors can also implement dynamic instrumentation via interfaces like eBPF~\cite{:eBPF} and
+        DynInst~\cite{Berna2011:DynInst}.
+
+\end{itemize}
+
+
+\pplushead{Overlay}
+The overlay bootstraps via a TCP-based protocol and switches to on-fabric RPCs after the initial
+handshake.
+While it supports additional topologies for use cases like intermediate fan-in reduction, only one
+is discussed for simplicity.
+% we evaluate only one for simplicity.
+% only one is discussed in this paper for
+% simplicity.
+
+\pplushead{Data Path}
+The data path is completely asynchronous but timestep-ordered.
+Each tier executes its tier plans on dataframes in timestep order independently, and forwards
+relevant data to the next tier.
+Despite its asynchronous nature, flow updates across tiers also guarantee timestep-consistency.
+% This also applies to flow updates across tiers
+% Each overlay endpoint is assigned a 32-bit ID called \texttt{ovid} to enable uniform addressing
+% across all tiers.
+% Multiple topologies are supported, including \topodir{}, where all MPI ranks directly connect to
+% the overlay, and \toporep{}, where ranks choose node-local representatives to reduce aggregator
+% incast.
+% Additional topologies can be plugged into the framework.
+% For simplicity, we only discuss the \topodir{} topology in this paper.
+
+% The ORCA overlay bootstraps via a TCP-based discovery protocol for the initial handshake with the
+% controller, and then switches to on-fabric RPCs once Mercury addresses are exchanged.
+% Routes are then constructed as per the selected TBON topology, and available aggregators are
+% automatically assigned to ranks.
+
+% CANDIDATE:
+% \subsection{Data Path}
+% \label{sec:orca:impl-data}
+% % ORCA's data path is asynchronous but timestep-ordered --- each tier executes its plan on
+% % dataframes in timestep order. 
+% % To prevent head-of-line blocking, \tieragg{} and \tierctl{} maintain
+% % a priority queue of pending GETs. 
+% As discussed in \S\ref{sec:orca:des_insitu}, the data path is asynchronous but timestep-ordered --- each
+% tier executes its tier plans on dataframes in timestep order.
+% The head-of-line blocking concerns are mitigated via a \emph{(timestep, rank)}-ordered priority
+% queue for pending GETs at \tieragg{} and \tierctl{}.
+% Some key implementation aspects are described below:
+
+% \begin{itemize}[leftmargin=*]
+%   \item Each MPI rank emits one metadata RPC after every timestep
+%         regardless of data volume if ORCA is enabled.
+%         This is necessary for correctness, as higher tiers can only mark a timestep complete once the
+%         entire subtree has reported.
+%   \item Although Arrow analytics is zero-copy locally, ORCA performs a single memcpy from RDMA-registered memory to
+%         allow registered memory handles to be recycled faster.
+%   \item ORCA nodes are highly multithreaded and provision large thread pools for decode, compression, and
+%         Parquet I/O, as sustaining O(GB/s) requires multiple cores even with efficient compression codecs such as Snappy.
+%         While Arrow decode is highly efficient, costs still accumulate for complex flows at scale, with
+%         O(10K) data fragments received each second.
+%   \item Tier plan execution on aggregators and controller is multithreaded.
+%         The same rank-partitioning strategy used to shard timestep dataframes across tiers is used to
+%         partition shards across cores.
+% \end{itemize}
+
+\subsection{\twopc{}: Implementation Details}
+\label{sec:orca:impl-ctl}
+
+% The implementation consists of 
+\twopc{} is implemented as separate \emph{inner} and \emph{outer} layers.
+The inner layer enables a single transaction with a unique monotonic ID called \texttt{txnseq},
+targeting a particular $T_{cmd}$.
+% The outer layer adds features like $\Delta$-learning, automatic retries, and cross-tier
+% consistency.
+The outer layer adds features like automatic $\Delta$-learning (discussed in
+\S\ref{sec:orca:des_ctl}) and \emph{control domains} for cross-tier consistency.
+% The inner layer implements the core two-phase commit mechanism for a single transaction --- a
+% transaction, with a unique ID called a \texttt{txnseq} is initiated targeting a particular
+% $T_{cmd}$, and may fail if $T_{cmd} < T_{app}$.
+
+% The outer layer adds $\Delta$-learning --- commands are automatically retried with a new $\Delta$
+% until they succeed.
+% \parahead{$\Delta$-learning}
+% The outer \twopc{} layer automatically retries commands with an incremented $\Delta$ in case of
+% aborts.
+% As a result, $\Delta$ quickly converges to the natural latency of the TBON.
+
+\parahead{Concurrency}
+Correctness necessitates that only one transaction be in flight at any given time, as intermittent
+failures and automatic retries can result in commands being committed out of order.
+%, potentially breaking correctness.
+However, a single transaction can contain an arbitrary number of commands applied as a batch.
+% We find that correctness necessitates only one transaction to be inflight at any given time, as
+% intermittent failures can result in result in out-of-order commits, breaking correctness.
+% However, a single transaction can consist of an arbitrary number of commmands applied as a batch.
+
+\parahead{Handling Pauses}
+The control plane supports pausing and resuming the application between timesteps for basic
+lifecycle management, and as primitives for more complex workflows.
+An interesting case emerges from the interaction of the paused state with \twopc{} --- resume
+commands in this state will be committed for a future timestep never reached by a paused
+application, creating a deadlock.
+Our solution recognizes that the paused state makes the application synchronous with the user and
+renders \twopc{} unnecessary for consistency.
+Commands in this state circumvent the protocol and are executed directly.
+
+\parahead{Cross-tier Consistency}
+Commands such as flow updates trigger tier plan updates at all tiers, and must be applied at a
+consistent timestep across the entire TBON.
+This is challenging as the higher tiers are asynchronous and observe application timesteps at
+different times.
+A tier is defined to observe a timestep when it processes its dataframes.
+
+% Cross-tier consistency is supported via control \emph{domains} in the outer layer.
+% allowing all overlay tiers to be addressable via timestep-consistent control.
+% Each overlay tier corresponds to a domain, and each transaction contains a bitmask for its
+% executing domains --- flow updates, for example, apply to all domains.
+% Regardless of the domain, all \twopc{} commit decisions are made by \tiermpi{}, treating it as the
+% single source of truth on the application timestep.
+% Higher tiers snoop on protocol traffic and apply commands only if their domain bit is set.
+
+Cross-tier consistency is supported via \emph{control domains}, which make each overlay tier
+independently addressable by the control plane in a timestep-consistent manner.
+Each tier corresponds to a domain, and each transaction carries a bitmask specifying which domains
+it targets --- flow updates, for example, target all domains.
+The inner protocol remains unchanged, with \tiermpi{} making all commit
+decisions as the single source of truth on the application timestep, regardless of the domain.
+Higher tiers snoop on protocol traffic and apply commands only if their domain bit is set.
+% Higher tiers snoop on protocol traffic and apply commands only if their domain bit is set.
+% Higher tiers snoop on protocol traffic and apply commands only if their domain bit is set.
+
+% \begin{enumerate}[leftmargin=*]
+% %   \item Each tier corresponds to a domain, and each transaction contains a bitmask corresponding to the domains
+% %         to which it applies.
+% %         Flow updates, for example, apply to all domains, thus all bits are set.
+%   \item All transactions are first committed by \tiermpi{} regardless of the domain.
+%         The bitmask is only checked at \emph{apply} time, and commands are committed only if the domain bit
+%         corresponding to that tier is set.
+%         As a result, \tiermpi{} acts as the single source of truth on the application timestep.
+%   \item \tierctl{} and \tieragg{} act on control messages by \emph{snooping} on commit messages.
+%         Commands applying to that tier are replicated internally before broadcasting the commit to the
+%         subtree.
+%         As the inner protocol guarantees correctness regardless of commits' arrival at \tiermpi{}
+%         (\Cref{fig:orca:des-twopc}, Case C) this ensures that commands for $T_{cmd}$ are enqueued at all tiers
+%         before $T_{cmd}$ is observed.
+% \end{enumerate}
+

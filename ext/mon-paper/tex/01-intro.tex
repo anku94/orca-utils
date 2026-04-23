@@ -1,0 +1,135 @@
+% ! TeX root = ../main.tex
+
+\section{Introduction}
+
+
+The \emph{bulk-synchronous parallel} (BSP)~\cite{Valia1990:BSP} paradigm powers critical
+computational workloads, from scientific simulations to large-scale machine learning training.
+These systems are uniquely fragile: at the scale of tens of thousands of processors, lockstep
+execution means a single straggler can block cluster-wide progress at every synchronization point.
+As ML training pushes BSP toward 100K GPUs~\cite{Salpe2026:100K} and scientific workloads grow in
+tandem~\cite{Das2023:LargeScale,Stock2024:LargeScale}, the cost of undiagnosed performance
+pathologies has become economically untenable.
+Yet the causes are diverse and highly
+context-dependent~\cite{\citeGroupVarHpc,\citeGroupVarAmr,\citeGroupVarRdma,\citeGroupVarMisc,\citeGroupML}
+---load imbalance, poor task overlap, hardware variability---varying across clusters, workloads, and
+scales.
+Metrics~\cite{:Prometheus,Schwa2021:LDMS} provide baseline visibility but rarely enough workload
+structure to attribute causes.
+Tracing~\cite{Shend2006:TAU,Knupf2012:Score-P,2025:PytorchKineto,Devar2024:DFTracer,Boehm2016:Caliper}
+can capture the fine-grained patterns needed for diagnosis, but prevailing approaches---exhaustive
+collection to disk followed by expensive \emph{extract-transform-load}
+(ETL)~\cite{Yildi2023:IOMax,\citeJainAmr} ---cannot provide feedback at the speed problems demand.
+In a prior study of placement in AMR codes~\cite{\citeJainAmr}, isolating the root causes of
+several performance artifacts took months, while fixes typically took days.
+Rapid visibility into production pathologies remains one of the highest-yield paths to efficiency.
+
+We argue for always-on, steerable observability as a production capability for BSP workloads, not
+just faster post-hoc analysis, but continuous visibility with the ability to escalate on demand.
+The evolution of distributed tracing~\cite{Barha2004:Magpie,Fonse2007:X-Trace,Sigel2010:Dapper}
+offers an instructive parallel.
+In microservices, tracing evolved to preserve causal relationships between requests (the unit of
+work in asynchronous systems) so tail latency is continuously monitored and attributable to
+specific services.
+In BSP, causality is induced by synchronization: performance anomalies manifest as stragglers that
+stall collectives.
+The same synchronization creates natural windows for both observation and intervention, enabling
+operators to steer collection on demand, test hypotheses live, and act on feedback while the
+job runs.
+Real-time diagnostics are already proving valuable in ML training~\cite{\citeGroupML} for problems
+ranging from straggler localization to training correctness, but each system implements a bespoke
+collection and analytics pipeline.
+% And because BSP is a single coordinated workload, the system can unify observation and% intervention---enabling operators to steer collection on demand, test hypotheses live, and act on% feedback, all while the job runs.
+%A common observability substrate is needed for BSP workloads, 
+BSP workloads need a common observability substrate, providing low-overhead on-fabric transport,
+BSP-aware coordination semantics for telemetry aggregation and control, and programmable analytics
+interfaces (\S\ref{sec:orca:req}).
+
+We present a tree-based overlay~\cite{Arnol2006:TBONs} for rapid feedback loops over large-scale BSP
+applications called 
+ORCA~(\emph{Observability~with~Real-time~Control~and~Aggregation}).
+ORCA treats telemetry as columnar streams and provides in-situ SQL-based
+analytics, faster offline analytics, and a control plane for
+online steerability.
+Central to the design is treating synchronization as the fundamental consistency boundary.
+On the data path, this yields \emph{timestep dataframes}~(\S\ref{sec:orca:des_model}): a
+per-timestep grouping of all ranks' telemetry into a single logical analysis unit.
+Because synchronization partitions BSP execution into causally independent windows, timestep
+dataframes support both in-situ analysis during execution and timestep-partitioned persistence
+for faster offline queries.
+Combined with columnar formats (Arrow~\cite{:ApacheArrow} in transit, Parquet~\cite{:ApacheParquet} at rest), this eliminates the ETL
+that dominates conventional tracing workflows.
+An RDMA-based transport~(\S\ref{sec:orca:des_xport}) minimizes collection overhead,
+while distributed query planning with operator pushdown minimizes data movement~(\S\ref{sec:orca:des_insitu}),
+On the control path, a timestep-consistent commit protocol (\S\ref{sec:orca:des_ctl}) enables atomic
+interventions---new analytics, probes, or parameter updates---applied asynchronously at the same timestep
+across all ranks.
+% Together, these enable workflows ranging from faster offline analytics to low-overhead, real-time, closed-loop feedback.
+We evaluate ORCA on a real AMR code at 512--4096 CPU ranks:
+
+% control paths to realize low-overhead, real-time, closed-loop feedback.
+% We evaluate ORCA on a real AMR code at 512--4096 CPU ranks:
+
+% We present a tree-based overlay for real-time observability and control of large-scale BSP applications called ORCA.
+% ORCA treats telemetry as columnar streams and provides capabilities ranging from in-situ SQL-based analytics,
+% faster dataframe-style offline analytics, and a control plane for online steerability.
+% % ORCA provides timestep-consistent control and data
+% ORCA constructs a tree-based overlay providing data and control paths
+% both treating synchronization as the fundamental consistency boundary in BSP execution.
+% On the data path, this yields an abstraction called timestep dataframe, consisting of all ranks' telemetry from a single timestep.
+% As timesteps are causally independent, timestep dataframes enable in-situ analyses, and timestep-partitioned 
+% layouts for faster offline analyses. Combined with columnar formats like Arrow and Parquet, this enables
+
+% ORCA treats the synchronization window as the fundamental consistency boundary in BSP execution
+
+% We present a \emph{tree-based overlay network} (TBON)~\cite{Arnol2006:TBONs} for real-time
+% observability and control of large-scale BSP applications, called
+% ORCA~(\emph{Observability~with~Real-time~Control~and~Aggregation}).
+% ORCA treats telemetry as columnar streams, transformed in-situ via SQL-based analytics 
+% %interface called \emph{OrcaFlow} 
+% en route to \emph{sinks} such as dashboards or parallel filesystems.
+
+
+
+% A key contribution is the timestep dataframe abstraction: recognizing that global synchronization
+% divides BSP execution into causally independent windows, ORCA makes timestep the key thing
+% for in-situ and offline  something.
+% Timestep dataframes, consisting of all telemetry from a single timestep, enable both faster offline
+% analysis by partitioning, and in-situ analysis too.
+% Distributed query planning with operator pushdown minimizes data movement for in-situ analysis,
+% (\S\ref{sec:orca:des_insitu}), while an end-to-end columnar pipeline enables zero-ETL post-mortems.
+
+% A key contribution is the \emph{timestep dataframe} abstraction: building on the insight that
+% global synchronization divides BSP telemetry into causally independent windows, ORCA transforms
+% telemetry from a rank-major to a timestep-major representation (\S\ref{sec:orca:des_model}).
+% An RDMA-based TBON-optimized transport (\S\ref{sec:orca:des_xport}) enables low-overhead collection of
+% these dataframes.
+% They can then be transformed via SQL-based analytics, routed to a dashboard, or persisted as
+% partitioned Parquet for zero-ETL post-mortems.
+% Distributed query planning with operator pushdown minimizes data movement across the overlay
+% (\S\ref{sec:orca:des_insitu}).
+
+% A control plane (\S\ref{sec:orca:des_ctl}) provides atomic and timestep-consistent control semantics,
+% guaranteeing correctness for interventions such as new analytics, probes, parameter updates.
+% ORCA combines a modern columnar analytics
+% stack~\cite{:ApacheArrow,:ApacheParquet,Lamb2024:DataFusion} with RDMA and BSP-aligned data and
+% control paths to realize low-overhead, real-time, closed-loop feedback.
+% We evaluate ORCA on a real AMR code at 512--4096 CPU ranks:
+
+\begin{itemize}[leftmargin=*]
+  \item In conventional tracing workflows, ORCA captures equivalent telemetry at \mytilde{2}\% runtime overhead
+        (vs 56--81\% for state-of-the-art tracers), produces up to 42$\times$ smaller traces, and
+        enables up to 7275$\times$ faster offline analyses (\S\ref{sec:orca:eval-trace}).
+  \item In-situ analytics enable low-overhead needle-in-the-haystack
+        workflows---outlier \mpiw{} calls are isolated in real-time at sub-2\% runtime
+        overhead, while discarding up to 99.999\% of data at MPI ranks (\S\ref{sec:orca:eval-insitu}).
+  \item In an agentic evaluation of its steerable capabilities using an LLM
+        agent,
+        ORCA enables localizing a performance anomaly---the same bug from \cite{\citeJainAmr} that took
+        months of manual investigation---in 27 minutes, while reducing data volume by up to 144$\times$
+        (\S\ref{sec:orca:eval-agent}).
+\end{itemize}
+
+More broadly, ORCA demonstrates that declarative SQL analytics can be embedded on the fabric
+alongside a live MPI application, enabling streaming analytics workflows beyond observability~(\S\ref{sec:orca:related}).
+ORCA is open source~\cite{Autho2026:orca-code}.

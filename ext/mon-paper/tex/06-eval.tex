@@ -1,0 +1,454 @@
+% ! TeX root = ../main.tex
+
+% -- Takeaway block prototypes --
+% Style A: simple fbox
+\def\takeawaygap{0.3em}
+% \newcommand{\takeaway}[1]{%
+%   \vspace{\takeawaygap}%
+% %   \noindent\fbox{\parbox{0.97\columnwidth}% {
+%       \emph{\textbf{Takeaway:} #1}
+%       % }}%
+%   \vspace{\takeawaygap}%
+% }
+
+\newcommand{\takeaway}[1]{%
+  \vspace{\takeawaygap}%
+  \noindent\emph{\textbf{Takeaway:} #1}%
+  \vspace{\takeawaygap}%
+}
+
+
+\section{Evaluation}\label{sec:orca:eval}
+
+\figEvalOverhead{}
+
+We evaluate ORCA by progressively enabling its capabilities.
+As a passive telemetry collector, we compare runtime overhead
+(\S\ref{sec:orca:eval-trace-runtime}), storage efficiency (\S\ref{sec:orca:eval-trace-size}), and
+analytics performance (\S\ref{sec:orca:eval-trace-query}) against state-of-the-art tracers.
+We then demonstrate online analytics (\S\ref{sec:orca:eval-insitu}) and control workflows
+(\S\ref{sec:orca:eval-agent}) --- capabilities with no existing counterparts.
+
+\parahead{Hardware Setup}
+Experiments run on a 600-node research cluster with \qlogic{} Truescale fabric (Intel Xeon E5-2670,
+16 cores/node, 64\,GB RAM, 40\,Gbps \qlogic{} 7340 NICs) and a 20-node Lustre filesystem with 3GB/s
+aggregate bandwidth.
+
+\parahead{Software Setup}
+We use the Sedov Blast Wave 3D~\cite{Sedov1959:SimilarityDimensionalMethods} AMR code from the
+Parthenon~\cite{Grete2023:Parthenon} and Phoebus~\cite{Barke2024:Phoebus} frameworks at 512--4096
+CPU ranks, with 16 ranks/node.
+ORCA uses one aggregator node per 1024 ranks plus one controller node.
+All experiments use MVAPICH2 v2.3.7~\cite{Panda2021:MVAPICH} with a tuned PSM~\cite{2025:PSM}
+library for our fabric.
+While simulation nodes use PSM, ORCA communication uses Mercury~\cite{Souma2013:MercuryRPC} over
+verbs because of fabric restrictions.
+
+This setup represents a strenuous observability workload: CPU codes make every cycle visible as
+runtime overhead, the legacy fabric lacks QoS support and forces ORCA onto a non-native interface
+(verbs), and the code's multiple communication patterns --- multiple collectives, halo exchanges,
+and frequent load balancing --- make it highly jitter-sensitive.
+
+\subsection{Tracing Overhead and Efficiency}
+\label{sec:orca:eval-trace}
+
+
+We compare ORCA in conventional tracing workflows with four state-of-the-art tracing tools
+(TAU~\cite{Shend2006:TAU}, \scorep{}~\cite{Knupf2012:Score-P}, Caliper~\cite{Boehm2016:Caliper},
+and \dftracer{}~\cite{Devar2024:DFTracer}) along three axes: runtime overhead, storage efficiency,
+and analytics performance.
+
+\parahead{Collection Profiles}
+% We set up 
+ORCA is set up with two tracing profiles: a lightweight profile that only captures MPI collectives,
+and a detailed profile that also captures all MPI point-to-point messages and Kokkos events.
+Extremely high-volume events like \texttt{MPI\_Test} and \texttt{MPI\_Iprobe} are excluded.
+For ORCA, the lightweight profile measures the common-case overhead of always-on observability,
+while the detailed profile measures the worst-case overhead of capturing all MPI and Kokkos events.
+All other tracing tools are configured with the same detailed collection profile.
+Unless otherwise specified, all experiments run for 2000 timesteps, and we report the average
+runtime from three runs.
+Unlike tracing tools, ORCA is deployed with additional resources: one aggregator node per 1024
+ranks, plus one controller node.
+
+% DATA: Trace size ratios for 2000 timesteps (or_trace_mpisync vs or_tracetgt)
+% from tracesizes/20251229.csv
+% | Ranks | mpisync (MB) | tracetgt (GB) | Ratio |
+% |-------|--------------|---------------|-------|
+% | 512   | ~73          | ~19.6         | 269×  |
+% | 1024  | ~139         | ~34.4         | 248×  |
+% | 2048  | ~266         | ~55.7         | 209×  |
+% | 4096  | ~524         | ~111.6        | 213×  |
+% Detailed traces are 200-270× larger than lightweight traces.
+
+\subsubsection{Runtime Overhead}\label{sec:orca:eval-trace-runtime}
+\Cref{fig:orca:eval-runtime} compares the runtime overhead of ORCA and other tracing tools for
+512--4096 ranks.
+
+\takeaway{ORCA incurs an overhead of 0.8--2\% across all scales and profiles, vs up to 56--81\% for TAU and \dftracer{}.}
+
+\begin{itemize}[leftmargin=*]
+  \item ORCA remains within 0.8--2\% overhead across all scales and profiles, while that of TAU and
+        \dftracer{} degrades, from 18--20\% at 512 ranks to 56--81\% at 4096 ranks
+        (\scorep{} and Caliper discussed separately below).
+  \item At 4096 ranks, the 2\% overhead is despite sharing the fabric with a real AMR code with no QoS support, transporting 1.8\,GB/s of telemetry (550\,GB on-wire, 111\,GB after compression, over 308\,s).
+        %   \item At 4096 ranks, overhead remains under 2\% despite sharing the fabric with the application without QoS support, ingesting 1.8\,GB/s of data (550\,GB on-wire, 111\,GB after compression, over 308\,s).
+        %   \item At 4096 ranks, ORCA transfers 1.8\,GB/s of data at under 2\% overhead while sharing the fabric with the application without QoS support (550\,GB on-wire, 111\,GB after compression, over 308\,s).
+        %         This demonstrates that RDMA-based telemetry pipelines can coexist with BSP workloads.
+        %   \mytilde550GB on-wire (\mytilde111GB after
+        %         compression) over a shared fabric without QoS within 308\,s at under 2\% overhead ---
+        %         demonstrating that RDMA-based telemetry pipelines can coexist with tightly-coupled BSP
+        %         communication.
+  \item Overhead increases only 0.4\% between ORCA's lightweight and detailed profiles at 4096 ranks, despite 200$\times$ more telemetry (524\,MB vs 111\,GB), enabled by Arrow's serialization efficiency and a TBON-optimized RDMA transport.
+        %  illustrating its serialization and transport efficiency.
+        %   \item Marginal increase in overhead between ORCA's lightweight and detailed profiles at 4096 ranks is only
+        %         0.4\%, despite collecting over 200$\times$ more telemetry (524\,MB vs
+        %         111\,GB respectively), illustrating its serialization and transport efficiency.
+        %   This underscores the efficiency of Arrow combined with asynchronous RDMA-based collection.
+\end{itemize}
+
+\parahead{Why ORCA Works}
+TAU and \dftracer{} degrade steadily because they flush trace buffers to storage as they fill,
+which produces uncoordinated flushing patterns.
+This, coupled with a kernel-based data path for storage, introduces jitter that compounds at scale.
+ORCA, in comparison, uses an inherently efficient format, serializes synchronously into
+RDMA-registered buffers, and transports via efficient RDMA GETs.
+
+\parahead{Caveats on \scorep{} and Caliper}
+Because of difficulties running them for the full 2000 timesteps, all numbers for \scorep{} and
+Caliper are extrapolated from 200 timesteps.
+Both tools are designed for short characterization runs where data is buffered in memory and
+flushed once at the end.
+\scorep{} also requires an additional workload pass to estimate trace buffer sizes, and
+frequently crashed with out-of-memory errors despite generously configured buffer sizes.
+While Caliper supports periodic flushing, the path was buggy and performance was significantly
+degraded even after patches.
+% \scorep{} additionally requires two workload passes --- the first to estimate buffer sizes --- and
+%even with 64\,MB trace buffers.
+
+\subsubsection{Storage Efficiency}\label{sec:orca:eval-trace-size}
+
+\figEvalSizeOnly{}
+\Cref{fig:orca:eval-tracesize} compares the total size, and the per-record size of the traces emitted
+by ORCA and other tracers.
+ORCA writes Parquet, TAU and \scorep{} are configured for OTF2, \dftracer{} writes \texttt{jsonl},
+and Caliper writes its custom plaintext \texttt{cali} format.
+Key findings:
+
+\takeaway{ORCA's Parquet traces are up to 6.4$\times$ and
+  44.3$\times$ smaller than OTF2 and plaintext formats, respectively.
+}
+
+\begin{itemize}[leftmargin=*]
+  \item ORCA consistently emits the smallest traces, 3.6--3.8$\times$ smaller than TAU, and up
+        to 44.3$\times$ smaller than Caliper.
+  \item Differences can be partly explained by format efficiency.
+        Per-record footprint of OTF2, being a binary format, is only 1.4$\times$ larger, while that of
+        plaintext formats is 7--13$\times$ larger.
+\end{itemize}
+
+\parahead{Record Amplification}
+Accounting for format efficiency, other tracing tools emit 2.5--3.3$\times$ more records than ORCA,
+despite the same collection profile.
+\begin{enumerate}[leftmargin=*]
+  \item Most tracers generate separate entry and exit records per traced function call, while ORCA and \dftracer{} generate one record containing both start time and duration.
+        Latter is both more space-efficient and allows duration-based filters without additional
+        preprocessing.
+        %   \item All tracers except \dftracer{} (and ORCA) generate separate entry and exit records for each
+        %         traced function.
+        %         ORCA and \dftracer{} generate one record, which contains both start time and duration.
+        %         This is both more efficient and allows functions to be filtered by duration without requiring any
+        %         preprocessing to pair the entry and exit records.
+  \item TAU incurs additional amplification from hardcoded derived events: for every
+        MPI send and receive, it emits a function event, a message event, and an event for
+        messages received during certain phases such as \mpiw{}.
+  \item Flush-induced jitter with \scorep{} and Caliper creates stragglers,
+        resulting in additional wait events from other ranks.
+        %    that other
+        %         ranks wait on, generating additional events while waiting.
+        %--- generating additional events while waiting.
+\end{enumerate}
+
+\parahead{Why ORCA Works}
+ORCA's storage efficiency stems from two design choices.
+First, Parquet yields an inherently compact representation through binary columnar layout,
+dictionary encoding, and Snappy~\cite{2026:GoogleSnappy} compression.
+Second, separating derived events from collection --- computing them via OrcaFlow rather than
+baking them into the tracer --- prevents record amplification from creeping in as features
+accumulate.
+We discuss compression further in \S\ref{sec:orca:eval-trace-tradeoffs}.
+
+\subsubsection{Query Performance}\label{sec:orca:eval-trace-query}
+\figEvalQueryOnly{}
+We evaluate analytics performance using a suite of post-mortem queries
+(\Cref{fig:orca:eval-query}).
+All queries run on traces from a smaller 20-timestep run, executed cold with caches cleared,
+latencies averaged over 3 runs.
+
+\takeaway{ORCA traces enable 3--4 orders of magnitude faster analytics compared to \dftracer{} and Caliper.}
+
+\parahead{Queries}
+We use three queries of increasing complexity.
+\emph{Outlier Waits} is a simple filter identifying \mpiw{} events exceeding 1\,ms.
+\emph{Outlier Collectives} aggregates collective events by \texttt{swid} and filters for outliers (max
+duration $>$ 10\,ms).
+\emph{Timestamp Range} returns all events within the first second of execution---a query that
+might power a visualization frontend, and notably not a dimension ORCA partitions on.
+
+\parahead{Analytics Tools}
+All queries execute on a single 16-core node.
+\dftracer{} and Caliper queries use their bundled Python-based analytics libraries.
+ORCA queries use an off-the-shelf query engine~\cite{:Polars} with no partition awareness for simplicity.
+% --- a
+% handicapped configuration as the metadata from all Parquet files must be scanned for all queries.
+TAU and \scorep{} are excluded as OTF2 does not support dataframe analytics.
+Findings:
+
+% \parahead{Findings}
+\begin{itemize}[leftmargin=*]
+  \item ORCA queries complete in hundreds of milliseconds, 3--4 orders of magnitude faster than
+        \dftracer{} and Caliper.
+        The gap widens with scale.
+  \item Query times for \dftracer{} and Caliper do not vary with query complexity.
+        This is because performance is bound by parsing, not computation --- entire plaintext traces need
+        to be parsed and loaded as dataframes for queries.
+\end{itemize}
+
+\parahead{Why ORCA Works}
+Plaintext formats used by analytics-oriented tracers~\cite{Devar2024:DFTracer,Boehm2016:Caliper}
+require expensive ETL to materialize dataframes before any analyses, while Parquet's columnar
+layout enables zero-ETL analytics.
+Additionally, ORCA's layout enables both cross-file and intra-file
+pruning via partitioning and rowgroup statistics.
+The outperformance in \Cref{fig:orca:eval-query} is despite the query suite not exploiting the former ---
+unmodified Polars with lazy execution must scan all footers.
+Open table metadata formats~\cite{:Iceberg,Armbr2020:Deltalake} would accelerate queries further by
+adding a catalog layer over Parquet, enabling standard query
+engines~\cite{:Polars,Raasv2019:DuckDB} to automatically leverage ORCA's partitioning.
+Conventional formats offer no such benefits, requiring larger analytics clusters for ETL as traces grow.
+% Conventional formats offer no such benefits --- as traces grow, larger analytics clusters must be
+% provisioned for ETL.
+%  , ORDA persists dataframe structure end-to-end as Parquet --- enabling zero-ETL post-hoc analytics.
+% While all analytics-oriented tracers ultimately load data into dataframes, they persist traces as
+% plaintext formats requiring expensive ETL to materialize dataframes before any query executes.
+% ORCA preserves dataframe structure end-to-end, persisting directly as Parquet --- enabling zero-ETL
+% post-hoc analytics.
+% before queries can begin.
+% Our benchmark does not exploit the former --- unmodified Polars with lazy execution must scan all
+% file footers.
+% Open table formats~\cite{:Iceberg,Armbr2020:Deltalake} would add a catalog layer over partitioned
+% Parquet, enabling standard query engines~\cite{:Polars,Raasv2019:DuckDB} to leverage it
+% automatically.
+% Adopting Parquet-based lakehouse metadata formats~\cite{:Iceberg,Armbr2020:Deltalake} would add a
+% catalog layer over partitioned Parquet, making partition pruning automatically available via
+% standard query engines~\cite{:Polars,Raasv2019:DuckDB}.
+% Even without partition pruning, ORCA outperforms by 3--4 orders of magnitude.
+
+\subsubsection{Tradeoff Analysis}\label{sec:orca:eval-trace-tradeoffs}
+
+\figEvalArch{}
+We now isolate the impact of key architectural decisions using a 512-rank run
+(\Cref{fig:orca:eval-arch}).
+
+\takeaway{Architectural choices --- dedicated nodes and RDMA --- are key to compression and low runtime overhead.}
+
+\parahead{Compression}
+\dftracer{} supports gzip compression, which reduces its trace size from $12.2\times$ that of ORCA
+to $1.6\times$ (\cref{fig:orca:eval-arch-dft}), but at the cost of increasing runtime overhead from
+18\% to 504\%.
+Compression on MPI ranks is unviable because it competes with the application for CPU, amplifying
+jitter.
+ORCA offloads compression to dedicated aggregator cores, keeping it off the critical path.
+Additionally, most compressed formats cannot be queried without full decompression, while ORCA
+queries only require decompressing the files and rowgroups that match query predicates.
+% 's causal
+% partitioning and Parquet's rowgroup structure reduce decompression overhead.
+
+\parahead{Transport Layer}
+Switching from \texttt{verbs} to libfabric's \texttt{TCP} provider increases ORCA's overhead from
+1--2\% to 45--55\% (\cref{fig:orca:eval-arch-tcp}).
+Even with the same Arrow-based data path, TCP suffers because retrieval incurs CPU overhead on
+simulation ranks, introducing jitter.
+% This gap reflects the complementary nature of ORCA's transport choices: Arrow enables efficient
+% serialization into contiguous RDMA-friendly buffers, and RDMA allows asynchronous retrieval with
+% minimal CPU overhead while the application runs undisturbed.
+These results underscore the cost of TCP-based transport for tightly-coupled BSP workloads.
+While GPU codes may have more tolerance for the transport overhead of conventional event-based streaming systems~\cite{Carbo2015:ApacheFlink,Kreps2011:Kafka},
+they still lack the columnar, causally-partitioned data path that underpins ORCA's analytical efficiency.
+% While GPU-based codes may tolerate the higher overhead, but event-based systems~\cite{Carbo2015:ApacheFlink,Kreps2011:Kafka} still
+% lack the columnar, causally-partitioned data path that underpins ORCA's analytical efficiency.
+
+
+\subsection{ORCA-Native In-Situ Workflows}
+\label{sec:orca:eval-insitu}
+
+
+\tabEvalFlows{}
+
+\figEvalOrcaNative{}
+
+While it can enable conventional tracing workflows, ORCA is fundamentally designed for in-situ
+analytics --- directly materializing views from a running application.
+% Plan operators can be pushed all the way to the MPI tier, leveraging the application's own
+% resources for data reduction at source.
+We now evaluate these capabilities, measuring the runtime overhead of operator pushdown, and its
+impact on data movement.
+% The previous section compared ORCA against existing tools on their own terms. We now evaluate
+% capabilities that have no analog in existing tooling: real-time in-situ telemetry analytics with
+% operator pushdown.
+
+\takeaway{In-situ analytics and operator pushdown reduce data movement by 98.5--99.999\%, at sub-2\% overhead.}
+
+\parahead{Workflows}
+\Cref{tab:ontv-flows} shows three flows of increasing complexity, designed for AMR codes.
+The first demonstrates a monitoring workflow: measuring the count of \mpiw{} exceeding 1\,ms each
+timestep, while the second persists outlier events to Parquet.
+The third flow tracks compute load imbalance in AMR codes --- it filters for known compute kernels,
+computes duration aggregates by rank, and streams details to Parquet and percentiles to DuckDB for
+real-time dashboards.
+
+
+\parahead{Observations}
+\Cref{fig:orca:eval-ontv} shows the runtime overhead and the data reduction at \tiermpi{} for the three flows.
+\begin{itemize}[leftmargin=*]
+  \item
+        All workflows incur an overhead of $\le 2\%$ across all scales despite executing
+        operators on CPU ranks, illustrating the efficiency of Arrow-based in-situ analytics.
+        Computation budget for pushdown only grows with modern GPU codes.
+  \item Data movement from MPI ranks is reduced by $98.5\%-99.999\%$.
+        Designing observability around materialized views reduces data movement and improves feedback
+        latency.
+        Most telemetry is redundant for monitoring and debugging --- a small fraction of aggregated and
+        filtered data suffices to materialize the required views.
+        %   Leveraging MPI nodes for analytics reduces fabric utilization, residual work at upper tiers, and
+        %   shortens the feedback loop.
+        %   The \emph{capture-everything} nature of traditional tracing is redundant for monitoring and
+        %   debugging---a small fraction of aggregated and filtered data suffices to materialize the required
+        %   views.
+        %   only a small amount of aggregated data is required to construct the views required for
+        %   these workflows.
+  \item The \mpiw{} flows do not sample---they perform continuous predicate evaluation for every
+        single \mpiw{}, emitting only outliers.
+        Comprehensive continuous observability of this type is impractical without pushdown.
+\end{itemize}
+
+% The anomaly is reproduced within the same AMR code used in previous experiments at 4096 ranks,
+% albeit with a different placement policy that exacerbates the anomaly's frequency.
+% The code is instrumented with a hierarchy of Kokkos region annotations, with additional annotations
+% in functions of interest added by us.
+% An LLM agent ran on the head node with access to the ORCA controller via CLI and the codebase.
+
+% The agent was tasked with monitoring collectives for outliers and progressively collecting only the
+% Kokkos and MPI events necessary to localize the problem.
+% Of the three LLM agents tested---Claude Code~\cite{:ClaudeCode} with Opus 4.5, OpenAI
+% Codex~\cite{:CodexCLI} with GPT 5.2 Thinking, and Gemini CLI~\cite{:GeminiCLI} with Gemini 3---only
+% Claude Code completed the exercise with some human guidance.
+% The LLM issued all ORCA commands and performed all data analysis using off-the-shelf
+% Polars~\cite{:Polars} on the head node.
+
+\subsection{Closing the Loop: Agentic Debugging}\label{sec:orca:eval-agent}
+
+While ORCA was designed for human operators, the emergence of LLM-based coding agents, capable of
+issuing commands and analyzing outputs, offers a way to validate the steerability paradigm.
+We task an LLM agent with localizing the 4096-rank AMR anomaly from \cite{\citeJainAmr} reproduced
+in \Cref{fig:orca:bg-volatile}.
+
+% While ORCA was designed for human operators, the emergence of LLM-based coding agents---capable of
+% issuing commands and analyzing outputs---offers a way to validate the steerability paradigm.
+% % end-to-end feedback loop.
+% To evaluate whether ORCA's interfaces are expressive enough for autonomous debugging, we use an LLM
+% agent as a proxy for a human operator---tasking it with localizing the anomaly from the AMR code at
+% 4096 ranks (\Cref{fig:orca:bg-volatile}).
+% % \Cref{fig:orca:bg-volatile}, the same bug that took months to localize manually.
+
+\takeaway{Steerable collection and in-situ analytics compress a months-long manual investigation into 27 minutes.}
+
+\parahead{Setup}
+% The anomaly is reproduced within the same AMR code used in previous experiments at 4096 ranks,
+% using a placement policy that exacerbates the anomaly's frequency.
+% The code is instrumented with a hierarchy of Kokkos region annotations, with additional annotations
+% in functions of interest added by us.
+Claude Code (Opus 4.5)~\cite{:ClaudeCode} ran on the head node with access to the running
+application instance via ORCA, and a copy of the codebase.
+% the ORCA controller
+% via CLI and the codebase.
+The agent was asked to monitor only collective statistics initially, collecting additional
+Kokkos/MPI telemetry only if outliers were detected.
+%  and progressively collecting only the
+% Kokkos and MPI events necessary to localize the problem.
+The LLM wrote and installed all ORCA flows and used Polars~\cite{:Polars} on the head node for all
+analyses.
+\figEvalAgentic{}
+
+\parahead{Timeline}
+\Cref{fig:orca:eval-agentic} shows the debugging session: user and LLM interactions at top,
+per-timestep event volume at bottom.
+After a warmup phase, the LLM began the localization exercise at 272\,s by monitoring collectives
+for outliers (\flowmark{1}).
+
+\begin{enumerate}[leftmargin=*]
+  \item At 384\,s, it analyzed collective percentiles, identified stragglers,
+        and installed a flow for Kokkos events $> 1$\,ms (\flowmark{2}).
+        %   It installed a flow to collect Kokkos events with duration $> 1$\,ms (\flowmark{2}).
+  \item Between 510--1000\,s, it used the Kokkos events to identify a \texttt{map.clear()} in AMR redistribution as the culprit.
+  \item At 1042\,s, user rejected this as inadequate given the magnitude of the anomaly (50--100\,ms).
+        LLM then found a \mpiw{} in a buffer destructor triggered by the \texttt{clear()}.
+        %   \item At 1191\,s, the user asked it to prove the \mpiw{} hypothesis using ORCA.
+        %         The LLM proposed capturing all \mpiw{} events, but the user rejected this and asked for a
+        %         duration-based filter.
+        %         A revised flow with a 1\,ms filter was accepted (\flowmark{3}).
+        % greater than in latex text mode
+  \item At 1191\,s, LLM proposed capturing all \mpiw{} events to confirm, user rejected and asked for a duration-based filter.
+        LLM then installed a flow for \mpiw{}s \textgreater{} 1\,ms.
+  \item At 1335\,s, telemetry confirmed waits as the root cause.
+        LLM reported the complete call flow at 1605\,s.
+        Application then resumed with baseline collective monitoring (\flowmark{1}).
+        %    and resumed reverting to baseline collective
+        %   monitoring after (\flowmark{1}).
+        %   \item At 1335\,s, the LLM confirmed outlier waits as the root cause,
+        %         and generated a report describing the complete call path for the anomalous call at 1605\,s.
+        %         The application then resumed with baseline collective monitoring (\flowmark{1}).
+\end{enumerate}
+
+\parahead{Observations}
+The agent autonomously correlated high-level telemetry with code, requested targeted detail, and
+traced the root cause to where instrumentation ended --- completing in 27 minutes what took months
+of manual investigation.
+Reverting to baseline monitoring afterwards reduced data volume by 144$\times$.
+User interventions were minor: rejecting an incomplete explanation and asking for basic filtering.
+While the exercise relied on pre-existing annotations in relevant regions, dynamic
+instrumentation~\cite{:eBPF, Berna2011:DynInst} would enable investigations to continue into the
+MPI and fabric layers.
+Beyond localization, the same anomaly signature can be deployed as an always-on metric, allowing
+regressions to be detected immediately.
+
+% \parahead{Observations}
+% The exercise validates ORCA's closed-loop capabilities.
+% The agent autonomously correlated high-level telemetry with code, requested targeted detail, and
+% traced the root cause to where instrumentation ended --- completing in 27 minutes what took months
+% of manual investigation.
+% Reverting to baseline monitoring afterwards reduced data volume by 144$\times$.
+% User interventions were minor: rejecting an incomplete but accurate explanation and asking for
+% basic duration-based filtering.
+% The exercise was made easier with some additional instrumentation in relevant regions, but the
+% result still demonstrates that ORCA's feedback loop enables online localization workflows as long
+% as the right instrumentation is present.
+% Support for dynamic instrumentation~\cite{:eBPF, Berna2011:DynInst} would close this gap, enabling
+% investigations to continue into the MPI and fabric layers.
+
+% Manual investigation had previously traced the anomalous spikes to misplaced \texttt{ACKs} within
+% the fabric driver, triggering an expensive timeout/retransmit path --- subsequently fixed with an
+% asynchronous drain queue.
+% Beyond localization, ORCA enables always-on production monitoring of mitigations: the same anomaly
+% signature can be deployed as a metric, allowing regressions to be detected immediately.
+
+% The exercise completed in 27 minutes, with the LLM driving most decisions.
+% Reverting to baseline monitoring afterwards reduced data volume by 144$\times$.
+% While this exercise stopped at \mpiw{}, support for dynamic instrumentation (eBPF, DynInst) would
+% enable the investigation to continue into the MPI library and fabric layers.
+% We had earlier traced this spike to misplaced \texttt{ACKs} within the fabric driver, triggering an
+% expensive timeout/retransmit path.
+% It was subsequently fixed with an asynchronous drain queue for stuck requests.
+% Beyond localization, ORCA supports always-on production monitoring of mitigations: the same
+% signature that identified the anomaly can be deployed as a metric, enabling regressions to be
+% detected immediately.

@@ -1,0 +1,175 @@
+% ! TEX root = ../main.tex
+
+\newlength{\tabOrcaYwidth}
+\setlength{\tabOrcaYwidth}{\dimexpr(\textwidth - 1.0in - 1.5in - 8\tabcolsep) / 2\relax}
+
+\newcommand{\tabOrcaRelatedInner}[1]{%
+  \begin{tabular}
+    [t]{@{}>{\raggedright\arraybackslash}p{1.5in}>{\raggedright\arraybackslash}p{\tabOrcaYwidth}>{\raggedright\arraybackslash}p{\tabOrcaYwidth}@{}}
+    #1
+  \end{tabular}%
+}
+
+\newcommand{\tabOrcaGreyhound}{%
+  \tabOrcaRelatedInner{
+    \textbullet~Iteration boundary detection & \textbullet~Autocorrelation over collectives & \textbullet~\texttt{PostTimestepAdvance} \\
+    \textbullet~Fail-slow detection & \textbullet~Track iteration times & \textbullet~Track iteration times \\
+    \textbullet~Straggler localization & \textbullet~Aggregate NCCL events (off-fabric) & \textbullet~\texttt{GROUPBY swid} (on-fabric) \\
+    \textbullet~Straggler cause disambiguation & \textbullet~Microbenchmarks & \textbullet~Microbenchmarks or trace events \\
+    \textbullet~Online interventions & \textbullet~Tune micro-batch distribution or parallelism & \textbullet~Supported via control plane \\
+  }%
+}
+
+\newcommand{\tabOrcaFlare}{%
+  \tabOrcaRelatedInner{
+    \textbullet~Stall detection/disambiguation & \textbullet~Call stack analysis & \textbullet~In-situ reductions \\
+    \textbullet~Slowdown analysis & \textbullet~Periodic metrics & \textbullet~In-situ trace event aggregation \\
+  }%
+}
+
+\newcommand{\tabOrcaAegis}{%
+  \tabOrcaRelatedInner{
+    \textbullet~Fail-stop hardware & \textbullet~Per-node NCCL counters pulled on timeouts & \textbullet~Workload-level trace events \\
+  }%
+}
+
+\newcommand{\tabOrcaHolmes}{%
+  \tabOrcaRelatedInner{
+    \textbullet~Outlier collective detection & \textbullet~Random forest model & \textbullet~Policy-dependent \\
+    \textbullet~Localization & \textbullet~Graph search & \textbullet~Learn collective topology at bootstrap, \texttt{GROUPBY~swid}, trace critical path in reverse \\
+  }%
+}
+
+\newcommand{\tabOrcaMycroft}{%
+  \tabOrcaRelatedInner{
+    \textbullet~Straggler detection/localization & \textbullet~Fine-grained trace NCCL events buffered locally, flushed to Kafka if heuristics trigger & \textbullet~Aligned dataframes analyzed in-situ \\
+  }%
+}
+
+\newcommand{\tabOrcaTrainCheck}{%
+  \tabOrcaRelatedInner{
+    \textbullet~Correctness invariants & \textbullet~Offline trace analysis for invariant generation, online enforcement & \textbullet~Timestep-aligned traces for offline generation, in-situ enforcement via OrcaFlow \\
+  }%
+}
+
+\newcommand{\tabOrcaReveal}{%
+  \tabOrcaRelatedInner{
+    \textbullet~Anomaly detection and attribution & \textbullet~Time-windowed metrics + unsupervised learning & \textbullet~Workload-level trace events \\
+  }%
+}
+
+\newcommand{\tabOrcaMinder}{%
+  \tabOrcaRelatedInner{
+    \textbullet~Fail-slow hardware & \textbullet~Cluster-level metrics and anomaly detection & \textbullet~Workload-level trace events \\
+  }%
+}
+
+\newcommand{\tabOrcaPerfTracker}{%
+  \tabOrcaRelatedInner{
+    \textbullet~Anomaly detection and attribution & \textbullet~Always-on iteration monitoring & \textbullet~Identical workflow, but workload-level \\
+    & \textbullet~Trigger-driven detailed capture & \\
+    & \textbullet~In-situ telemetry reductions & \\
+  }%
+}
+
+\appendices
+\section{ML Training Observability Comparison}\label{sec:appdx}
+
+\newcommand{\tabOrcaRelated}{%
+\begin{table*}[t]
+  \hyphenpenalty=10000
+  \exhyphenpenalty=10000
+  \centering
+  \scriptsize
+  \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+  \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{1.0in} X}
+    \toprule
+    \textbf{System}                                                     &
+    \tabOrcaRelatedInner{
+    \textbf{Diagnostic Task}                                            & \textbf{Their Approach} & \textbf{ORCA Equivalent} \\
+    }
+    \\
+    \midrule
+    Greyhound~\cite{Wu2025:GREYHOUND} \emph{(Fail-slows)}               &
+    \tabOrcaGreyhound                                                                                                        \\
+    \midrule
+    Flare~\cite{Cui2026:Flare} \emph{(Training~anomalies)}              &
+    \tabOrcaFlare                                                                                                            \\
+    \midrule
+    Holmes~\cite{Yao2025:Holmes}\newline \emph{(Fail-slows)}                    &
+    \tabOrcaHolmes                                                                                                           \\
+    \midrule
+    Mycroft~\cite{Deng2025:Mycroft} \emph{(Training~anomalies)}         &
+    \tabOrcaMycroft                                                                                                          \\
+    \midrule
+    TrainCheck~\cite{Jiang2025:TrainCheck} \emph{(Training~correctness)} &
+    \tabOrcaTrainCheck                                                                                                       \\
+    \midrule
+    Reveal~\cite{Chen2025:Reveal} \emph{(Training~anomalies)}           &
+    \tabOrcaReveal                                                                                                           \\
+    \midrule
+    Minder\textsuperscript{\#}~\cite{Deng2025:Minder} \emph{(Fault~diagnosis)} &
+    \tabOrcaMinder                                                                                                           \\
+    \midrule
+    Aegis\textsuperscript{\#}~\cite{Dong2025:Aegis} \emph{(Fault~diagnosis)}                &
+    \tabOrcaAegis                                                                                                            \\
+    \midrule
+    PerfTracker\textsuperscript{\#}~\cite{Guan2025:PerfTracker} \emph{(Training~anomalies)} &
+    \tabOrcaPerfTracker                                                                                                      \\
+    \bottomrule
+  \end{tabularx}
+  {\par\vskip 0.2em\raggedright\scriptsize\itshape \textsuperscript{\#} Minder, Aegis, and PerfTracker target multi-tenant environments. ORCA currently supports a single large workload.\par}
+  \caption{Diagnostic approaches in ML training observability and their ORCA equivalents.}\label{tab:orca:related-work}
+\end{table*}%
+}
+
+\tabOrcaRelated{}
+
+Recent ML training systems build application-specific pipelines spanning
+straggler localization~\cite{Wu2025:GREYHOUND,Yao2025:Holmes,Deng2025:Mycroft},
+fault diagnosis~\cite{Deng2025:Minder,Dong2025:Aegis}, and correctness
+enforcement~\cite{Jiang2025:TrainCheck}.
+ORCA generalizes the pattern.
+Holmes~\cite{Yao2025:Holmes} uses graph search over collective telemetry to
+find anomalies.
+ORCA's aligned collection makes stragglers surface through
+simple grouped aggregations, no complex detection needed.
+Mycroft~\cite{Deng2025:Mycroft} buffers fine-grained NCCL~\cite{:NCCL} telemetry locally
+and flushes to Kafka~\cite{Kreps2011:Kafka} on trigger, but notes the scalability limits of central
+logging.
+ORCA's tree-based overlay scales out naturally.
+TrainCheck~\cite{Jiang2025:TrainCheck} enforces training correctness via
+offline invariant generation and online checks.
+ORCA's timestep-aligned columnar analytics accelerate both stages.
+Minder~\cite{Deng2025:Minder},
+Aegis~\cite{Dong2025:Aegis}, and PerfTracker~\cite{Guan2025:PerfTracker} operate at the cluster
+infrastructure level,
+using hardware counters, metrics, and fine-grained trace events to identify faulty nodes across
+workloads.
+Their scopes range from identifying bad hardware across many workloads treated as black boxes to
+providing tuning recommendations to customers.
+ORCA provides
+high-fidelity visibility into a single workload but does not yet support
+cross-workload diagnosis in multi-tenant environments.
+\Cref{tab:orca:related-work} summarizes the diagnostic mechanisms implemented in these systems and
+their ORCA equivalents.
+
+Among these systems, Greyhound~\cite{Wu2025:GREYHOUND} and PerfTracker~\cite{Guan2025:PerfTracker}
+are the closest to ORCA in scope.
+Greyhound implements a complete feedback loop: iteration times are
+tracked, NCCL events are collected for localization when outliers are
+detected, microbenchmarks are dispatched to validate stragglers, and online
+tuning rebalances work in response.
+This is a fixed-function version of what ORCA expresses as composable operators.
+ORCA's timestep dataframe abstraction preserves fine-grained trace events,
+enabling disambiguation of stragglers without needing microbenchmarks for validation.
+Greyhound's control semantics require pausing the application,
+while ORCA implements an asynchronous control plane with atomicity and timestep-consistency
+guarantees.
+Additionally, ORCA's on-fabric broadcast tree enables faster message dissemination than a central
+controller.
+PerfTracker implements a two-level loop: lightweight always-on monitoring of iteration times, with
+detailed capture triggered by outliers.
+Node-level aggregation reduces 300\,MB of telemetry to 30\,KB of aggregated signatures.
+Long symbol names are noted as contributing to size amplification, which ORCA avoids via
+dictionary-encoded Arrow columns.

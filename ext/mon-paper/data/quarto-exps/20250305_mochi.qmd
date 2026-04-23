@@ -1,0 +1,88 @@
+---
+title: "ORCA: Progress and Scope"
+author: "Ankush Jain"
+institute: "Mochi: 2025-03-05"
+format: beamer
+include-in-header:
+  file: "header.tex"
+#include-before-body: 
+  #file: "header.tex"
+#include-after-body: 
+  #file: "header.tex"
+keep-tex: true
+---
+
+## ORCA: Brief Overview
+
+- ORCA: Observability with Realtime Control and Aggregation
+
+- Original motivation: programmable observability
+  - Think of a helpful view over telemetry
+  - Express it as a SQL query
+  - Overlay will stream just the relevant data in real-time
+
+. . .
+
+- Ingredients: on-fabric aggregation and real-time control
+  - Interfaces to collect data as Arrow tables
+  - An overlay to move it around
+  - A distributed SQL engine to do telemetry aggregation
+  - Consistent control semantics for online probing, tuning etc.
+
+## ORCA: Overlay
+
+![Overlay: Aggregation Path](../tikz-exps/pdf/overlay-agg-new.pdf)
+
+## ORCA: Overlay Progress
+
+- Implemented Mercury-based Overlay
+  - Addresses overlay entities using `ovid_t`
+  - `ovid_t`: 32-bit identifier, ~ rank for MPI ranks
+  - Special `ovid_t` range for aggregators (unique for controller)
+  - Special values for broadcast, dedicated routes etc.
+
+<!-- ```{=latex} -->
+<!-- \pause -->
+<!-- ``` -->
+
+. . .
+
+- Bootstraps using a two-step process
+  - Initial discovery using a TCP socket
+  - Bootstrap protocol using Mercury
+  - Can be extended for arbitrary topologies
+
+```{=latex}
+\pause
+```
+
+- Difference from `deltafs-shuffle`:
+  - Purely an addressing and routing layer
+  - No batching, intra-MPI routing, delivery, flow control
+  - (Relegated to higher layers)
+
+## ORCA: Other Components
+
+- Defined MPI-side interfaces (data collection, hooks etc.)
+- Implemented single-node SQL aggregation
+  - Datafusion and Rust (like a single DuckDB instance)
+- *Ongoing*: a two-phase commit for control messages
+- *After*: distributed queries with shuffling and pushdown
+
+```{=latex}
+\pause
+```
+
+### Planned: Export Slices to OTF2
+
+- Aggregated telemetry visualized in real-time
+- Fine-grained elemetry stored on-disk (Parquet)
+  - Conditional, filtered, timestep-partitioned
+
+```{=latex}
+\pause
+```
+- `generate-otf2 timesteps 200-220 ranks 512-1024`
+  - Range query over timestep, fast with Arrow
+  - Visualize using standard tracing GUIs
+

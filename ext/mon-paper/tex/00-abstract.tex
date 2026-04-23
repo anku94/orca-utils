@@ -1,0 +1,29 @@
+\begin{abstract}
+  The \emph{bulk-synchronous parallel} (BSP) paradigm powers critical computational workloads from
+  scientific simulations to large-scale machine learning training.
+  Running on tens of thousands of processors, these systems are uniquely sensitive to performance
+  variations that current observability approaches struggle to diagnose---post-hoc analysis of
+  massive traces introduces latency and rigidity that obstructs timely diagnosis.
+
+  To address these challenges, we present ORCA, a system for always-on, steerable BSP observability.
+  ORCA enables operators to materialize relevant views from running applications on demand and
+  intervene in response, via a tree-based overlay providing coordinated collection, in-situ SQL
+  analytics, and timestep-consistent control.
+  ORCA accelerates observability workflows across the spectrum.
+  On a real AMR code at 4096 ranks, ORCA collects equivalent traces at \mytilde{2}\% overhead (vs
+  56–81\% for tracing tools), enables up to 7275$\times$ faster queries, and 99.999\% in-situ data reduction.
+  In an LLM-driven evaluation of steerability, a performance anomaly that took months to
+  diagnose manually is localized in 27 minutes.
+  % analyzes them orders of magnitude faster, and reduces in-situ data volume by up to 99.999\%.
+  %.%  on a real AMR code at 4096 ranks, it% collects detailed traces at 1--2\% overhead versus 56--81\% for existing tracers, executes% post-mortem queries orders of magnitude faster, and reduces in-situ data volume by up to 99.999\%.
+
+  % To address these challenges, we present ORCA, a system for always-on, steerable BSP observability. ORCA enables operators to materialize relevant views from running applications on demand and intervene in response, via a tree-based overlay providing coordinated collection, in-situ SQL analytics, and timestep-consistent control.
+  % We present ORCA, a system for closed-loop BSP observability.
+  % ORCA enables operators to declaratively specify views materialized on demand via a tree-based
+  % overlay providing coordinated collection, in-situ SQL analytics, and timestep-consistent control.
+  % On a real AMR code at 4096 ranks, ORCA collects detailed traces at 1--2\% overhead versus 56--81\%
+  % for existing tracers, executes queries orders of magnitude faster, and reduces data volume by
+  % multiple orders of magnitude through in-situ analytics.
+  % In an agentic evaluation of the closed-loop workflow, a performance anomaly that took months to
+  % diagnose manually is localized in 27 minutes.
+\end{abstract}

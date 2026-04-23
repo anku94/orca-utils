@@ -1,0 +1,296 @@
+\documentclass[tikz,border=10pt]{standalone}
+\usetikzlibrary{trees}
+\usetikzlibrary{fit}
+\usetikzlibrary{backgrounds}
+\usetikzlibrary{positioning}
+\usetikzlibrary{matrix}
+\usetikzlibrary{calc}
+\usepackage{fontawesome5}
+\usepackage{xcolor}
+\usepackage{booktabs}
+
+\begin{document}
+
+\input{figdefs.tex}
+
+% Helper to use pic in matrix cells (with spacing)
+\newcommand{\mpic}{
+  \tikz[baseline=-0.1cm]
+  {
+    \pic (p) {fileicon};\hspace{2pt}
+  }
+}
+
+% -- parquet set styles --
+\tikzset{
+  pqset-textnode/.style={
+      font=\footnotesize\ttfamily,
+      inner sep=0pt, text width=1.0cm, align=center
+    },
+  pics/pqset/.style={
+      code={
+          \pic (p-0-4) {fileicon};
+          % \node[right=10pt of p-0-4-bounds, anchor=center] (pic-cdots) {$\cdots$};
+          \pic[right=9pt of p-0-4-bounds.south east] (p-4-8) {fileicon};
+          \pic[right=10pt of p-4-8-bounds.south east] (p-8-12) {fileicon};
+          \pic[right=13pt of p-8-12-bounds.south east] (p-12-16) {fileicon};
+
+          \node[pqset-textnode, below=2pt of p-0-4-bounds, text width=0.7cm] (p-0-4-label) { r0\_4 };
+          \node[pqset-textnode, below=2pt of p-4-8-bounds] (p-4-8-label) { r4\_8 };
+          \node[pqset-textnode, below=2pt of p-8-12-bounds] (p-8-12-label) { r8\_12 };
+          \node[pqset-textnode, below=2pt of p-12-16-bounds] (p-12-16-label) { r12\_16 };
+
+          \node[fit=(p-0-4-bounds)(p-12-16-bounds)(p-0-4-label)(p-12-16-label), inner sep=0pt] (pqset-box) {};
+        }
+    }
+}
+
+
+% -- tree styles --
+\tikzset{
+  treenode/.style={ circle, draw, solid, line width=0.3pt, minimum size=8mm },
+  treebox/.style={rounded corners, line width=0.1pt, draw=black!90, fill=black!2},%, densely dashed, dash pattern=on 1pt off 1pt},
+  % make bold
+  treeboxtext/.style={anchor=north east, font=\footnotesize\sffamily\bfseries, text=black!60},
+  grafnode/.style={ rectangle, draw=black!70, fill=pqcolor!3, solid, minimum height=0.6cm } ,
+  tablenode/.style={ rectangle, draw=black!70, fill=mpicolor!3, solid },
+  ctl/.style={ rectangle, rounded corners, fill=ctlcolor!30 },
+  agg/.style={ rectangle, rounded corners, fill=aggcolor!30 },
+  mpi/.style={ fill=mpicolor!30 },
+  tierbox/.style={rounded corners, draw=black, line width=0.4pt},
+  treeline/.style={draw,latex-,solid,line width=0.4pt},
+  % parquet box
+  pqbox/.style={rounded corners, line width=0.1pt, inner sep=4pt, fill=pqcolor!10, draw=pqcolor!80!black},% densely dashed, dash pattern=on 1pt off 1pt, inner sep=2pt},
+  pqboxouter/.style={draw=black!50, fill=pqcolor!5, inner sep=0pt}
+}
+
+% -- line styles --
+\tikzset{
+  mnode/.style={font=\small\ttfamily, align=center, anchor=center},
+  userline/.style={black!70, densely dashed, ->, -latex, dash pattern=on 1pt off 1pt },
+  sinkline/.style={pqcolor!50!black, solid, ->, -latex },
+  zoomline/.style={mpicolor!80!black, densely dashed, dash pattern=on 1.5pt off 1pt },
+  % zoomline/.style={mpicolor!70!black},
+  boxlabel/.style={anchor=south west, font=\small\sffamily, inner xsep=0pt}
+}
+
+\begin{tikzpicture}[
+    level 1/.style={sibling distance=2.8cm, level distance=1.75cm},
+    level 2/.style={sibling distance=1.4cm, level distance=1.75cm},
+    edge from parent/.style=treeline
+  ]
+
+  % -- TBON --
+  \node [treenode, ctl] (ctl) {$Controller$}
+  child {
+      node [treenode, agg] (agg0) {$Aggregator_0$}
+      child { node [treenode, mpi] (r0) {$R_0$} }
+      child { node [treenode, mpi] (r1) {$R_3$} }
+    }
+  child {
+      node [treenode, agg] (agg1) {$Aggregator_3$}
+      child { node [treenode, mpi] (r2) {$R_{12}$} }
+      child { node [treenode, mpi] (r3) {$R_{15}$} }
+    };
+
+  \node at ($(agg0.south)!0.5!(agg1.north)$) (agg01) {$\cdots$};
+  \node at ($(r0.south)!0.5!(r1.north)$) (r01) {$\cdots$};
+  \node at ($(r2.south)!0.5!(r3.north)$) (r23) {$\cdots$};
+
+  % -- Timestep Dataframe --
+  \node[below=4pt of r0] (df0) {\tikz\pic{minidf={}};};
+  % at the intersection of df0 and r1
+  \node at (df0.east -| r1.north) (df1) {\tikz\pic{minidf={}};};
+  \node at (df1.east -| r2.north) (df2) {\tikz\pic{minidf={}};};
+  \node at (df2.east -| r3.north) (df3) {\tikz\pic{minidf={}};};
+
+  % -- dfbox (needs to exist before tier2, but drawn on top) --
+  \begin{scope}[on background layer]
+    \node[
+      fit=(df0)(df3), inner sep=0pt,
+      draw=mpicolor!70!black,
+      line width=0.1pt,
+      %densely dashed, draw=black!40, dash pattern=on 1pt off 1pt,
+      fill=mpicolor!15,
+      rounded corners
+    ] (dfbox) {};
+    \node[below=2pt of dfbox, align=center,font=\footnotesize\sffamily] (dftext)
+    {Timestep Dataframe (\emph{Rank-Partitioned})};
+  \end{scope}
+
+  % -- Tier boxes (drawn behind dfbox) --
+  \begin{pgfonlayer}{deepbackground}
+    \node[tierbox, fit=(r0) (r3) (dftext), fill=mpicolor!8 ] (tier2) {};
+    \node[tierbox, fit=(tier2.west |- agg0.north) (tier2.east |- agg1.south), inner xsep=0pt, inner ysep=0.15cm, fill=aggcolor!8 ] (tier1) {};
+    \node[tierbox, fit=(tier2.west |- ctl.north) (tier2.east |- ctl.south), inner xsep=0pt, inner ysep=0.15cm, fill=ctlcolor!8 ] (tier0) {};
+    \node[treeboxtext, anchor=north west, inner sep=0pt] at ([yshift=-0.2cm] tier2.south west) (orca-text) {ORCA};
+    \node[minimum height=2pt, inner ysep=0pt] at (orca-text.south) (orca-text-pad) {};
+  \end{pgfonlayer}
+
+  % -- tier box labels --
+  \node[boxlabel] at (tier0.north west) (tctltxt) {Tier \texttt{CTL}};
+  \node[boxlabel] at (tier1.north west) (taggxtxt) {Tier \texttt{AGG}};
+  \node[boxlabel, fill=black!2, fill opacity=0.8, text opacity=1]
+  at (tier2.north west) (tmpixtxt) {Tier \texttt{MPI}};
+
+  % -- Outer ORCA box (behind tier boxes) --
+  \begin{pgfonlayer}{deepestbackground}
+    \node[fit=(tctltxt) (tier0) (tier2) (dftext) (orca-text-pad), treebox] (orca-box) {};
+  \end{pgfonlayer}
+
+  % node to the right of ctl called DuckDB \node [miscnode, right=0.5cm of tier1] (parquet) {
+  % \includegraphics[width=2cm]{ext/Apache_Parquet_logo.pdf} };
+  \node [ctl, draw=black, fill=pqcolor!15, right=0.4cm of ctl] (duckdb) {
+    \includegraphics[width=0.7cm]{ext/DuckDB_logo.pdf}
+  };
+  % node that fits duckdb and parquet \node [miscnode, fit=(duckdb)] (sinks) {}; \node [miscnode,
+  % right=1cm of duckdb] (grafana) {Grafana}; node called user right of grafana \node [miscnode,
+  % right=1cm of grafana] (user) {User};
+
+  % -- dashboard nodes --
+  \node[inner sep=0pt] at ([xshift=3.3cm,yshift=0.6cm] tier0.east) (dashboard-gf) {
+    \includegraphics[width=0.7cm]{ext/Grafana_logo.pdf}
+  };
+  \node[inner sep=0pt, right=4pt of dashboard-gf, align=center] (dashboard-icon) { \faChartArea{} \faChartBar{} \\ \faChartLine{} \faChartPie{} };
+  \begin{pgfonlayer}{background}
+    \node[grafnode, fit=(dashboard-gf)(dashboard-icon), inner sep=3pt] (dashboard) {};
+  \end{pgfonlayer}
+  % \node[right=2pt of dashboard.north east, font=\Large] (user) {\faUser};
+  \node[anchor=north west, font=\Large, inner sep=2pt] at ([xshift=5pt] dashboard.north east) (user) {\faUser};
+  \node[below=-2pt of user, font=\footnotesize\sffamily\bfseries] (user-label) {User};
+
+  % \node[miscnode, right=2pt of tier1] (parquet) { %\tikz{\parquetmatrix} };
+  % \begin{scope}[shift={(6, -2.6)}]
+  %   \matrix[column sep=0pt, row sep=0pt, nodes={anchor=north},
+  %   ] (m) {
+  %     \node[mnode](m-1-1){Timesteps}; & \node[mnode](m-1-2){Parquet \\ \emph{(Rank-Partitioned)}}; \\
+  %     \node[mnode]{$0-3$};            & \node[anchor=north]{\mpic\mpic\mpic\mpic};              \\
+  %     \node[mnode]{$4-7$};            & \node[anchor=north]{\mpic\mpic\mpic\mpic};              \\
+  %     \node[mnode](m-3-1){...};       & \node[anchor=north](m-3-2){...};                        \\
+  %   };
+
+  %   % Background fills 
+  %   \begin{scope}[on background layer]
+  %     \node[draw=black, fill=pqcolor!15, rounded corners, fit=(m-1-1)(m-1-2)(m-3-2), inner sep=1pt] {};
+  %     \node[fill=pqcolor!35, rounded corners, fit=(m-1-1)(m-1-2), inner sep=0pt] {};
+  %   \end{scope}
+  % \end{scope}
+
+  \begin{scope}[shift={(6.7, -1.4)}]
+    \node[inner sep=0pt] (pqset-1) {\tikz\pic{pqset};};
+    \node[anchor=north east, inner sep=0pt] at ([xshift=-0.2cm] pqset-1.north west) (pqset-label-1) {\texttt{ts0\_4/}};
+    \node[inner sep=0pt, below=0.4cm of pqset-1] (pqset-2) {\tikz\pic{pqset};};
+    \node[anchor=north east, inner sep=0pt] at ([xshift=-0.2cm] pqset-2.north west) (pqset-label-2) {\texttt{ts4\_8/}};
+
+    % fit to pqset-box-1, pqset-box-2, pqset-3
+    \begin{scope}[on background layer]
+      \node[pqbox, fit=(pqset-1)(pqset-label-1)] (pqset-box-1) {};
+      \node[pqbox, fit=(pqset-2)(pqset-label-2)] (pqset-box-2) {};
+      \node[inner sep=0pt, below=-0.1cm of pqset-box-2] (pqset-3) {\vdots};
+    \end{scope}
+    % deep background layer
+    \begin{pgfonlayer}{deepbackground}
+      \node[pqboxouter, fit=(pqset-box-1)(pqset-box-2)(pqset-3), inner sep=3pt] (pqset-box) {};
+      % italic text
+      \node[below=3pt of pqset-box, inner sep=0pt, font=\footnotesize\sffamily\itshape] (pqset-box-label) {Timestep and rank-partitioned Parquet};
+    \end{pgfonlayer}
+    % \matrix[column sep=0pt, row sep=4pt, nodes={anchor=north}, outer sep=0pt, inner ysep=2pt, inner xsep=2pt,
+    % ] (m2) {
+    %   % \node[mnode](m2-1-1){Timesteps}; & \node[mnode](m2-1-2){Parquet \\ \emph{(Rank-Partitioned)}}; \\
+    %   \node[mnode, anchor=center] (m2-1-1) {ts0\_3/}; & \pic (pqset-1) {pqset}; \\
+    %   \node[mnode, anchor=center] (m2-2-1) {ts4\_7/}; & \pic (pqset-2) {pqset}; \\
+    %   %\node[mnode]{$4-7$};             & \node[anchor=north]{\mpic\mpic\mpic\mpic};               \\
+    %   %\node[mnode](m2-3-1){...};       & \node[anchor=north](m2-3-2){...};                        \\
+    % };
+
+    % \node[below=-4pt of m2, inner sep=0pt] (m2-vdots) {\vdots};
+    % \node[below=1pt of m2-vdots, font=\footnotesize\sffamily] (m2-label) {Timestep and rank-partitioned Parquet};
+
+    % \begin{scope}[on background layer]
+    %   \node[draw=black, fill=pqcolor!15, rounded corners, fit=(m2)(m2-vdots), inner xsep=0pt, inner ysep=2pt] (m2-box) {};
+    %   %\node[fill=pqcolor!35, rounded corners, fit=(m2-1-1)(pqset-2), inner sep=0pt] {};
+    % \end{scope}
+  \end{scope}
+
+  % line between duckdb and dashboard \draw[dashed, ->] (ctl) -- (duckdb);
+  \draw[userline] (duckdb) -- ++(1.44, 0.0) |- (dashboard)
+  node[pos=0.75, below, font=\footnotesize] {\texttt{FlightSQL}}
+  node[pos=1, font=\footnotesize\sffamily, anchor=south east] {\emph{realtime feedback}};
+
+  % line between parquet and dashboard
+  \coordinate (pqset-box-north) at ([xshift=0.9cm] pqset-box.north);
+  \draw[userline] (pqset-box-north) -- (dashboard.south -| pqset-box-north)
+  node[midway, left, font=\footnotesize\sffamily] {\emph{offline analytics}};
+
+  % line between ctl and duckdb
+  \draw[sinkline] (ctl) -- (duckdb);
+  % line between tier1 and parquet
+  % \draw[sinkline] (tier1.east |- pqset-box.west) -- (pqset-box.west);
+  % terminate at m.west (y offset 0.1)
+  \draw[sinkline] ([yshift=-0.2cm] tier0.east) -- ++(0.5, 0.0) |- ([yshift=0.1cm] pqset-box.west);
+  \draw[sinkline] ([yshift=-0.2cm] tier1.east) -- ++(0.3, 0.0) |- ([yshift=-0.1cm] pqset-box.west);
+
+  \begin{scope}[shift={(3.58, -4.5)},font=\footnotesize]
+    \node[anchor=north west, tablenode] (tbl) at (0, 0) {
+      {\tabcolsep=2pt
+          \renewcommand{\arraystretch}{0.8}
+          % \aboverulesep=1pt \belowrulesep=1pt
+          \begin{tabular}
+            {@{}ccccc@{}}
+            %\toprule
+            \textbf{\texttt{timestep}} & \textbf{\texttt{swid}} & \textbf{\texttt{rank}} & \textbf{\texttt{func}} \\
+            \midrule
+            0                          & 0                      & 0                      & \texttt{MPI\_Barrier}  \\
+            0                          & 0                      & 1                      & \texttt{MPI\_Barrier}  \\[-4pt]
+            \multicolumn{4}{c}{\vdots} &                                                                          \\[-8pt]                                                                                                     \\
+          \end{tabular}}
+    };
+  \end{scope}
+
+  % -- Zoom callout from df3 to table --
+  \begin{scope}[on background layer]
+    \fill[mpicolor!15, opacity=0.5]
+    (df3.north east) -- (tbl.north west) --
+    (tbl.south west) -- (df3.south east) -- cycle;
+  \end{scope}
+  \draw[zoomline] (df3.north east) -- (tbl.north west);
+  \draw[zoomline] (df3.south east) -- (tbl.south west);
+
+\end{tikzpicture}
+
+% ---------------------------------------- Experimental tikzpicture to test things
+% ----------------------------------------
+
+% \begin{tikzpicture} % stream_in -> flow -> stream_out \node [graphnode] (streamin) {streamin};
+% \node [graphnode, right=1cm of streamin] (flow) {flow}; \node [graphnode, right=1cm of flow]
+% (streamout) {streamo2ut}; \node[graphnode, right=1cm of streamout] (pqsink) {parquet sink};
+
+% \draw[->, -latex, thick] (streamin) -- (flow); \draw[->, -latex, thick] (flow) -- (streamout);
+% \draw[->, -latex, thick] (streamin) -- ++(0, -1) -| (pqsink);
+
+% \node[inner sep=0pt, right=2pt of streamin.east, anchor=west] (ts105) { \tikz\pic{partitioned}; };
+
+% \node[graphnode, right=1cm of pqsink] (duckdb) { \includegraphics[width=1cm]{ext/DuckDB_logo.pdf}
+% };
+
+% \node[graphnode, right=1cm of duckdb] (parquet) {
+% \includegraphics[width=1cm]{ext/Apache_Parquet_logo.pdf} };
+
+% \node[graphnode, right=1cm of parquet] (grafana) {
+% \includegraphics[width=1cm]{ext/Grafana_logo.pdf} };
+
+% \node[graphnode, right=1cm of grafana] (user) { \faUser };
+
+% \node[graphnode, right=1cm of user, align=center] (problems) { \faChartArea{} \faChartBar{} \\
+% \faChartLine{} \faChartPie{} };
+
+% \end{tikzpicture}
+
+% % table with columns timestep, swid, rank, func \begin{tikzpicture} \node[anchor=north west] at
+% (0, 0) { \begin{tabular}{cccc} \toprule \textbf{\texttt{timestep}} & \textbf{\texttt{swid}} &
+% \textbf{\texttt{rank}} & \textbf{\texttt{func}} \\ \midrule 0 & 0 & 0 & \texttt{MPI\_Barrier} \\ 0
+% & 0 & 1 & \texttt{MPI\_Barrier} \\ % one merged row with cdots \multicolumn{4}{c}{\vdots} \\
+% \bottomrule \end{tabular} }; \end{tikzpicture}
+
+
+\end{document}

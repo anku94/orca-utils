@@ -1,0 +1,179 @@
+\documentclass{beamer}
+
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{external}
+\usepackage[mode=buildnew]{standalone} % Allows inclusion of standalone files
+
+\usepackage{caption}
+\usepackage{subcaption}
+
+
+
+\usetheme{default} % Change "default" to a specific theme, e.g., "Madrid" or "Berlin"
+\title{ORCA: Observability with Realtime Control and Aggregation}
+\author[Left Text]{Ankush Jain}
+\institute{CMU}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage % Generates the title slide
+\end{frame}
+
+\begin{frame}{ORCA: Key Ideas}
+  ORCA is designed to answer any observability query using a combination of two capabilities in a dynamic, online, realtime manner.
+
+  \begin{enumerate}
+    \item Control over:
+      \begin{itemize}
+        \item What telemetry streams are active.
+        \item What probes in each stream are active.
+      \end{itemize}
+    \item Control over what aggregations are applied to that telemetry. ORCA automatically orchestrates those aggregations in the best possible manner.
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{ORCA: Workflow}
+  \begin{itemize}
+  \item An application can always afford to run under ORCA. In the common case, no telemetry is published, and no overhead is incurred.
+
+  \item If a user chooses to enable a probe, and an aggregation for that probe, a dataflow for that aggregation is orchestrated using SQL operators + Arrow.
+
+  \item The aggregation transfers the least amount of data necessary across nodes. The bulk of the aggregation is done in dedicated aggregators that are like MapReduce nodes running SQL partitioning/shuffling/aggregation. Preliminary filtering and aggregation can be done on leaf nodes using operator pushdown. This is very standard SQL query planning.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{ORCA: Concepts}
+  A \textbf{stream} represents a schema. A \textbf{probe} represents a source generating something that fits the schema.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|l|l|l|l|}
+        \hline
+        \textbf{Timestamp} & \textbf{Timestep} & \textbf{Rank} & \textbf{Probe ID} & \textbf{Probe Value} \\ \hline
+        1234567890         & 10                & 0             & 101               & 42.0                 \\ \hline
+        1234567891         & 10                & 1             & 102               & 36.5                 \\ \hline
+        1234567892         & 11                & 0             & 103               & 28.4                 \\ \hline
+        1234567893         & 11                & 1             & 104               & 22.1                 \\ \hline
+    \end{tabular}
+    \caption{Per-timestep Telemetry Dataframe}
+    \label{tab:telemetry-data}
+\end{table}
+
+\textbf{Usecases}: say you want to monitor an AMR application. You may define a schema for block to rank mapping, and another schema for blockwise telemetry. Your aggregation query may want to join the two.
+\end{frame}
+
+\begin{frame}{ORCA: Components}
+  \begin{itemize}
+    \item \textbf{Controller}: Triggers orchestration, receives aggregates
+    \item \textbf{Aggregators}: On-fabric nodes that form an overlay aggregation network. They run executors that compute per-partition shards of a query.
+    \item \textbf{Parallel app 3-hop}: The application itself can assist the workflow by 1) broadcasting control messages via an internal overlay, and 2) doing leaf aggregations---preaggregation, prefiltering etc.
+  \end{itemize}
+\end{frame}
+
+% \begin{frame}{Control Path}
+% \begin{figure}[ht]
+%     \centering
+%     \includestandalone[width=0.8\linewidth]{../tikz-exps/overlay-ctrl} % Embeds the standalone file
+%     \caption{Overlay - Control Path}
+%     \label{fig:overlay_ctrl}
+% \end{figure}
+% \end{frame}
+%
+% \begin{frame}{Aggregation Path}
+% \begin{figure}[ht]
+%     \centering
+%     \includestandalone[width=0.8\linewidth]{../tikz-exps/overlay-agg-new} % Embeds the standalone file
+%     \caption{Overlay - Control Path}
+%     \label{fig:overlay_data}
+% \end{figure}
+% \end{frame}
+%
+\begin{frame}{ORCA: Stack}
+  \begin{itemize}
+    \item Query planning using \textbf{datafusion}, a rust-based query planning engine from the Apache foundation.
+    \item \textbf{Arrow} for all in-memory telemetry. \textbf{Parquet} maybe for on-disk telemetry (can be set to persist conditionally).
+    \item \textbf{Mercury} + QoS for all communication.
+  \end{itemize}
+
+Bulk of the codebase is still going to be C/C++. Only the query engine bits will be Rust (Rust-C FFI + cbindgen).
+\end{frame}
+
+
+\begin{frame}[fragile]{Datafusion/Orca: Query Planning}
+
+\textbf{SQL}
+  \begin{verbatim}
+SELECT max(time)
+FROM table
+GROUP BY event_id;
+  \end{verbatim}
+
+\textbf{Logical Plan}
+  \begin{verbatim}
+Projection: max(time)
+  Aggregate: groupBy=[event_id], aggr=[max(time)]
+    TableScan: table, projection=[event_id, time]
+  \end{verbatim}
+\end{frame}
+
+\begin{frame}[fragile]{Datafusion/Orca: Query Planning II}
+\textbf{Physical Plan}
+    \begin{verbatim}
+Projection: max(time)
+  HashAggregate: groupBy=[event_id], aggr=[max(time)]
+    Repartition: hash(event_id)
+      TableScan: table, projection=[event_id, time]
+    \end{verbatim}
+
+  \textbf{Distributed Query Plan}
+  \begin{verbatim}
+Stage 2:
+ShuffleWrite: partitionBy=[event_id]
+  PartialAggregate: groupBy=[event_id], aggr=[max(time)]
+    TableScan: table, projection=[event_id, time]
+
+Stage 1:
+Projection: max(time)
+  FinalAggregate: groupBy=[event_id], aggr=[max(time)]
+    ShuffleRead: partitionBy=[event_id]
+  \end{verbatim}
+  % \end{block}
+\end{frame}
+
+\begin{frame}{ORCA: Misc Details}
+  \begin{itemize}
+    \item A telemetry dataframe is pushed by each rank at the end of a \emph{timestep}. It contains all data collected within that timeframe.
+    \item The most common telemetry aggregation is envisioned to be per-timestep. All data for a timestep is collected, and an online OLAP query is run. Thus ORCA is not really streaming. In SQL parlance, there is a window and data is batched as per that window. This also enables more efficient use of the fabric.
+    \item Control message broadcast will use timestep-linked two-phase commit for consistency. It can either be synchronous or async --- that is a performance decision. It will always be applied at the same timestep on all ranks.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{ORCA: Extension Potential}
+  I think ORCA has a lot of extension potential. Idea: orchestrate arbitrary interactions with a bulk-synchronous application.
+
+  \begin{itemize}
+    \item Automatically monitor PMPI/Kokkos calls using their respective profiling interfaces.
+    \item Applications can declare specific inspection point for ORCA to access (per-block compute kernel costs etc.)
+    \item Tuning knobs can be exposed to Orca for online tuning (Control Information Base).
+    \item Controller can even participate in placement, steering etc. through the control interface.
+    \item eBPF extensions for uprobe/kprobe data.
+    \item Reuse infra to shuffle, index, and aggregate scientific data. Particle data is already Arrow-friendly. Extending SQL OLAP to multidimensional mesh data remains a possibility (\texttt{arrow-zarr}).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{ORCA: Misc Things}
+  \begin{itemize}
+    \item Datafusion Catalog API to offer and discover streams
+    \item Accelerated operators (or DPU operators) can be implemented transparently for any stage of the query plan.
+    \item Sketch-based approximate implementations for certain query types possible (work ongoing at CMU).
+    \item Other OLAP world developments: Substrait, ADBC --- may be relevant.
+    \item Query language syntax is orthogonal. Can be SQL, SQL++, or something else entirely. Datafusion allows custom parsers.
+    \item Datafusion offers single-node query planning. Distributed query planning is additional code on top. Largely exists in \texttt{datafusion-ray}.
+  \end{itemize}
+\end{frame}
+
+
+\end{document}

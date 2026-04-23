@@ -1,0 +1,27 @@
+defaultIndent: "  "
+modifyLineBreaks:
+  # poly-switches. ref: Table 3 (sec 6.3)
+  environments:
+    # first two enable newlines for begin/end
+    # third one enables newlines for body
+    BeginStartsOnOwnLine: 1
+    EndStartsOnOwnLine: 1
+    BodyStartsOnOwnLine: 1
+  items:
+    # each item starts on its own line
+    ItemStartsOnOwnLine: 1
+  preserveBlankLines: 1
+  condenseMultipleBlankLinesInto: 0
+  textWrapOptions:
+    columns: 100
+    comments:
+      wrap: 0
+  oneSentencePerLine:
+    manipulateSentences: 1 
+    # simultaneously wrap and break sentences
+    textWrapSentences: 1
+    # 1: enable
+    # sentencesBeginWith:
+      # by default, latexindent will assume sentences begin with A-Z
+      # see 6.2.3 in the latexindent documentation
+      # other: "\$|[0-9]"

@@ -1,0 +1,39 @@
+\documentclass[tikz,border=3mm]{standalone}
+\usepackage{booktabs}
+\usepackage{amsmath}
+
+\begin{document}
+
+\begin{tikzpicture}
+
+% VolatileFunc Title
+\node[anchor=north] at (2, 1) {\textbf{VolatileFunc}};
+
+% VolatileFunc Duration Matrix
+\node[anchor=north west] at (0, 0) {
+\begin{tabular}{c|c|c|c|c|}
+\multicolumn{1}{c}{} & \multicolumn{4}{c}{\textbf{Rank ID}} \\ \cline{2-5}
+\textbf{Timestep} & 0 & 1 & 2 & 3 \\ \cline{2-5}
+0                & 10 ms & 20 ms & 30 ms & 10 ms \\ \cline{2-5}
+1                & 10 ms & 20 ms & 30 ms & 10 ms \\ \cline{2-5}
+\end{tabular}
+};
+
+\begin{scope}[xshift=4cm]
+% MPI_Barrier Title
+\node[anchor=north] at (7, 1) {\textbf{MPI Barrier}};
+
+% MPI_Barrier Duration Matrix
+\node[anchor=north west] at (5, 0) {
+\begin{tabular}{c|c|c|c|c|}
+\multicolumn{1}{c}{} & \multicolumn{4}{c}{\textbf{Rank ID}} \\ \cline{2-5}
+\textbf{Timestep} & 0 & 1 & 2 & 3 \\ \cline{2-5}
+0                & 40 ms & 30 ms & 20 ms & 40 ms \\ \cline{2-5}
+1                & 40 ms & 30 ms & 20 ms & 40 ms \\ \cline{2-5}
+\end{tabular}
+};
+\end{scope}
+
+\end{tikzpicture}
+
+\end{document}

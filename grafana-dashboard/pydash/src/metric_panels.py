@@ -280,7 +280,7 @@ class MetricPanels:
         query_text = """
         SELECT * FROM orca_flowexec_stats
         ORDER BY ts DESC
-        LIMIT 10
+        LIMIT 100
         """
 
         panel = (

@@ -1,5 +1,6 @@
 CONFIG|123|456
 REPS_ADD|0|0|0|32
+REPS_ADD|0|0|0|64
 SCHEMA_ADD|Schema
 PROBE_ADD|Schema|123|Probe|false
 PROBE_ADD|Schema|124|Probe3|true

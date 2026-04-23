@@ -112,12 +112,19 @@ def run():
 
 
 def test_panels():
+    basic_checks()
+    print_table("orca_misc_events")
+
+    query = "SELECT value FROM orca_misc_events WHERE key = 'FLOW_YAML'"
+    df = drain_flight(CLIENT.execute(query))
+    val = df.values[0][0]
+    print(val)
     # panel = MetricPanels.bulk_latency_panel().build()
-    panel = MetricPanels.bulk_qsz_panel().build()
-    panel_query = panel.targets[0].query_text
-    query_stripped = re.sub(r"\$__timeFilter\(timestamp\)\s*AND", "", panel_query)
-    df = drain_flight(CLIENT.execute(query_stripped))
-    print(df)
+    # panel = MetricPanels.bulk_qsz_panel().build()
+    # panel_query = panel.targets[0].query_text
+    # query_stripped = re.sub(r"\$__timeFilter\(timestamp\)\s*AND", "", panel_query)
+    # df = drain_flight(CLIENT.execute(query_stripped))
+    # print(df)
 
 
 def test_metrics():

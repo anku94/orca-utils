@@ -42,6 +42,14 @@ Both use: `if (NOT TARGET ...)` guard, `umbrella_defineopt`, `umbrella_download`
 
 ## Build Notes
 
+### MPI
+Before configuring, export MPI location so CMake's `find_package(MPI)` succeeds:
+
+```sh
+export MPI_HOME=/users/ankushj/amr-workspace/mvapich-or-install-ub22
+export PATH=$PATH:$MPI_HOME/bin
+```
+
 ### make
 - On some systems (e.g., zsh), `make` may be shadowed by an autoload. Use `/usr/bin/make` explicitly.
 

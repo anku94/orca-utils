@@ -19,6 +19,23 @@ def disable_dask_spillover():
     dask.config.set({"dataframe.shuffle.method": "tasks"})
 
 
+def configure_dask(nranks: int, tmp_dir: Path):
+    cluster_localdir = tmp_dir / "dask-cluster"
+    cluster_localdir.mkdir(parents=True, exist_ok=True)
+
+    node_tmpdir = tmp_dir / "dask-node"
+    node_tmpdir.mkdir(parents=True, exist_ok=True)
+
+    shuffle_methods = {512: "p2p", 1024: "p2p", 2048: "p2p", 4096: "disk"}
+    shuffle_method = shuffle_methods[nranks]
+    # shuffle_method = "p2p"  # overriding, new method
+    print(f"-INFO- Configuring Dask shuffle method to {shuffle_method} for {nranks} ranks")
+    import dask
+    dask.config.set({"dataframe.shuffle.method": shuffle_method,
+                     "cluster.local_directory": cluster_localdir,
+                     "temporary_directory": node_tmpdir})
+
+
 @dataclass
 class SingleConfig:
     trace_dir: Path
@@ -231,13 +248,20 @@ def main_dftracer(basecfg: SingleConfig) -> list[QueryResult]:
     suites = [s for s in suites if s.nsteps == 20 and s.ranks == 4096]
     profs = [s.get_prof_path("11_dftracer") for s in suites]
 
-    print(f"-INFO- Running DfTracer queries for {len(profs)} profiles")
+    # just to force an exists() check
+    _ = [s.get_prof_path("11_dftracer") for s in suites]
+
+    print(f"-INFO- Running DfTracer queries for {len(suites)} suites")
     results: list[QueryResult] = []
 
-    for prof in profs:
+    for suite in suites:
+        configure_dask(suite.ranks, basecfg.tmp_dir)
+        prof = suite.get_prof_path("11_dftracer")
+
         print(f"-INFO- Running DfTracer queries for: {prof}")
         dftracer_cfg = copy.deepcopy(basecfg)
-        dftracer_cfg.trace_dir = prof
+        dftracer_cfg.trace_dir = prof / "trace"
+        assert dftracer_cfg.trace_dir.exists()
 
         results.append(dftracer_count_sync_maxdur(dftracer_cfg, thresh_ms=10.0))
         results.append(dftracer_count_mpi_wait_dur(dftracer_cfg, thresh_ms=1.0))

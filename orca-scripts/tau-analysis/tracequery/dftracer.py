@@ -49,6 +49,7 @@ class DfTracerQuery:
                 "cluster=local",
                 f"trace_path={self.trace_dir}",
                 f"cluster.local_directory={self._tmp_dir}",
+                "debug=false"
             ])
             self._traces = self._dfa.analyzer.read_trace(str(self.trace_dir),
                                                          extra_columns=None,

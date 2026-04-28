@@ -11,6 +11,7 @@
 \usepackage{tagging}
 \usepackage{enumitem}
 \usepackage{minted}
+\usepackage{needspace} % for orphan optimization
 
 \usepackage{sc25repro}
 \pagenumbering{gobble} % no page numbers
@@ -61,10 +62,12 @@
 \subsection{Paper's Main Contributions}
 
 \begin{description}
-	\item[$C_1$] \textbf{Low-overhead tracing.} Always-on conventional tracing at \textasciitilde0.8--2\% overhead (vs 18--81\% for TAU/dftracer), with Parquet traces 3.6--44$\times$ smaller than other formats. Figs.~5, 6, 8.
-	\item[$C_2$] \textbf{Faster post-mortem analysis.} ORCA traces enable post-mortem queries multiple orders of magnitude faster than other analytics-oriented tracers. Fig.~7.
-	\item[$C_3$] \textbf{In-situ analytics.} Operator pushdown lets MPI-tier flows run at sub-2\% overhead while cutting data movement out of MPI ranks by 98.5--99.999\%. Fig.~9 and Table~1. \emph{Not supported by conventional tracers.}
-	\item[$C_4$] \textbf{Agentic debugging.} Steerable telemetry lets an LLM agent localize a months-long 4096-rank AMR anomaly in 27 minutes, with 144$\times$ volume reduction when reverting to baseline. Fig.~10. \emph{Not supported by conventional tracers.}
+	\item[$C_1$] \textbf{Low-overhead tracing.} Always-on conventional tracing at \textasciitilde0.8--2\% overhead (vs 18--81\% for TAU/dftracer), with Parquet traces 3.6--44$\times$ smaller than other formats.
+	\item[$C_2$] \textbf{Faster post-mortem analysis.} ORCA traces enable post-mortem queries multiple orders of magnitude faster than other analytics-oriented tracers.
+	\item[$C_3$] \textbf{In-situ analytics.} 
+	Flows with operator pushdown to MPI tier execute at sub-2\% overhead while reducing data movement by 98.5--99.999\%. 
+	\emph{Not supported by conventional tracers.}
+	\item[$C_4$] \textbf{Agentic debugging.} Steerable telemetry lets an LLM agent localize a months-long 4096-rank AMR anomaly in 27 minutes, with 144$\times$ volume reduction when reverting to baseline. \emph{Not supported by conventional tracers.}
 \end{description}
 
 \subsection{Computational Artifacts}
@@ -111,19 +114,19 @@ $A_1$ is the instrumented BSP workload --- Phoebus + Parthenon's Sedov Blast Wav
 	\item $C_4$ (Fig.~10): $A_1$ is the live system that $A_3$'s LLM agent attaches to and steers.
 \end{itemize}
 
-The artifact is provided with two profiles: \profmini{} and \profdet{}.
-
-\begin{itemize}
+\noindent The artifact is provided with two profiles: \profmini{} and \profdet{}.
+\begin{itemize}[topsep=0pt]
 	\item \profmini{}: triggers short runs, sufficient to verify artifact function.
 	\item \profdet{}: requires 262 nodes on the PDL Wolf cluster and triggers longer experiments, necessary to replicate all results.
 \end{itemize}
 
+\needspace{5em}
 \artexp
-
 \begin{itemize}
 	\item \profmini{}: three timesteps of a simple example program execute, generating Parquet traces via ORCA.
 	\item \profdet{}: 2000 timesteps of the Blast Wave AMR code, generating Parquet traces via ORCA in two modes---lightweight and detailed. 
 	A baseline run is also triggered for overhead comparison.
+	\item Trace sizes: ORCA traces take around 10\,B per record, aligning with Fig.~6's measurements.
 \end{itemize}
 
 \arttime
@@ -143,11 +146,11 @@ The artifact is provided with two profiles: \profmini{} and \profdet{}.
 	\item \profdet{}: 262 nodes on the PDL Wolf cluster
 \end{itemize}
 
-\artinpart{Software}
+\artinpart{Software}\mbox{}\par
 
-Required dependencies, must be present in the build environment.
-Versions used in evaluation environment are noted in parentheses. 
-Other environments may necessitate tweaks to build parameters etc.
+\noindent\textbf{Required dependencies, must be present in the environment.}
+Versions used by authors are noted in parentheses, 
+other environments may necessitate tweaks to build parameters etc.
 
 \begin{itemize}
 	\item A Linux environment (Ubuntu 22.04)
@@ -158,7 +161,8 @@ Other environments may necessitate tweaks to build parameters etc.
 	\item TAU (2.34.1)
 \end{itemize}
 
-\textbf{Dependencies built by orca-umbrella} (\url{https://github.com/pdlfs/orca-umbrella})
+\noindent\textbf{Dependencies built by orca-umbrella} \\
+(\url{https://github.com/pdlfs/orca-umbrella})
 
 \vspace{0.5em}
 \noindent \emph{ORCA-Augmented AMR Code:}
@@ -175,11 +179,11 @@ Other environments may necessitate tweaks to build parameters etc.
 \noindent\emph{ORCA runtime / data-path:}
 \begin{itemize}[topsep=0pt]
 	\item Apache Arrow 19.0.0 --- \url{https://github.com/apache/arrow}
-	\item Snappy --- \url{https://github.com/google/snappy}
+	\item Snappy 1.2.2 --- \url{https://github.com/google/snappy}
 	\item Mercury --- \url{https://github.com/mercury-hpc/mercury}
-	\item libfabric --- \url{https://github.com/ofiwg/libfabric}
+	\item libfabric v2.5.1 --- \url{https://github.com/ofiwg/libfabric}
 	\item DuckDB v1.2.1 --- \url{https://github.com/duckdb/duckdb}
-	\item yaml-cpp --- \url{https://github.com/jbeder/yaml-cpp}
+	\item yaml-cpp 0.9.0 --- \url{https://github.com/jbeder/yaml-cpp}
 	\item PSM (forked) --- \url{https://github.com/pdlfs/psm}
 \end{itemize}
 
@@ -191,8 +195,8 @@ Other environments may necessitate tweaks to build parameters etc.
 	\item Caliper (patched, patch automatically applied during build) --- \url{https://github.com/LLNL/Caliper}
 \end{itemize}
 
+\needspace{4em}
 \artinpart{Datasets / Inputs}
-
 \begin{itemize}
 	\item AMR decks: \code{blast_wave_3d.<nranks>.pin} (nranks in 512, 1024, 2048, 4096)
 	\item \code{wfopts.yml}: tuned config for Wolf cluster, only needed for \profdet{} profile
@@ -300,13 +304,14 @@ ORCA trace queries: Python 3 environment with Polars.
 \begin{itemize}
 	\item Python (3.12.11)
 	\item Polars (1.39.3)
+	\item Pandas (2.3.3)
 \end{itemize}
 
 \artinpart{Datasets / Inputs}
 ORCA traces generated by the AMR codes in $A_1$.
 
 \artinpart{Installation and Deployment}
-All Python scripts will be copied to \code{$INSTALL_TREE/scripts/orcaquery} during the orca-umbrella build (see A1). 
+All Python scripts will be copied to \code{$OR_INSTALL/scripts/orcaquery} during the orca-umbrella build (see $A_1$). 
 Polars may be installed by running
 \begin{center}
 \code{pip install -r requirements.txt}
@@ -342,7 +347,7 @@ It supports $C_4$ by executing the localization workflow shown in Fig.~10.
 	\item Common case telemetry is two orders of magnitude less than detailed traces.
 \end{enumerate}
 
-Caveat: continued evolution in LLM capabilities and the interactive user-guided nature of the experiment intrinsically make this demonstration challenging to reliably replicate. The anomaly demonstrated in the paper is specific to our fabric, which is relatively rare, and requires our environment for reproduction.
+Caveat: this artifact demonstrates an agentic debugging workflow, not a fixed benchmark. The paper experiment used Claude Opus 4.5, but evaluators may use a comparably capable current coding agent. Exact command trajectories, runtime, and degree of operator intervention may vary, but the intended outcome is the same qualitative result: the agent uses ORCA to localize the anomaly to the same root-cause region. The anomaly itself is specific to our environment.
 
 \arttime
 

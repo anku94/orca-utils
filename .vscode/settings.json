@@ -1,5 +1,15 @@
 {
     "basedpyright.analysis.extraPaths": [
         "/users/ankushj/repos/orca-workspace/orca-umb-install/lib/caliper"
+    ],
+    "latex-workshop.latex.recipe.default": "latexmk (latexmkrc)",
+    "latex-workshop.latex.autoBuild.run": "onSave",
+    "latex-workshop.latex.verbatimEnvs": [
+        "verbatim",
+        "Verbatim",
+        "minted",
+        "lstlisting",
+        "bash",
+        "example"
     ]
 }

@@ -156,11 +156,11 @@ Other environments may necessitate tweaks to build params or API calls.
 *ORCA runtime / data-path:*
 
 - Apache Arrow `19.0.0` — https://github.com/apache/arrow
-- Snappy — https://github.com/google/snappy
+- Snappy `1.2.2` — https://github.com/google/snappy
 - Mercury — https://github.com/mercury-hpc/mercury
-- libfabric — https://github.com/ofiwg/libfabric
+- libfabric `v2.5.1` — https://github.com/ofiwg/libfabric
 - DuckDB `v1.2.1` — https://github.com/duckdb/duckdb
-- yaml-cpp — https://github.com/jbeder/yaml-cpp
+- yaml-cpp `0.9.0` — https://github.com/jbeder/yaml-cpp
 - PSM (forked) — https://github.com/pdlfs/psm
 
 *Comparison tracers (for complete results replication):*
@@ -258,6 +258,7 @@ ORCA trace queries: Python 3 environment with Polars
 
 - Python (3.12.11)
 - Polars (1.39.3)
+- Pandas (2.3.3)
 
 ###### Datasets / Inputs
 

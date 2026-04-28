@@ -6,12 +6,33 @@
 \usepackage{algorithmic}
 \usepackage{graphicx}
 \usepackage{textcomp}
-\usepackage{xcolor}
+\usepackage[svgnames]{xcolor}
 \usepackage{booktabs}
 \usepackage{tagging}
+\usepackage{enumitem}
+\usepackage{minted}
 
 \usepackage{sc25repro}
 \pagenumbering{gobble} % no page numbers
+\pagestyle{empty} % suppress acmart running header (no \title/\author set)
+\makeatletter\def\shorttitle{}\def\@shorttitle{}\makeatother
+
+\setlist[itemize]{leftmargin=*}
+\setlist[enumerate]{leftmargin=*}
+
+\newcommand{\profmini}{\textsf{Mini}}
+\newcommand{\profdet}{\textsf{Detailed}}
+
+\newmintinline[code]{text}{bgcolor=Gainsboro!40}
+
+% --- environments for verbatim blocks ---
+\newenvironment{bash}
+{\VerbatimEnvironment\begin{minted}[frame=lines,framesep=2mm,baselinestretch=0.9,bgcolor=WhiteSmoke,fontsize=\footnotesize]{bash}}
+{\end{minted}}
+
+\newenvironment{example}
+{\VerbatimEnvironment\begin{minted}[bgcolor=GhostWhite,fontsize=\small]{text}}
+{\end{minted}}
 
 % Uncomment/comment the following usetag lines
 % if you would like to get an explanation or an example.
@@ -22,10 +43,10 @@
 \begin{document}
 
 \twocolumn[%
-{\begin{center}
-\Huge
-Appendix: Artifact Description/Artifact Evaluation
-\end{center}}
+	{\begin{center}
+				\Huge
+				Appendix: Artifact Description/Artifact Evaluation
+			\end{center}}
 ]
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -38,176 +59,359 @@ Appendix: Artifact Description/Artifact Evaluation
 
 \subsection{Paper's Main Contributions}
 
-\artexpl{
-Provide a list of all main contributions of the paper.
-}
-
-\artsampl{
 \begin{description}
-\item[$C_1$] This is the 1st contribution.
-\item[$C_2$] This is the 2nd contribution.
-\item[$C_3$] This is the 3rd contribution.
+	\item[$C_1$] \textbf{Low-overhead tracing.} Always-on conventional tracing at \textasciitilde0.8--2\% overhead (vs 18--81\% for TAU/dftracer), with Parquet traces 3.6--44$\times$ smaller than other formats. Figs.~5, 6, 8.
+	\item[$C_2$] \textbf{Faster post-mortem analysis.} ORCA traces enable post-mortem queries multiple orders of magnitude faster than other analytics-oriented tracers. Fig.~7.
+	\item[$C_3$] \textbf{In-situ analytics.} Operator pushdown lets MPI-tier flows run at sub-2\% overhead while cutting data movement out of MPI ranks by 98.5--99.999\%. Fig.~9 and Table~1. \emph{Not supported by conventional tracers.}
+	\item[$C_4$] \textbf{Agentic debugging.} Steerable telemetry lets an LLM agent localize a months-long 4096-rank AMR anomaly in 27 minutes, with 144$\times$ volume reduction when reverting to baseline. Fig.~10. \emph{Not supported by conventional tracers.}
 \end{description}
-}
-
 
 \subsection{Computational Artifacts}
 
-\artexpl{
-List the computational artifacts related to this paper along with their respective DOIs. Note that all computational artifacts may be archived under a single DOI.
-}
-
-\artsampl{
 \begin{description}
-\item[$A_1$] https://doi.org/YY.YYYY/zenodo.0XXXXX
-\item[$A_2$] https://doi.org/ZZ.YYYY/zenodo.1XXXXX
-\item[$A_3$] https://doi.org/ZZ.YYYY/zenodo.2XXXXX
+	\item[$A_1$] ORCA-Augmented AMR Code
+	\item[$A_2$] Post-Mortem Query Scripts
+	\item[$A_3$] LLM Prompt for Agentic Workflow
 \end{description}
-}
 
-\artexpl{
-Provide a table with the relevant computational artifacts,
-highlight their relation to the contributions (from above) and
-point to the elements in the paper that are reproducible by each artifact, e.g.,
-which figures or tables were generated with the artifact.
-}
-
-\artsampl{
 \begin{center}
-\begin{tabular}{rll}
-\toprule
-Artifact ID  &  Contributions &  Related \\
-             &  Supported     &  Paper Elements \\
-\midrule
-$A_1$   &  $C_1$ & Tables 1-2 \\
-        &        & Figure 3\\
-\midrule
-$A_2$   &  $C_2$ & Tables 2-3 \\
-        &        & Figures 1-2\\
-\midrule
-.. \\
-\bottomrule
-\end{tabular}
+	\begin{tabular}{rll}
+		\toprule
+		Artifact ID & Contributions       & Related                                \\
+		            & Supported           & Paper Elements                         \\
+		\midrule
+		$A_1$       & $C_1$, $C_3$, $C_4$ & Figs.~5, 6, 8 ($C_1$)                  \\
+		            &                     & Fig.~9 and Table~1 ($C_3$)             \\
+		            &                     & Fig.~10, live system for $A_3$ ($C_4$) \\
+		\midrule
+		$A_2$       & $C_2$               & Fig.~7                                 \\
+		\midrule
+		$A_3$       & $C_4$               & Fig.~10                                \\
+		\bottomrule
+	\end{tabular}
 \end{center}
-}
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Artifact Identification}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\artexpl{
-Provide the following six subsections for each computational artifact $A_i$.
-}
-
+% ----------------------------------------------
+% A1 --- ORCA-Augmented AMR Code
+% ----------------------------------------------
 \newartifact
 
 \artrel
 
-\artexpl{
-    Briefly explain the relationship between the artifact and contributions.
-}
+A1 is the instrumented BSP workload --- Phoebus + Parthenon's Sedov Blast Wave 3D AMR code linked against ORCA --- used as the common substrate for three contributions:
+
+\begin{itemize}
+	\item $C_1$ (Figs.~5, 6, 8): running A1 under different tracer configurations produces the runtime overhead, trace size, and architectural ablation measurements.
+	\item $C_3$ (Fig.~9, Table~1): running A1 with ORCA's in-situ flows enabled produces the pushdown overhead and data-reduction measurements.
+	\item $C_4$ (Fig.~10): A1 is the live system that $A_3$'s LLM agent attaches to and steers.
+\end{itemize}
+
+The artifact is provided with two profiles: \profmini{} and \profdet{}.
+
+\begin{itemize}
+	\item \profmini{}: triggers short runs, sufficient to verify artifact function.
+	\item \profdet{}: requires 262 nodes on the PDL Wolf cluster and triggers longer experiments, necessary to replicate all results.
+\end{itemize}
 
 \artexp
 
-\artexpl{
-Provide a higher level description of what outcome to expect from the corresponding experiments. Provide an explanation of how the results substantiate the main contributions.
-}
-
-\artsampl{
-Algorithm A should be faster than Algorithms C and B in all GPU scenarios.
-}
+\begin{itemize}
+	\item \profmini{}: three timesteps of a simple example program execute, generating Parquet traces.
+	\item \profdet{}: 1000 timesteps of the Blast Wave code execute, generating Parquet traces. A baseline run is also triggered for comparison.
+\end{itemize}
 
 \arttime
 
-\artexpl{
-Estimate the time required to reproduce the artifact, providing separate estimates for the individual steps: Artifact Setup, Artifact Execution, and Artifact Analysis.
-}
-
-\artsampl{
-The expected computational time of this artifact on GPU X is 20~min.
-}
+\begin{itemize}
+	\item Setup: \textasciitilde30 minutes (building the entire project)
+	\item Execution: $<$1 min for \profmini{}, 2--3 hours for \profdet{} (Baseline and ORCA only)
+	\item Analysis: $<$10 minutes
+\end{itemize}
 
 \artin
 
 \artinpart{Hardware}
 
-\artexpl{
-Specify the hardware requirements and dependencies (e.g., a specific interconnect or GPU type is required).
-}
+\begin{itemize}
+	\item \profmini{}: one multi-core Linux node
+	\item \profdet{}: 262 nodes on the PDL Wolf cluster
+\end{itemize}
 
 \artinpart{Software}
 
-\artexpl{
-Introduce all required software packages, including the computational artifact. For each software package, specify the version and provide the URL.
-}
+\textbf{Required dependencies, must be present in the build environment.} Versions used in evaluation environment are noted in parenthesis. Other environments may necessitate tweaks to build params or API calls.
+
+\begin{itemize}
+	\item A Linux environment (Ubuntu 22.04)
+	\item An MPI implementation (MVAPICH2 2.3.7)
+	\item C/C++ compiler (GCC 11.4)
+	\item CMake (3.22)
+	\item Rust toolchain (cargo/rustc, stable 1.92)
+	\item TAU (2.34.1)
+\end{itemize}
+
+\textbf{Built by the orca-umbrella harness} (\url{https://github.com/pdlfs/orca-umbrella}; specific tags/pins to be frozen in the stable release):
+
+\emph{ORCA-Augmented AMR Code:}
+\begin{itemize}
+	\item ORCA --- \url{https://github.com/pdlfs/orca}
+	\item Phoebus --- \url{https://github.com/lanl/phoebus}
+	\item Parthenon --- \url{https://github.com/parthenon-hpc-lab/parthenon}
+	\item amr-tools --- \url{https://github.com/pdlfs/amr-tools}
+	\item Kokkos 4.0.01 --- \url{https://github.com/kokkos/kokkos}
+	\item HDF5 1.12.2 --- \url{https://github.com/HDFGroup/hdf5}
+\end{itemize}
+
+\emph{ORCA runtime / data-path:}
+\begin{itemize}
+	\item Apache Arrow 19.0.0 --- \url{https://github.com/apache/arrow}
+	\item Snappy --- \url{https://github.com/google/snappy}
+	\item Mercury --- \url{https://github.com/mercury-hpc/mercury}
+	\item libfabric --- \url{https://github.com/ofiwg/libfabric}
+	\item DuckDB v1.2.1 --- \url{https://github.com/duckdb/duckdb}
+	\item yaml-cpp --- \url{https://github.com/jbeder/yaml-cpp}
+	\item PSM (forked) --- \url{https://github.com/pdlfs/psm}
+\end{itemize}
+
+\emph{Comparison tracers (for complete results replication):}
+\begin{itemize}
+	\item DFTracer v2.0.2 (forked) --- \url{https://github.com/anku94/dftracer}
+	\item Score-P 9.3 (patched, patch automatically applied during build) --- \url{https://www.vi-hps.org/projects/score-p/}
+	\item Caliper (patched, patch automatically applied during build) --- \url{https://github.com/LLNL/Caliper}
+\end{itemize}
 
 \artinpart{Datasets / Inputs}
 
-\artexpl{
-Describe the datasets required by the artifact. Indicate whether the datasets can be generated, including instructions, or if they are available for download, providing the corresponding URL.
-}
+\begin{itemize}
+	\item AMR decks: \code{blast\_wave\_3d.<nranks>.pin} (nranks in 512, 1024, 2048, 4096)
+	\item \code{wfopts.yml}: tuned config for Wolf cluster, only needed for \profdet{} profile
+\end{itemize}
 
 \artinpart{Installation and Deployment}
 
-\artexpl{
-Detail the requirements for compiling, deploying, and executing the experiments, including necessary compilers and their versions.
-}
+Preparation commands (indicative, from Ubuntu 22.04, may vary across environments):
+
+\begin{bash}
+# Install basic utilities
+sudo apt install -y gcc g++ make cmake autoconf \
+automake libtool pkg-config git
+# Install rust toolchain via rustup (non-interactive, stable)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+| sh -s -- -y --default-toolchain stable
+. "$HOME/.cargo/env"
+\end{bash}
+
+Now, orca-umbrella can be built, and will also build the rest of the dependencies in-tree.
+
+\begin{bash}
+OR_PREFIX=/tmp/orca-prefix # Ideally a shared dir on cluster
+OR_BUILD=$OR_PREFIX/build
+	OR_INSTALL=$OR_PREFIX/install
+
+mkdir -p $OR_PREFIX $OR_BUILD $OR_INSTALL
+git clone https://github.com/pdlfs/orca-umbrella.git $OR_PREFIX
+cd $OR_BUILD
+	cmake -DCMAKE_INSTALL_PREFIX=$OR_INSTALL \
+$OR_PREFIX/orca-umbrella
+make -j16 # Replace with nproc
+\end{bash}
+
+Once successfully built, all built artifacts will be available in \code{$OR_INSTALL}. Running the artifact:
+
+\begin{itemize}
+	\item \profmini{}: a script \code{run_amr_test.sh} available at \code{$OR_INSTALL/scripts}
+	\item \profdet{}: Generate a valid hostfile as per MPI configuration, with at least 262 nodes, and run:
+			\begin{bash}
+OR_HOSTFILE=/path/to/hostfile \
+$OR_INSTALL/scripts/run_orca_detailed.sh
+			\end{bash}
+\end{itemize}
 
 \artcomp
 
-\artexpl{
-Provide an abstract description of the experiment workflow of the artifact. It is important to identify the main tasks (processes) and how they depend on each other.
-
-A workflow may consist of three tasks: $T_1, T_2$, and $T_3$. The task $T_1$ may generate a specific dataset. This dataset is then used as input by a computational task $T_2$, and the output of $T_2$ is processed by another task $T_3$, which produces the final results (e.g., plots, tables, etc.). State the individual tasks $T_i$ and provide their dependencies, e.g., $T_1 \rightarrow T_2 \rightarrow T_3$.
-
-Provide details on the experimental parameters. How and why were parameters set to a specific value (if relevant for the reproduction of an artifact), e.g., size of dataset, number of data points, input sizes, etc. Additionally, include details on statistical parameters, like the number of repetitions.
-}
+\begin{itemize}
+	\item The relevant MPI codes are executed under exhaustive MPI/Kokkos trace collection modes, as per the configured scales and timesteps.
+	\item \profdet{}: Executes a baseline run and ORCA in lightweight and detailed modes, and reports aggregated overhead at different scales.
+\end{itemize}
 
 \artout
 
+Each run yields a per-run jobdir containing Parquet traces, organized by schema:
+
+\begin{example}
+parquet/
+|-- kokkos_events/
+|   `-- ts=<timestep_range>/
+|       `-- ranks=<rank_range>.parquet
+|-- mpi_collectives/
+|   `-- ...
+|-- mpi_messages/
+|   `-- ...
+`-- orca_events/
+\end{example}
+
+\profdet{} Wall-clock times are compared with baseline, and measured runtime overhead of different modes is reported.
+
+% ----------------------------------------------
+% A2 --- Post-Mortem Query Scripts
+% ----------------------------------------------
 \newartifact
 
-\artexpl{
-Provide the same type of information as done for Computational Artifact $A_1$.
-}
+\artrel
 
+A2 is the post-mortem analytics suite that executes a fixed query benchmark (Outlier Waits, Outlier Collectives, Timestamp Range) against traces captured by A1 under each tracer (ORCA, dftracer, Caliper). It supports $C_2$ by producing the query-latency comparison in Fig.~7.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  AE Appendix
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\newpage
-\appendixAE
+\artexp
 
-\arteval{1}
-\artin
+The query suite runs against all available traces. Row counts in executed queries are displayed for verification and time taken by queries is logged as a CSV.
 
-\artexpl{
-Provide instructions for installing and compiling libraries and code.
-Offer guidelines on deploying the code to resources.
-}
+\arttime
 
-\artcomp
-
-\artexpl{
-Describe the experiment workflow.
-If encapsulated within a workflow description or equivalent (such as a makefile or script), clearly outline the primary tasks and their interdependencies. Detail the main steps in the workflow. Merely instructing to “Run script.sh” is inadequate.
-}
-
-\artout
-
-\artexpl{
 \begin{itemize}
-    \item Provide a description of the expected results and a methodology for evaluating these results.
-    \item Explain how the expected results from the experiment workflow correlate with the contributions stated in the article.
-    \item For example, if the article presents results in a figure, the artifact evaluation should also produce a similar figure, depicting the same generalizable outcome. Authors must focus on these aspects to reduce the time required for others to understand and verify an artifact.
+	\item Setup: $<$5 minutes
+	\item Execution: $<$1 minute (ORCA only)
+	\item Analysis: $<$1 minute
 \end{itemize}
-}
 
-
-\arteval{2}
 \artin
+
+\artinpart{Hardware}
+One multi-core Linux node.
+
+\artinpart{Software}
+ORCA trace queries: Python 3 environment with Polars.
+\begin{itemize}
+	\item Python (3.12.11)
+	\item Polars (1.39.3)
+\end{itemize}
+
+\artinpart{Datasets / Inputs}
+Parquet traces generated by the AMR codes ran as A1.
+
+\artinpart{Installation and Deployment}
+All Python scripts will be copied to \code{$INSTALL_TREE/scripts/orcaquery} during the orca-umbrella build (see A1). 
+Polars may be installed by running
+\begin{center}
+\code{pip install -r requirements.txt}
+\end{center}
+(or equivalent for the test environment).
+
 \artcomp
+
+The script automatically detects all available runs in the suite, and runs each query for each available run.
+
 \artout
+
+Matching row counts emitted to stdout for verification of successful query execution, and a CSV + a Pandas dataframe logged to stdout with the query latencies.
+
+% ----------------------------------------------
+% A3 --- LLM Prompt for Agentic Workflow
+% ----------------------------------------------
+\newartifact
+
+\artrel
+
+A3 is the LLM agent specification --- the prompt, tool wiring (ORCA controller CLI + Polars analytics), and operator-in-the-loop protocol --- used to drive the agentic debugging session against a running 4096-rank instance of A1. It supports $C_4$ by producing the localization timeline in Fig.~10.
+
+\artexp
+
+\begin{enumerate}
+	\item (Warmup) LLM is able to interface with the running code, manipulate its lifecycle (pause/result), request and analyze telemetry.
+	\item (Exercise) LLM is able to progressively localize the anomaly by requesting more telemetry.
+	\item Common case telemetry is two orders of magnitude less than detailed tracing.
+\end{enumerate}
+
+Caveat: continued evolution in LLM capabilities and the interactive user-guided nature of the experiment intrinsically make this demonstration challenging to reliably replicate. The anomaly demonstrated in the paper is specific to our fabric, which is relatively rare, and requires our environment for reproduction.
+
+\arttime
+
+\begin{itemize}
+	\item Setup: 5 minutes
+	\item Execution: $<$1 hour
+	\item Analysis: $<$1 minute
+\end{itemize}
+
+\artin
+
+\artinpart{Hardware}
+See A1.
+
+\artinpart{Software}
+See A1, plus:
+\begin{itemize}
+	\item Claude Code with a valid Claude subscription or API key --- \url{https://www.anthropic.com/claude-code}
+\end{itemize}
+
+\artinpart{Datasets / Inputs}
+A prompt \code|agentic-workflow.md| describing ORCA and documenting the experimental workflow.
+
+\artinpart{Installation and Deployment}
+
+Claude Code installation:
+\begin{bash}
+	curl -fsSL https://claude.ai/install.sh | bash
+\end{bash}
+
+Deployment:
+\begin{enumerate}
+	\item \code|run_orca_agentic.sh| triggers a 4096-rank AMR run with configuration parameters designed to disable anomaly mitigations and exacerbate occurrences. Simulation starts in paused mode.
+	\item Claude Code must be started on another tab, and provided the IP/port of the controller interface of the ORCA controller. It is then asked to initiate the warmup exercise.
+	\item After the warmup exercise is complete, the agent should be asked to start the main exercise. Minimal and guided interventions may be necessary in case it makes suboptimal steering choices.
+\end{enumerate}
+
+\artcomp
+
+\begin{itemize}
+	\item (Warmup) Agent interacts with ORCA, understands how to pause/resume the simulation, Parquet output structure, and analysis tools.
+	\item (Exercise) Agent uses high-level telemetry to detect the presence of stragglers, and progressively requests additional telemetry by writing custom in-situ flows to identify the root cause (up to MPI\_Wait, but not beyond).
+\end{itemize}
+
+\artout
+
+\begin{itemize}
+	\item (Warmup) Manipulation effects are visible in simulation stdout.
+	\item (Exercise) Agent reports a complete callflow graph of Kokkos regions up to the anomalous MPI\_Wait.
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  AE Appendix --- commented out, to be filled in later
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \newpage
+% \appendixAE
+%
+% \arteval{1}
+% \artin
+%
+% \artexpl{
+% Provide instructions for installing and compiling libraries and code.
+% Offer guidelines on deploying the code to resources.
+% }
+%
+% \artcomp
+%
+% \artexpl{
+% Describe the experiment workflow.
+% If encapsulated within a workflow description or equivalent (such as a makefile or script), clearly outline the primary tasks and their interdependencies. Detail the main steps in the workflow. Merely instructing to ``Run script.sh'' is inadequate.
+% }
+%
+% \artout
+%
+% \artexpl{
+% \begin{itemize}
+%     \item Provide a description of the expected results and a methodology for evaluating these results.
+%     \item Explain how the expected results from the experiment workflow correlate with the contributions stated in the article.
+%     \item For example, if the article presents results in a figure, the artifact evaluation should also produce a similar figure, depicting the same generalizable outcome. Authors must focus on these aspects to reduce the time required for others to understand and verify an artifact.
+% \end{itemize}
+% }
+%
+%
+% \arteval{2}
+% \artin
+% \artcomp
+% \artout
 
 \end{document}

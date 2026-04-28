@@ -1,6 +1,11 @@
 use File::Path qw(make_path);
 make_path('build') unless -d 'build';
 
+# Prepend miniforge bin to PATH so latexminted picks up Python <= 3.13
+# (TeXLive 2025 latexminted-0.6.0 incompatible with Homebrew Python 3.14)
+my $miniforge = "$ENV{HOME}/miniforge3/bin";
+$ENV{PATH} = "$miniforge:$ENV{PATH}" if -d $miniforge;
+
 $pdf_mode = 1;
 $out_dir = 'build';
 $aux_dir = 'build';

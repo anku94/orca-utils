@@ -22,6 +22,7 @@
 
 \newcommand{\profmini}{\textsf{Mini}}
 \newcommand{\profdet}{\textsf{Detailed}}
+\newcommand{\textmpiw}{\texttt{MPI\_Wait}}
 
 \newmintinline[code]{text}{bgcolor=Gainsboro!40}
 
@@ -102,12 +103,12 @@
 
 \artrel
 
-A1 is the instrumented BSP workload --- Phoebus + Parthenon's Sedov Blast Wave 3D AMR code linked against ORCA --- used as the common substrate for three contributions:
+$A_1$ is the instrumented BSP workload --- Phoebus + Parthenon's Sedov Blast Wave 3D AMR code linked against ORCA --- used as the common substrate for three contributions:
 
 \begin{itemize}
-	\item $C_1$ (Figs.~5, 6, 8): running A1 under different tracer configurations produces the runtime overhead, trace size, and architectural ablation measurements.
-	\item $C_3$ (Fig.~9, Table~1): running A1 with ORCA's in-situ flows enabled produces the pushdown overhead and data-reduction measurements.
-	\item $C_4$ (Fig.~10): A1 is the live system that $A_3$'s LLM agent attaches to and steers.
+	\item $C_1$ (Figs.~5, 6, 8): running $A_1$ under different tracer configurations produces the runtime overhead, trace size, and architectural ablation measurements.
+	\item $C_3$ (Fig.~9): running $A_1$ with the in-situ flows from Table~1 produces the pushdown overhead and data-reduction measurements.
+	\item $C_4$ (Fig.~10): $A_1$ is the live system that $A_3$'s LLM agent attaches to and steers.
 \end{itemize}
 
 The artifact is provided with two profiles: \profmini{} and \profdet{}.
@@ -120,15 +121,16 @@ The artifact is provided with two profiles: \profmini{} and \profdet{}.
 \artexp
 
 \begin{itemize}
-	\item \profmini{}: three timesteps of a simple example program execute, generating Parquet traces.
-	\item \profdet{}: 1000 timesteps of the Blast Wave code execute, generating Parquet traces. A baseline run is also triggered for comparison.
+	\item \profmini{}: three timesteps of a simple example program execute, generating Parquet traces via ORCA.
+	\item \profdet{}: 2000 timesteps of the Blast Wave AMR code, generating Parquet traces via ORCA in two modes---lightweight and detailed. 
+	A baseline run is also triggered for overhead comparison.
 \end{itemize}
 
 \arttime
 
 \begin{itemize}
 	\item Setup: \textasciitilde30 minutes (building the entire project)
-	\item Execution: $<$1 min for \profmini{}, 2--3 hours for \profdet{} (Baseline and ORCA only)
+	\item Execution: \textasciitilde1 min for \profmini{}, \textasciitilde2--3 hours for \profdet{} (Baseline and ORCA only)
 	\item Analysis: $<$10 minutes
 \end{itemize}
 
@@ -143,7 +145,9 @@ The artifact is provided with two profiles: \profmini{} and \profdet{}.
 
 \artinpart{Software}
 
-\textbf{Required dependencies, must be present in the build environment.} Versions used in evaluation environment are noted in parenthesis. Other environments may necessitate tweaks to build params or API calls.
+Required dependencies, must be present in the build environment.
+Versions used in evaluation environment are noted in parentheses. 
+Other environments may necessitate tweaks to build parameters etc.
 
 \begin{itemize}
 	\item A Linux environment (Ubuntu 22.04)
@@ -154,10 +158,11 @@ The artifact is provided with two profiles: \profmini{} and \profdet{}.
 	\item TAU (2.34.1)
 \end{itemize}
 
-\textbf{Built by the orca-umbrella harness} (\url{https://github.com/pdlfs/orca-umbrella}; specific tags/pins to be frozen in the stable release):
+\textbf{Dependencies built by orca-umbrella} (\url{https://github.com/pdlfs/orca-umbrella})
 
-\emph{ORCA-Augmented AMR Code:}
-\begin{itemize}
+\vspace{0.5em}
+\noindent \emph{ORCA-Augmented AMR Code:}
+\begin{itemize}[topsep=0pt]
 	\item ORCA --- \url{https://github.com/pdlfs/orca}
 	\item Phoebus --- \url{https://github.com/lanl/phoebus}
 	\item Parthenon --- \url{https://github.com/parthenon-hpc-lab/parthenon}
@@ -166,8 +171,9 @@ The artifact is provided with two profiles: \profmini{} and \profdet{}.
 	\item HDF5 1.12.2 --- \url{https://github.com/HDFGroup/hdf5}
 \end{itemize}
 
-\emph{ORCA runtime / data-path:}
-\begin{itemize}
+\vspace{0.5em}
+\noindent\emph{ORCA runtime / data-path:}
+\begin{itemize}[topsep=0pt]
 	\item Apache Arrow 19.0.0 --- \url{https://github.com/apache/arrow}
 	\item Snappy --- \url{https://github.com/google/snappy}
 	\item Mercury --- \url{https://github.com/mercury-hpc/mercury}
@@ -177,8 +183,9 @@ The artifact is provided with two profiles: \profmini{} and \profdet{}.
 	\item PSM (forked) --- \url{https://github.com/pdlfs/psm}
 \end{itemize}
 
-\emph{Comparison tracers (for complete results replication):}
-\begin{itemize}
+\vspace{0.5em}
+\noindent\emph{Comparison tracers (for complete results replication):}
+\begin{itemize}[topsep=0pt]
 	\item DFTracer v2.0.2 (forked) --- \url{https://github.com/anku94/dftracer}
 	\item Score-P 9.3 (patched, patch automatically applied during build) --- \url{https://www.vi-hps.org/projects/score-p/}
 	\item Caliper (patched, patch automatically applied during build) --- \url{https://github.com/LLNL/Caliper}
@@ -187,7 +194,7 @@ The artifact is provided with two profiles: \profmini{} and \profdet{}.
 \artinpart{Datasets / Inputs}
 
 \begin{itemize}
-	\item AMR decks: \code{blast\_wave\_3d.<nranks>.pin} (nranks in 512, 1024, 2048, 4096)
+	\item AMR decks: \code{blast_wave_3d.<nranks>.pin} (nranks in 512, 1024, 2048, 4096)
 	\item \code{wfopts.yml}: tuned config for Wolf cluster, only needed for \profdet{} profile
 \end{itemize}
 
@@ -199,6 +206,7 @@ Preparation commands (indicative, from Ubuntu 22.04, may vary across environment
 # Install basic utilities
 sudo apt install -y gcc g++ make cmake autoconf \
 automake libtool pkg-config git
+
 # Install rust toolchain via rustup (non-interactive, stable)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
 | sh -s -- -y --default-toolchain stable
@@ -208,26 +216,28 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
 Now, orca-umbrella can be built, and will also build the rest of the dependencies in-tree.
 
 \begin{bash}
-OR_PREFIX=/tmp/orca-prefix # Ideally a shared dir on cluster
+# Install prefix should be a shared dir on the cluster
+OR_PREFIX=/tmp/orca-prefix
 OR_BUILD=$OR_PREFIX/build
-	OR_INSTALL=$OR_PREFIX/install
-
+OR_INSTALL=$OR_PREFIX/install
 mkdir -p $OR_PREFIX $OR_BUILD $OR_INSTALL
+
 git clone https://github.com/pdlfs/orca-umbrella.git $OR_PREFIX
 cd $OR_BUILD
-	cmake -DCMAKE_INSTALL_PREFIX=$OR_INSTALL \
-$OR_PREFIX/orca-umbrella
-make -j16 # Replace with nproc
+cmake -DCMAKE_INSTALL_PREFIX=$OR_INSTALL \
+	$OR_PREFIX/orca-umbrella
+make -j<nproc>
 \end{bash}
 
-Once successfully built, all built artifacts will be available in \code{$OR_INSTALL}. Running the artifact:
+\noindent Once successfully built, all artifacts will be available in \code{$OR_INSTALL}. 
+Run the artifact using scripts in \code{$OR_INSTALL/scripts}.
 
 \begin{itemize}
-	\item \profmini{}: a script \code{run_amr_test.sh} available at \code{$OR_INSTALL/scripts}
+	\item \profmini{}: run \code{run_amr_test.sh}
 	\item \profdet{}: Generate a valid hostfile as per MPI configuration, with at least 262 nodes, and run:
 			\begin{bash}
 OR_HOSTFILE=/path/to/hostfile \
-$OR_INSTALL/scripts/run_orca_detailed.sh
+	$OR_INSTALL/scripts/run_orca_detailed.sh
 			\end{bash}
 \end{itemize}
 
@@ -235,12 +245,12 @@ $OR_INSTALL/scripts/run_orca_detailed.sh
 
 \begin{itemize}
 	\item The relevant MPI codes are executed under exhaustive MPI/Kokkos trace collection modes, as per the configured scales and timesteps.
-	\item \profdet{}: Executes a baseline run and ORCA in lightweight and detailed modes, and reports aggregated overhead at different scales.
+	\item \profdet{}: Executes a baseline run and ORCA in lightweight and detailed modes at different scales, and reports overhead.
 \end{itemize}
 
 \artout
 
-Each run yields a per-run jobdir containing Parquet traces, organized by schema:
+Each run yields timestep-partitioned Parquet traces in the job directory, organized by schema:
 
 \begin{example}
 parquet/
@@ -254,7 +264,7 @@ parquet/
 `-- orca_events/
 \end{example}
 
-\profdet{} Wall-clock times are compared with baseline, and measured runtime overhead of different modes is reported.
+\noindent \profdet{}: Wall-clock times are compared with baseline, and measured runtime overhead of different modes is reported.
 
 % ----------------------------------------------
 % A2 --- Post-Mortem Query Scripts
@@ -263,7 +273,10 @@ parquet/
 
 \artrel
 
-A2 is the post-mortem analytics suite that executes a fixed query benchmark (Outlier Waits, Outlier Collectives, Timestamp Range) against traces captured by A1 under each tracer (ORCA, dftracer, Caliper). It supports $C_2$ by producing the query-latency comparison in Fig.~7.
+$A_2$ is the post-mortem analytics suite that executes a 
+query suite consisting of three queries, against traces captured by running $A_1$.
+The three queries in the suite are: outlier waits, outlier collectives, and timestamp range.
+It supports $C_2$ by producing the query-latency comparison in Fig.~7.
 
 \artexp
 
@@ -290,7 +303,7 @@ ORCA trace queries: Python 3 environment with Polars.
 \end{itemize}
 
 \artinpart{Datasets / Inputs}
-Parquet traces generated by the AMR codes ran as A1.
+ORCA traces generated by the AMR codes in $A_1$.
 
 \artinpart{Installation and Deployment}
 All Python scripts will be copied to \code{$INSTALL_TREE/scripts/orcaquery} during the orca-umbrella build (see A1). 
@@ -315,14 +328,18 @@ Matching row counts emitted to stdout for verification of successful query execu
 
 \artrel
 
-A3 is the LLM agent specification --- the prompt, tool wiring (ORCA controller CLI + Polars analytics), and operator-in-the-loop protocol --- used to drive the agentic debugging session against a running 4096-rank instance of A1. It supports $C_4$ by producing the localization timeline in Fig.~10.
+% A3 is the LLM agent specification --- the prompt, tool wiring (ORCA controller CLI + Polars analytics), and operator-in-the-loop protocol --- used to drive the agentic debugging session against a running 4096-rank instance of A1. It supports $C_4$ by producing the localization timeline in Fig.~10.
+$A_3$ is a prompt that is supplied to the LLM agent (Claude Opus 4.5 at experiment time)
+to explain how to interact with an active ORCA-augmented BSP code, request telemetry, and schedule
+in-situ analyses to explain anomalous behavior.
+It supports $C_4$ by executing the localization workflow shown in Fig.~10.
 
 \artexp
 
 \begin{enumerate}
-	\item (Warmup) LLM is able to interface with the running code, manipulate its lifecycle (pause/result), request and analyze telemetry.
-	\item (Exercise) LLM is able to progressively localize the anomaly by requesting more telemetry.
-	\item Common case telemetry is two orders of magnitude less than detailed tracing.
+	\item (Warmup) LLM is able to interact with the running code, pause, resume, and request and analyze telemetry.
+	\item (Exercise) LLM is able to progressively localize the reproduced performance anomaly.
+	\item Common case telemetry is two orders of magnitude less than detailed traces.
 \end{enumerate}
 
 Caveat: continued evolution in LLM capabilities and the interactive user-guided nature of the experiment intrinsically make this demonstration challenging to reliably replicate. The anomaly demonstrated in the paper is specific to our fabric, which is relatively rare, and requires our environment for reproduction.
@@ -338,10 +355,10 @@ Caveat: continued evolution in LLM capabilities and the interactive user-guided 
 \artin
 
 \artinpart{Hardware}
-See A1.
+See $A_1$.
 
 \artinpart{Software}
-See A1, plus:
+See $A_1$, plus:
 \begin{itemize}
 	\item Claude Code with a valid Claude subscription or API key --- \url{https://www.anthropic.com/claude-code}
 \end{itemize}
@@ -366,15 +383,15 @@ Deployment:
 \artcomp
 
 \begin{itemize}
-	\item (Warmup) Agent interacts with ORCA, understands how to pause/resume the simulation, Parquet output structure, and analysis tools.
-	\item (Exercise) Agent uses high-level telemetry to detect the presence of stragglers, and progressively requests additional telemetry by writing custom in-situ flows to identify the root cause (up to MPI\_Wait, but not beyond).
+	\item (Warmup) Agent interacts with ORCA and understands the Parquet output structure and analysis workflows.
+	\item (Exercise) Agent uses high-level telemetry to detect the presence of stragglers, and progressively requests additional telemetry by writing custom in-situ flows to identify the root cause (up to \textmpiw{}, but not beyond).
 \end{itemize}
 
 \artout
 
 \begin{itemize}
 	\item (Warmup) Manipulation effects are visible in simulation stdout.
-	\item (Exercise) Agent reports a complete callflow graph of Kokkos regions up to the anomalous MPI\_Wait.
+	\item (Exercise) Agent reports a complete callflow graph of Kokkos regions up to the anomalous \textmpiw{}.
 \end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

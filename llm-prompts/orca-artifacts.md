@@ -12,6 +12,20 @@ Use this file for memory/learnings. One bullet per appended memory when the user
 
 Format is: <AGENT>: memory
 
+## List of Figures
+
+- **Fig. 1** — `fig:orca:bg-volatile`, §2. Background/Irrelevant (AMR anomaly motivation; same anomaly is later localized in §6.3).
+- **Fig. 2** — `fig:orca:des-arch`, §4. Design/Irrelevant (architecture diagram).
+- **Fig. 3** — `fig:orca:des-plan`, §4. Design/Irrelevant (OrcaFlow query plan).
+- **Fig. 4** — `fig:orca:des-twopc`, §4. Design/Irrelevant (TS2PC control-plane protocol).
+- **Fig. 5** — `fig:orca:eval-runtime`, §6.1.1. Runtime overhead vs TAU/Score-P/Caliper/dftracer, 512–4096 ranks. *C1*
+- **Fig. 6** — `fig:orca:eval-tracesize`, §6.1.2. Trace size + per-record size by tool/format. *C1*
+- **Fig. 7** — `fig:orca:eval-query`, §6.1.3. Post-mortem query latency (3 queries) vs dftracer/Caliper. *C1*
+- **Fig. 8** — `fig:orca:eval-arch` (8a `eval-arch-dft`, 8b `eval-arch-tcp`), §6.1.4. Architectural ablations at 512 ranks: (a) compression cost, (b) verbs vs TCP transport. *C1*
+- **Fig. 9** — `fig:orca:eval-ontv`, §6.2. In-situ flows: runtime overhead + data reduction at MPI tier across scales. *C2*
+- **Fig. 10** — `fig:orca:eval-agentic`, §6.3. Agentic debugging timeline at 4096 ranks. *C3*
+- **Table 1** — `tab:ontv-flows`, §6.2. Three in-situ flows: mpiwait count, mpiwait → Parquet, AMR compute imbalance. *C2*
+
 ## Goals (priority order)
 
 1. **Basic AD appendix for SC26 submission.** Deadline-sensitive. Cursory is fine — just enough to signal compliance. Templates/paths to be located. Will be revised post-acceptance.
@@ -33,6 +47,7 @@ This workflow will span multiple copies of this repo: local (my macbook) and rem
   - hdf5: `hdf5_1_12_2`, parallel ON
   - orca: `pdlfs/orca` @ `main`
 - **Working reference build** (read-only): `/l0/orcaroot/orca-umbrella` (fully built tree, install at `/users/ankushj/repos/orca-workspace/orca-umb-install`) — used to cross-check artifacts.
+- **WIP appendix scratchpad**: [adae.md](adae.md) — markdown mirror of the SC25 AD/AE LaTeX template, where appendix content (contributions, artifacts, per-artifact subsections) is accumulated before being transcribed to `ext/sc26ad/sc26ad.tex`.
 
 # Memories/Context
 

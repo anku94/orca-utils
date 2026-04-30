@@ -7,6 +7,7 @@ import yaml
 import sys
 import os
 
+from pathlib import Path
 from typing import Callable, TypedDict, Literal
 
 global logger
@@ -274,7 +275,8 @@ def write_to_blacklist(blacklist_file: str, hosts: list[str]):
     "Write a list of hosts to a file"
 
     with open(blacklist_file, "w") as f:
-        f.write("\n".join(hosts))
+        # Ensure trailing "\n" for accurate `wc -l`
+        f.writelines(l + "\n" for l in hosts)
 
     raise Exception("Not to be used!")
 
@@ -340,7 +342,8 @@ def write_file(file_path: str, lines: list[str]):
     "Write a list of hosts to a file"
 
     with open(file_path, "w") as f:
-        f.write("\n".join(lines))
+        # Ensure trailing "\n" for accurate `wc -l`
+        f.writelines(l + "\n" for l in lines)
 
 
 def run_all_checks_inner(hosts: list[str]) -> CheckResult:
@@ -384,6 +387,9 @@ def run_all_checks_inner(hosts: list[str]) -> CheckResult:
             logger.warning(f"Bad node: {h} ({name})")
 
         badnode_name_map: dict[str, str] = dict(zip(badnodes, badnode_names))
+        # log dmesg output for bad nodes to a hardcoded path
+        # if we have access to /users/ankushj
+        # noops with warning otherwise
         log_dmesg(sshm, badnodes, badnode_name_map)
 
         logger.warning(f"Comma-separated: {','.join(badnode_names)} (excl unreach)")
@@ -436,8 +442,17 @@ def run_all_checks(exps: list[str], work_dir: str, userbl_fpath: str) -> list[st
 def log_dmesg(sshm: SSHManager, blacklist: list[str], namemap: dict[str, str]):
     "Log dmesg for a list of nodes"
 
-    dir_out = "/users/ankushj/badnodes"
-    os.makedirs(dir_out, exist_ok=True)
+    homedir_aj = Path("/users/ankushj")
+    if not homedir_aj.exists() or not os.access(homedir_aj, os.W_OK):
+        logger.info("Not on /users/ankushj, skipping dmesg logging")
+        return
+
+    dmesg_log_dir = homedir_aj / "badnodes"
+    try:
+        dmesg_log_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        logger.error(f"Failed to create dmesg log directory: {e}")
+        return
 
     dmesg_cmd = "sudo dmesg"
     date_str = os.popen("date +'%Y%m%d'").read().strip()
@@ -445,7 +460,7 @@ def log_dmesg(sshm: SSHManager, blacklist: list[str], namemap: dict[str, str]):
 
     for h, r in dmesg_results:
         n = namemap[h]
-        fout = f"{dir_out}/{n}_{date_str}.txt"
+        fout = dmesg_log_dir / f"{n}_{date_str}.txt"
         logger.info(f"Saving dmesg for node {n} at {fout}")
         with open(fout, "w") as f:
             f.write(r)
@@ -575,6 +590,3 @@ if __name__ == "__main__":
     logger.info(f"Experiments: {exp_list}")
 
     run(exp_list, args.output_file, args.randomize, args.user_blacklist)
-    # hosts = ["h194.mon8.tablefs"]
-    # ret = run_all_checks_inner(hosts)
-    # print(ret)

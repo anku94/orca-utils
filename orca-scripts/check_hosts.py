@@ -10,6 +10,23 @@ import os
 from pathlib import Path
 from typing import Callable, TypedDict, Literal
 
+# Usage:
+#   python check_hosts.py -o <hostfile> [options]
+#
+# Options:
+#   -o, --output-file <path>        Output hostfile (required)
+#   -e, --experiments <a,b,...>     Comma-separated emulab experiment names
+#                                   (e.g. "mon8"); SSHes h0.<exp>.tablefs and
+#                                   runs emulab-listall to enumerate nodes
+#   -r, --randomize                 Shuffle output order
+#   -b, --user-blacklist <yaml>     YAML of node names to drop up-front
+#   --add-lustre-check <path>       If set, blacklist nodes where `ls <path>`
+#                                   is empty (e.g. /mnt/ltio for Wolf)
+#
+# Examples:
+#   python check_hosts.py -e mon8 -o /tmp/hostfile
+#   python check_hosts.py -e mon8 -o /tmp/hostfile --add-lustre-check /mnt/ltio
+
 global logger
 
 
@@ -159,12 +176,12 @@ def get_ibstat_check() -> Check:
     }
 
 
-def get_lustre_check() -> Check:
-    "Check if the node is logging Lustre errors"
+def get_lustre_check(lustre_path: str) -> Check:
+    "Check if the node can access the Lustre mount at lustre_path"
 
     return {
         "name": "check_lustre",
-        "cmd": "ls /mnt/ltio",
+        "cmd": f"ls {lustre_path}",
         "output_func": lambda x: x.strip() == "",
         "action": "blacklist",
     }
@@ -346,10 +363,8 @@ def write_file(file_path: str, lines: list[str]):
         f.writelines(l + "\n" for l in lines)
 
 
-def run_all_checks_inner(hosts: list[str]) -> CheckResult:
-    global logger
-
-    all_checks: list[Check] = [
+def get_all_checks(lustre_path: str | None = None) -> list[Check]:
+    checks: list[Check] = [
         get_ip_check(),
         get_throttling_check(),
         get_badmem_check(),
@@ -358,8 +373,14 @@ def run_all_checks_inner(hosts: list[str]) -> CheckResult:
         get_nfs_check(),
         get_mce_check(),
         get_ibstat_check(),
-        get_lustre_check(),
     ]
+    if lustre_path:
+        checks.append(get_lustre_check(lustre_path))
+    return checks
+
+
+def run_all_checks_inner(hosts: list[str], all_checks: list[Check]) -> CheckResult:
+    global logger
 
     logger.info(f"Running {len(all_checks)} checks on {len(hosts)} hosts")
 
@@ -407,7 +428,7 @@ def run_all_checks_inner(hosts: list[str]) -> CheckResult:
     return check_result
 
 
-def run_all_checks(exps: list[str], work_dir: str, userbl_fpath: str) -> list[str]:
+def run_all_checks(exps: list[str], work_dir: str, userbl_fpath: str, all_checks: list[Check]) -> list[str]:
     "Run all checks for a list of experiments"
 
     hostsbyname_file = os.path.join(work_dir, "hostsbyname.txt")
@@ -425,7 +446,7 @@ def run_all_checks(exps: list[str], work_dir: str, userbl_fpath: str) -> list[st
     hosts = [h for h in hosts if h not in user_blacklist]
     logger.info(f"Hosts after user blacklist: {len(hosts)}")
 
-    check_results = run_all_checks_inner(hosts)
+    check_results = run_all_checks_inner(hosts, all_checks)
     valid_hosts = check_results["goodnodes"]
     blacklist_tuples = check_results["badnodes"]
     blacklist = [h for h, _ in blacklist_tuples]
@@ -502,7 +523,8 @@ def setup_logging():
 
 
 def run(
-    exps: list[str], output_file: str, randomize: bool = False, userbl_fpath: str = None
+    exps: list[str], output_file: str, randomize: bool = False, userbl_fpath: str = None,
+    lustre_path: str | None = None,
 ):
     nnodes: list[str] = list(
         map(lambda x: str(len(emulab_listall_from_exph0(x))), exps)
@@ -517,7 +539,8 @@ def run(
     logger.info("Working directory: " + work_dir)
     os.makedirs(work_dir, exist_ok=True)
 
-    valid_hosts = run_all_checks(exps, work_dir, userbl_fpath)
+    all_checks = get_all_checks(lustre_path=lustre_path)
+    valid_hosts = run_all_checks(exps, work_dir, userbl_fpath, all_checks)
 
     # May want to randomize output hostfile order
     if randomize:
@@ -567,6 +590,13 @@ def parse_args():
         help="User blacklist yaml file",
     )
 
+    parser.add_argument(
+        "--add-lustre-check",
+        type=str,
+        default=None,
+        help="Path to a Lustre mount; if set, blacklist nodes where `ls <path>` is empty",
+    )
+
     args = parser.parse_args()
 
     logger.info(f"Output file: {args.output_file}")
@@ -589,4 +619,4 @@ if __name__ == "__main__":
         exp_list = args.experiments.split(",")
     logger.info(f"Experiments: {exp_list}")
 
-    run(exp_list, args.output_file, args.randomize, args.user_blacklist)
+    run(exp_list, args.output_file, args.randomize, args.user_blacklist, args.add_lustre_check)

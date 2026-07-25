@@ -29,11 +29,11 @@
 
 % --- environments for verbatim blocks ---
 \newenvironment{bash}
-{\VerbatimEnvironment\begin{minted}[frame=lines,framesep=2mm,baselinestretch=0.9,bgcolor=WhiteSmoke,fontsize=\footnotesize]{bash}}
+{\VerbatimEnvironment\begin{minted}[frame=lines,framesep=2mm,baselinestretch=0.9,bgcolor=WhiteSmoke,fontsize=\footnotesize,obeytabs=true,tabsize=4]{bash}}
 {\end{minted}}
 
 \newenvironment{example}
-{\VerbatimEnvironment\begin{minted}[bgcolor=GhostWhite,fontsize=\small]{text}}
+{\VerbatimEnvironment\begin{minted}[bgcolor=GhostWhite,fontsize=\small,obeytabs=true,tabsize=4]{text}}
 {\end{minted}}
 
 % Uncomment/comment the following usetag lines
@@ -209,11 +209,11 @@ Preparation commands (indicative, from Ubuntu 22.04, may vary across environment
 \begin{bash}
 # Install basic utilities
 sudo apt install -y gcc g++ make cmake autoconf \
-automake libtool pkg-config git
+  automake libtool pkg-config git
 
 # Install rust toolchain via rustup (non-interactive, stable)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-| sh -s -- -y --default-toolchain stable
+  | sh -s -- -y --default-toolchain stable
 . "$HOME/.cargo/env"
 \end{bash}
 
@@ -228,8 +228,7 @@ mkdir -p $OR_PREFIX $OR_BUILD $OR_INSTALL
 
 git clone https://github.com/pdlfs/orca-umbrella.git $OR_PREFIX
 cd $OR_BUILD
-cmake -DCMAKE_INSTALL_PREFIX=$OR_INSTALL \
-	$OR_PREFIX/orca-umbrella
+cmake -DCMAKE_INSTALL_PREFIX=$OR_INSTALL $OR_PREFIX/orca-umbrella
 make -j<nproc>
 \end{bash}
 
@@ -375,7 +374,7 @@ A prompt \code|agentic-workflow.md| describing ORCA and documenting the experime
 
 Claude Code installation:
 \begin{bash}
-	curl -fsSL https://claude.ai/install.sh | bash
+	curl -sSL https://claude.ai/install.sh | bash
 \end{bash}
 
 Deployment:
@@ -463,7 +462,8 @@ mkdir -p $OR_PREFIX $OR_BUILD_DIR $OR_INSTALL_DIR
 # Obtain orca-umbrella via git-clone, or via Zenodo artifact.
 # $ORCA_CMAKE_ROOT must point to the CMake project root.
 # Zenodo zips sometimes add a hash after file/dir names.
-git clone https://github.com/pdlfs/orca-umbrella.git $OR_PREFIX/orca-umbrella
+git clone https://github.com/pdlfs/orca-umbrella.git \
+  $OR_PREFIX/orca-umbrella
 ORCA_CMAKE_ROOT=$OR_PREFIX/orca-umbrella
 ls $ORCA_CMAKE_ROOT # Must list: CMakeLists.txt, cache, etc.
 
@@ -508,7 +508,7 @@ control commands. We explain these using examples.
 \begin{enumerate}
 	\item \code|bootstrap_cmdseq: set-flow enable-tracers; resume| in
 	      \code|defaults.yml| defines two commands supplied by the controller to
-	      the simulation at bootstrap. \code|set-flow enable-tracers| activates
+	      the simulation at bootstrap. \code{set-flow enable-tracers} activates
 	      all telemetry from all available trace streams (currently MPI and
 	      Kokkos), and \code|resume| asks the simulation to begin right after.
 	      ORCA-enabled simulations initialize in a paused state and start only
@@ -518,7 +518,8 @@ control commands. We explain these using examples.
 	      used by the binary to locate the controller's IP and port to send
 	      commands. E.g. \code|cmdrunner_main "pause"| will pause the simulation.
 	\item Flows are SQL-based transforms written as OrcaFlow YAMLs, and sent to
-	      the application via command \code|set-flow file <path/to/flow.yml>|.
+	      the application via command: \\
+        \null\hfill\code|set-flow file <path/to/flow.yml>|\hfill\null \\
 	      They are committed via TS2PC at runtime, and all pushdowns are applied
 	      at the timestep for which the command is committed.
 	\item Any active telemetry streams are persisted as timestep-partitioned
@@ -539,7 +540,7 @@ The following capabilities are demonstrated:
 	\item An example of SQL-based OrcaFlow analytics, showing pushdown impact on
 	      data volume.
 	\item Interactive control capabilities while the simulation runs: the script
-	      demonstrates basic PAUSE/RESUME function, but users are encouraged to
+    demonstrates basic \textsf{PAUSE/RESUME} function, but users are encouraged to
 	      try other commands at runtime.
 \end{enumerate}
 

@@ -400,40 +400,204 @@ Deployment:
 \end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  AE Appendix --- commented out, to be filled in later
+%  AE Appendix
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% \newpage
-% \appendixAE
-%
-% \arteval{1}
-% \artin
-%
-% \artexpl{
+\newpage
+\appendixAE
+
+\arteval{1}
+
+% Template reference for A1:
+% Artifact Setup:
 % Provide instructions for installing and compiling libraries and code.
 % Offer guidelines on deploying the code to resources.
-% }
 %
-% \artcomp
-%
-% \artexpl{
+% Artifact Execution:
 % Describe the experiment workflow.
-% If encapsulated within a workflow description or equivalent (such as a makefile or script), clearly outline the primary tasks and their interdependencies. Detail the main steps in the workflow. Merely instructing to ``Run script.sh'' is inadequate.
-% }
+% If encapsulated within a workflow description or equivalent (such as a
+% makefile or script), clearly outline the primary tasks and their
+% interdependencies. Detail the main steps in the workflow. Merely instructing
+% to ``Run script.sh'' is inadequate.
 %
-% \artout
-%
-% \artexpl{
-% \begin{itemize}
-%     \item Provide a description of the expected results and a methodology for evaluating these results.
-%     \item Explain how the expected results from the experiment workflow correlate with the contributions stated in the article.
-%     \item For example, if the article presents results in a figure, the artifact evaluation should also produce a similar figure, depicting the same generalizable outcome. Authors must focus on these aspects to reduce the time required for others to understand and verify an artifact.
-% \end{itemize}
-% }
-%
-%
-% \arteval{2}
-% \artin
-% \artcomp
-% \artout
+% Artifact Analysis:
+% Provide a description of the expected results and a methodology for
+% evaluating these results. Explain how the expected results from the experiment
+% workflow correlate with the contributions stated in the article. For example,
+% if the article presents results in a figure, the artifact evaluation should
+% also produce a similar figure, depicting the same generalizable outcome.
+% Authors must focus on these aspects to reduce the time required for others to
+% understand and verify an artifact.
+
+\artin
+
+We provide instructions for evaluating ORCA functionality using a single Linux
+node. We recommend Ubuntu 22.04 or 24.04 to build and run the artifact, as
+minor changes in package names can break compatibility.
+
+First, C++ and Rust toolchains must be available, as well as an MPI
+implementation. For Ubuntu 22.04, the following commands set up the necessary
+build tooling, except for MPI.
+
+\begin{bash}
+# Install basic utilities
+sudo apt install -y gcc g++ make cmake autoconf \
+automake libtool pkg-config git
+
+# Install rust toolchain via rustup (non-interactive, stable)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+| sh -s -- -y --default-toolchain stable
+. "$HOME/.cargo/env"
+\end{bash}
+
+Now, ORCA can be built via the \code|orca-umbrella| artifact. The artifact
+bundles vendored versions of ORCA along with key dependencies and scripts.
+Internet access is required for third-party Rust/Python dependencies.
+
+\begin{bash}
+# For mini runs, OR_PREFIX can be any path on the filesystem
+OR_PREFIX=/tmp/orca-prefix
+OR_BUILD_DIR=$OR_PREFIX/build
+OR_INSTALL_DIR=$OR_PREFIX/install
+mkdir -p $OR_PREFIX $OR_BUILD_DIR $OR_INSTALL_DIR
+
+# Obtain orca-umbrella via git-clone, or via Zenodo artifact.
+# $ORCA_CMAKE_ROOT must point to the CMake project root.
+# Zenodo zips sometimes add a hash after file/dir names.
+git clone https://github.com/pdlfs/orca-umbrella.git $OR_PREFIX/orca-umbrella
+ORCA_CMAKE_ROOT=$OR_PREFIX/orca-umbrella
+ls $ORCA_CMAKE_ROOT # Must list: CMakeLists.txt, cache, etc.
+
+cd $OR_BUILD_DIR
+cmake -DCMAKE_INSTALL_PREFIX=$OR_INSTALL_DIR $ORCA_CMAKE_ROOT
+make -j<nproc> # Takes 20-30 mins
+
+# Polars required for Artifact 2, but demo script
+# interleaves workflows, so it should be installed upfront.
+pip install -r $OR_INSTALL_DIR/scripts/requirements.txt
+\end{bash}
+
+Once successfully built, all artifacts will be available in \code|$OR_INSTALL|,
+with scripts in \code|$OR_INSTALL/scripts|.
+
+\artcomp
+
+Once built, \code|run_orca_ae.sh| will provide a guided tour of all artifact
+functionality. The following commands are provided for reference, but need not
+be executed manually.
+
+The script will run 10 timesteps of an AMR code augmented with ORCA under
+different modes. A single run involves:
+\begin{itemize}
+	\item The AMR code, run as 16 ranks of \code|phoebus| with Sedov Blast Wave
+	      decks generated from \code|decks/blast_wave_3d.512.pin.in|. The AMR
+	      code has been modified to link with ORCA's client module.
+	\item ORCA nodes: a single controller and aggregator
+	      (\code|controller_main| and \code|aggregator_main|, respectively),
+	      running on the same node.
+\end{itemize}
+
+A number of tunable parameters are described in \code|defaults.yml|, passed to
+ORCA nodes via the env-var \code|ORCA_CFG_YAML|. All parameters can be
+overridden using corresponding env-vars, and the scripts override some params
+to appropriate values for the AMR code.
+
+The script will demonstrate ORCA analytics and control capabilities. Analytics
+are controlled using OrcaFlow (ORCA's SQL-based programmable interface) and
+control commands. We explain these using examples.
+
+\begin{enumerate}
+	\item \code|bootstrap_cmdseq: set-flow enable-tracers; resume| in
+	      \code|defaults.yml| defines two commands supplied by the controller to
+	      the simulation at bootstrap. \code|set-flow enable-tracers| activates
+	      all telemetry from all available trace streams (currently MPI and
+	      Kokkos), and \code|resume| asks the simulation to begin right after.
+	      ORCA-enabled simulations initialize in a paused state and start only
+	      once they have an initial set of commands.
+	\item At any point while the simulation is running, additional commands may
+	      be supplied using the \code|cmdrunner_main| binary. The same YAML is
+	      used by the binary to locate the controller's IP and port to send
+	      commands. E.g. \code|cmdrunner_main "pause"| will pause the simulation.
+	\item Flows are SQL-based transforms written as OrcaFlow YAMLs, and sent to
+	      the application via command \code|set-flow file <path/to/flow.yml>|.
+	      They are committed via TS2PC at runtime, and all pushdowns are applied
+	      at the timestep for which the command is committed.
+	\item Any active telemetry streams are persisted as timestep-partitioned
+	      Parquet or DuckDB at either the controller or the aggregators. The
+	      scripts only show the Parquet pathway. Parquet files are flushed at
+	      configurable timestep intervals.
+	\item Additional probes may be enabled or disabled at any point while the
+	      simulation runs.
+\end{enumerate}
+
+\artout
+
+As the workflow above demonstrates capabilities, minimal analysis is required.
+The following capabilities are demonstrated:
+\begin{enumerate}
+	\item Basic telemetry collection and persistence as Parquet via aggregators
+	      and controller, with minimal in-situ analytics.
+	\item An example of SQL-based OrcaFlow analytics, showing pushdown impact on
+	      data volume.
+	\item Interactive control capabilities while the simulation runs: the script
+	      demonstrates basic PAUSE/RESUME function, but users are encouraged to
+	      try other commands at runtime.
+\end{enumerate}
+
+\arteval{2}
+
+\artin
+
+\code|scripts/run_queries.py| is provided to demonstrate basic analyses over
+ORCA-generated Parquet. As the format is an industry standard, the goal is basic
+validation of ORCA-collected telemetry, and not a comprehensive demonstration
+of format capabilities.
+
+\artcomp
+
+The script consists of basic Polars queries emitted against the generated
+Parquet. The following telemetry streams will be available:
+
+\begin{example}
+parquet/
+|-- kokkos_events/
+|   `-- ts=<timestep_range>/
+|       `-- ranks=<rank_range>.parquet
+|-- mpi_collectives/
+|   `-- ...
+|-- mpi_messages/
+|   `-- ...
+`-- orca_events/ # ORCA-internal telemetry
+\end{example}
+
+\artout
+
+ORCA telemetry is guaranteed to be timestep-partitioned. Each
+\code|ts=<beg>_<end>| directory only contains telemetry for that timestep. The
+script will demonstrate this briefly.
+
+\arteval{3}
+
+\artin
+
+The artifact consists of a prompt that was provided to Claude Code in an
+environment where ORCA was run on a cluster with a known pathology, along with
+the conversation transcript. While this artifact is provided for archival
+purposes, ORCA's control capabilities are evaluated via manual invocation of
+\code|cmdrunner_main| as described above.
+
+\artcomp
+
+\begin{bash}
+# Controller is found via ORCA_CFG_YAML,
+# or env vars ORCA_CTL_DASHHOST:ORCA_CTL_DASHPORT
+cmdrunner_main "<cmd>"
+# cmd = pause | resume | status | set-flow <file> etc.
+\end{bash}
+
+\artout
+
+When run, commands trigger a timestep-linked two-phase commit to control the
+application. Different protocol messages, such as prepare/commit times, current
+delta etc. appear on console as the protocol proceeds.
 
 \end{document}
